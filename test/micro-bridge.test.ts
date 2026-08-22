@@ -8,7 +8,7 @@ import {
   buildSnapshotPayloadExpression
 } from "../src/codex-active-catalog-expression.js";
 import {
-  buildEnsureThreadActivatedExpression, canonicalThreadId, CodexMicroRendererBridge, nativeActionKey, REASONING_ENCODER_KEYS, resolveAgentDispatch,
+  buildEnsureThreadActivatedExpression, canonicalThreadId, CodexMicroRendererBridge, CodexNotRunningError, hasMacCodexProcess, localBridgeFailureReason, nativeActionKey, REASONING_ENCODER_KEYS, resolveAgentDispatch,
   retainEvaluationPromise, selectCodexMainTarget, selectSidebarThreadId, threadKeysEquivalent
 } from "../src/codex-micro-renderer-bridge.js";
 import { ADDITIONAL_KEYCAPS, OFFICIAL_KEYCAP_IDS } from "../src/keycaps.js";
@@ -26,6 +26,20 @@ test("official Micro statuses map to the Stream Deck color states", () => {
   assert.equal(visualStatusFromMicro("awaiting-response"), "input");
   assert.equal(visualStatusFromMicro("error"), "error");
   assert.equal(visualStatusFromMicro("idle"), "idle");
+});
+
+test("only an explicit stopped-Codex marker suppresses local bridge diagnostics", () => {
+  assert.equal(localBridgeFailureReason(new CodexNotRunningError()), "codex-not-running");
+  assert.equal(localBridgeFailureReason(new Error("temporary bridge failure")), "local-bridge-unavailable");
+});
+
+test("macOS process detection distinguishes absent and running Codex before bridge discovery", () => {
+  assert.equal(hasMacCodexProcess(["/Applications/ChatGPT.app/Contents/MacOS/ChatGPT"]), false);
+  assert.equal(hasMacCodexProcess(["/Applications/Codex.app/Contents/MacOS/Codex"]), true);
+  assert.equal(
+    hasMacCodexProcess(["/Applications/Codex.app/Contents/MacOS/Codex --remote-debugging-address=127.0.0.1 --remote-debugging-port=43123"]),
+    true
+  );
 });
 
 test("official keycap SVG contents are not bundled in the public source", async () => {

@@ -6,7 +6,7 @@ export type UsageWindowKind = Exclude<UsageLimitMode, "auto"> | "other";
 
 export type HostHealth = {
   state: HostHealthState;
-  reason?: "awaiting-snapshot" | "native-signals-unavailable" | "snapshot-stale" | "relay-disconnected" | "local-bridge-unavailable";
+  reason?: "awaiting-snapshot" | "native-signals-unavailable" | "snapshot-stale" | "relay-disconnected" | "local-bridge-unavailable" | "codex-not-running";
   changedAt: number;
 };
 

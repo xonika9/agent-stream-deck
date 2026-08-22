@@ -9,7 +9,7 @@ import {
 } from "./control-target.js";
 import { CodexRelayClient, readRelayClientConfig } from "./codex-relay-client.js";
 import { CodexRelayServer, readRelayServerConfig } from "./codex-relay-server.js";
-import { CodexMicroRendererBridge } from "./codex-micro-renderer-bridge.js";
+import { CodexMicroRendererBridge, localBridgeFailureReason } from "./codex-micro-renderer-bridge.js";
 import { getOrCreateHostIdentity } from "./host-identity.js";
 import type { OfficialKeycapId } from "./keycaps.js";
 import { HostActivityIndex, type HostSnapshot, type RelayCommand } from "./relay-protocol.js";
@@ -383,7 +383,7 @@ export class DeckController {
       this.localHealth = { state: "ready", changedAt: Date.now() };
       this.lastError = "";
     } catch (error) {
-      this.localHealth = { state: "degraded", reason: "local-bridge-unavailable", changedAt: Date.now() };
+      this.localHealth = { state: "degraded", reason: localBridgeFailureReason(error), changedAt: Date.now() };
       const message = String(error);
       if (message !== this.lastError) {
         this.lastError = message;
@@ -461,7 +461,10 @@ export class DeckController {
   private async renderAgent({ action, slot }: AgentRegistration): Promise<void> {
     const agent = this.routedSlots[slot];
     const health = agent ? this.healthForHost(agent.host) : this.targetHealth();
-    if (this.activeQueueEnabled && !agent && health.state === "ready") {
+    const isLocalAgent = agent ? agent.host.hostId === this.localHost?.hostId : !this.isRemoteTarget();
+    const codexStopped = slot < 4 && isLocalAgent && health.state === "degraded" && health.reason === "codex-not-running";
+    const healthyQueueGap = this.activeQueueEnabled && !agent && health.state === "ready";
+    if (codexStopped || healthyQueueGap) {
       await this.setImage(action, renderAgentBlackKey());
       return;
     }

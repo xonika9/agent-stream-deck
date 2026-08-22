@@ -1622,6 +1622,64 @@ test("healthy queue gaps render black, unavailable diagnostics remain distinct, 
   assert.equal(images.length, 4);
 });
 
+test("only local codex-not-running blanks the first four Agent keys", async () => {
+  const controller = new DeckController();
+  const internal = controller as unknown as {
+    activeQueueEnabled: boolean;
+    localHost?: CodexHost;
+    targetHostId?: string;
+    targetPlatform: CodexHost["platform"];
+    localHealth: { state: "ready" | "degraded" | "offline" | "connecting"; reason?: string };
+    routedSlots: RoutedAgentSlot[];
+    relayClient?: {
+      currentHost: () => CodexHost | undefined;
+      currentHealth: () => { state: "ready" | "degraded" | "offline" | "connecting"; reason?: string };
+      currentSnapshot: () => undefined;
+    };
+    renderAgent: (registration: { action: unknown; slot: number }) => Promise<void>;
+  };
+  internal.activeQueueEnabled = false;
+  internal.localHost = host;
+  internal.targetHostId = host.hostId;
+  internal.targetPlatform = host.platform;
+  internal.routedSlots = [];
+  internal.localHealth = { state: "degraded", reason: "codex-not-running" };
+
+  const render = async (slot: number): Promise<string> => {
+    const images: string[] = [];
+    await internal.renderAgent({
+      slot,
+      action: { id: `agent-${slot}`, setImage: async (image: string) => { images.push(image); }, setTitle: async () => {} }
+    });
+    return decodeURIComponent(images.at(-1)!);
+  };
+
+  for (const slot of [0, 1, 2, 3]) {
+    assert.match(await render(slot), /<rect width="144" height="144" fill="#000000"\/>/);
+  }
+  assert.match(await render(4), /Signals[\s\S]*uncertain/);
+
+  internal.localHealth = { state: "ready" };
+  assert.doesNotMatch(await render(0), /<rect width="144" height="144" fill="#000000"\/>/);
+
+  internal.localHealth = { state: "degraded", reason: "local-bridge-unavailable" };
+  assert.match(await render(0), /Signals[\s\S]*uncertain/);
+
+  const remoteHost: CodexHost = {
+    hostId: "22222222-2222-4222-8222-222222222222", hostName: "Remote", platform: "win32"
+  };
+  internal.routedSlots = [{ ...snapshot.slots[0]!, host: remoteHost, sourceSlot: 0, observedAt: Date.now() }];
+  internal.relayClient = {
+    currentHost: () => remoteHost,
+    currentHealth: () => ({ state: "offline", reason: "relay-disconnected" }),
+    currentSnapshot: () => undefined
+  };
+  internal.localHealth = { state: "degraded", reason: "codex-not-running" };
+  const remoteOffline = await render(0);
+  assert.match(remoteOffline, /data-agent-host-health="offline"/);
+  assert.doesNotMatch(remoteOffline, /<rect width="144" height="144" fill="#000000"\/>/);
+});
+
 async function freePort(): Promise<number> {
   const server = createServer();
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

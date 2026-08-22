@@ -766,6 +766,24 @@ export class CodexMicroRendererBridge {
   }
 }
 
+export class CodexNotRunningError extends Error {
+  constructor() {
+    super("Codex is not running.");
+    this.name = "CodexNotRunningError";
+  }
+}
+
+export function localBridgeFailureReason(error: unknown): "codex-not-running" | "local-bridge-unavailable" {
+  return error instanceof CodexNotRunningError ? "codex-not-running" : "local-bridge-unavailable";
+}
+
+export function hasMacCodexProcess(commands: Iterable<string>): boolean {
+  for (const line of commands) {
+    if (/\/[^/]*Codex[^/]*\.app\/Contents\/MacOS\/[^/\s]+(?:\s|$)/i.test(line)) return true;
+  }
+  return false;
+}
+
 export function retainEvaluationPromise(expression: string, id: string | number): string {
   const key = `codex-deck-${id}`;
   return `(() => {
@@ -782,18 +800,24 @@ async function discoverDebugPort(): Promise<number> {
   if (fromFile && await isDebugPort(fromFile)) return fromFile;
   if (process.platform === "darwin") {
     const { stdout } = await execFileAsync("/bin/ps", ["-axo", "command="], { timeout: 4000 });
-    for (const line of stdout.split("\n")) {
+    const commands = stdout.split("\n");
+    for (const line of commands) {
       if (!line.includes(".app/Contents/MacOS/") || !line.includes("--remote-debugging-address=127.0.0.1")) continue;
       const port = Number.parseInt(line.match(/--remote-debugging-port(?:=|\s+)(\d+)/)?.[1] ?? "", 10);
       if (Number.isInteger(port) && await isDebugPort(port)) return port;
+    }
+    if (!hasMacCodexProcess(commands)) {
+      throw new CodexNotRunningError();
     }
     throw new Error("Codex wurde nicht über den macOS-Micro-Aktivierungsstarter geöffnet.");
   }
   if (process.platform !== "win32") throw new Error("Die native Codex-Micro-Brücke wird auf dieser Plattform nicht unterstützt.");
 
-  const command = "$ports = Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'ChatGPT.exe' -and $_.CommandLine -match '--remote-debugging-port=(\\d+)' } | ForEach-Object { if ($_.CommandLine -match '--remote-debugging-port=(\\d+)') { $Matches[1] } }; $ports | Select-Object -Unique";
+  const command = "$processes = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'ChatGPT.exe' -and $_.CommandLine -notmatch '--type=' }); if ($processes.Count -eq 0) { '__CODEX_DECK_NOT_RUNNING__' } else { $processes | Where-Object { $_.CommandLine -match '--remote-debugging-port=(\\d+)' } | ForEach-Object { if ($_.CommandLine -match '--remote-debugging-port=(\\d+)') { $Matches[1] } } | Select-Object -Unique }";
   const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", command], { windowsHide: true, timeout: 4000 });
-  for (const value of stdout.split(/\s+/)) {
+  const values = stdout.split(/\s+/);
+  if (values.includes("__CODEX_DECK_NOT_RUNNING__")) throw new CodexNotRunningError();
+  for (const value of values) {
     const port = Number.parseInt(value, 10);
     if (Number.isInteger(port) && await isDebugPort(port)) return port;
   }
