@@ -86,6 +86,7 @@ export function resolveAgentDispatch(
 
 const execFileAsync = promisify(execFile);
 const PORT_FILE = join(codexDeckStateRoot(), "codex-micro-bridge.json");
+const WATCHER_STATE_FILE = join(codexDeckStateRoot(), "watcher-state.json");
 const DEVICE_STATE = {
   type: "codex-micro-device-state-changed",
   state: { status: "connected", error: null, battery: { percentage: 100, isCharging: true } }
@@ -777,9 +778,25 @@ export function localBridgeFailureReason(error: unknown): "codex-not-running" | 
   return error instanceof CodexNotRunningError ? "codex-not-running" : "local-bridge-unavailable";
 }
 
-export function hasMacCodexProcess(commands: Iterable<string>): boolean {
+export function macCodexExecutablePathFromWatcherState(state: string): string | null | undefined {
+  try {
+    const lastGeneration = (JSON.parse(state) as { lastGeneration?: unknown }).lastGeneration;
+    if (lastGeneration === null) return null;
+    if (typeof lastGeneration !== "string") return undefined;
+    const pathOffset = lastGeneration.lastIndexOf(":/");
+    const executablePath = pathOffset === -1 ? "" : lastGeneration.slice(pathOffset + 1);
+    return executablePath.startsWith("/") ? executablePath : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function hasMacCodexExecutable(commands: Iterable<string>, executablePath: string): boolean {
   for (const line of commands) {
-    if (/\/[^/]*Codex[^/]*\.app\/Contents\/MacOS\/[^/\s]+(?:\s|$)/i.test(line)) return true;
+    const command = line.trimStart();
+    const exactExecutable = command.startsWith(executablePath)
+      && (command.length === executablePath.length || /\s/.test(command[executablePath.length] ?? ""));
+    if (exactExecutable) return true;
   }
   return false;
 }
@@ -796,21 +813,23 @@ export function retainEvaluationPromise(expression: string, id: string | number)
 }
 
 async function discoverDebugPort(): Promise<number> {
-  const fromFile = await readPortFile();
-  if (fromFile && await isDebugPort(fromFile)) return fromFile;
   if (process.platform === "darwin") {
+    const fromFile = await readPortFile();
+    if (fromFile && await isDebugPort(fromFile)) return fromFile;
+    const executablePath = await readMacCodexExecutablePath();
+    if (executablePath === null) throw new CodexNotRunningError();
+    if (executablePath === undefined) throw new Error("Codex launcher state is unavailable.");
     const { stdout } = await execFileAsync("/bin/ps", ["-axo", "command="], { timeout: 4000 });
     const commands = stdout.split("\n");
     for (const line of commands) {
-      if (!line.includes(".app/Contents/MacOS/") || !line.includes("--remote-debugging-address=127.0.0.1")) continue;
+      if (!hasMacCodexExecutable([line], executablePath) || !line.includes("--remote-debugging-address=127.0.0.1")) continue;
       const port = Number.parseInt(line.match(/--remote-debugging-port(?:=|\s+)(\d+)/)?.[1] ?? "", 10);
       if (Number.isInteger(port) && await isDebugPort(port)) return port;
     }
-    if (!hasMacCodexProcess(commands)) {
-      throw new CodexNotRunningError();
-    }
     throw new Error("Codex wurde nicht über den macOS-Micro-Aktivierungsstarter geöffnet.");
   }
+  const fromFile = await readPortFile();
+  if (fromFile && await isDebugPort(fromFile)) return fromFile;
   if (process.platform !== "win32") throw new Error("Die native Codex-Micro-Brücke wird auf dieser Plattform nicht unterstützt.");
 
   const command = "$processes = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'ChatGPT.exe' -and $_.CommandLine -notmatch '--type=' }); if ($processes.Count -eq 0) { '__CODEX_DECK_NOT_RUNNING__' } else { $processes | Where-Object { $_.CommandLine -match '--remote-debugging-port=(\\d+)' } | ForEach-Object { if ($_.CommandLine -match '--remote-debugging-port=(\\d+)') { $Matches[1] } } | Select-Object -Unique }";
@@ -830,6 +849,14 @@ async function readPortFile(): Promise<number | null> {
     const port = Number(data.port);
     return Number.isInteger(port) && port > 0 && port <= 65535 ? port : null;
   } catch { return null; }
+}
+
+async function readMacCodexExecutablePath(): Promise<string | null | undefined> {
+  try {
+    return macCodexExecutablePathFromWatcherState(await readFile(WATCHER_STATE_FILE, "utf8"));
+  } catch {
+    return undefined;
+  }
 }
 
 async function isDebugPort(port: number): Promise<boolean> {

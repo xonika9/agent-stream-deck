@@ -8,7 +8,7 @@ import {
   buildSnapshotPayloadExpression
 } from "../src/codex-active-catalog-expression.js";
 import {
-  buildEnsureThreadActivatedExpression, canonicalThreadId, CodexMicroRendererBridge, CodexNotRunningError, hasMacCodexProcess, localBridgeFailureReason, nativeActionKey, REASONING_ENCODER_KEYS, resolveAgentDispatch,
+  buildEnsureThreadActivatedExpression, canonicalThreadId, CodexMicroRendererBridge, CodexNotRunningError, hasMacCodexExecutable, localBridgeFailureReason, macCodexExecutablePathFromWatcherState, nativeActionKey, REASONING_ENCODER_KEYS, resolveAgentDispatch,
   retainEvaluationPromise, selectCodexMainTarget, selectSidebarThreadId, threadKeysEquivalent
 } from "../src/codex-micro-renderer-bridge.js";
 import { ADDITIONAL_KEYCAPS, OFFICIAL_KEYCAP_IDS } from "../src/keycaps.js";
@@ -33,11 +33,15 @@ test("only an explicit stopped-Codex marker suppresses local bridge diagnostics"
   assert.equal(localBridgeFailureReason(new Error("temporary bridge failure")), "local-bridge-unavailable");
 });
 
-test("macOS process detection distinguishes absent and running Codex before bridge discovery", () => {
-  assert.equal(hasMacCodexProcess(["/Applications/ChatGPT.app/Contents/MacOS/ChatGPT"]), false);
-  assert.equal(hasMacCodexProcess(["/Applications/Codex.app/Contents/MacOS/Codex"]), true);
+test("macOS watcher state excludes CodexBar false positives before bridge discovery", () => {
+  const codexExecutable = "/Applications/ChatGPT.app/Contents/MacOS/ChatGPT";
+  assert.equal(macCodexExecutablePathFromWatcherState(`{"lastGeneration":"123:Sat Aug 22 16:03:23 2026:${codexExecutable}"}`), codexExecutable);
+  assert.equal(macCodexExecutablePathFromWatcherState('{"lastGeneration":null}'), null);
+  assert.equal(macCodexExecutablePathFromWatcherState('{"lastGeneration":123}'), undefined);
+  assert.equal(hasMacCodexExecutable(["/Applications/CodexBar.app/Contents/MacOS/CodexBar"], codexExecutable), false);
+  assert.equal(hasMacCodexExecutable([codexExecutable], codexExecutable), true);
   assert.equal(
-    hasMacCodexProcess(["/Applications/Codex.app/Contents/MacOS/Codex --remote-debugging-address=127.0.0.1 --remote-debugging-port=43123"]),
+    hasMacCodexExecutable([`${codexExecutable} --remote-debugging-address=127.0.0.1 --remote-debugging-port=43123`], codexExecutable),
     true
   );
 });
