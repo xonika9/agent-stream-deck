@@ -4,7 +4,7 @@ import test from "node:test";
 import { renderRateLimitResetKey, renderUsageLimitKey, renderUsageOverviewKey } from "../src/render.js";
 import { parseRelayCommand } from "../src/relay-protocol.js";
 import type { MicroSnapshot, UsageSnapshot, UsageWindow } from "../src/types.js";
-import { parseUsageLimitMode, selectAccountUsageSource, selectUsageWindow, usageWindowKind } from "../src/usage.js";
+import { composeMacUsage, parseUsageLimitMode, selectAccountUsageSource, selectUsageWindow, usageWindowKind } from "../src/usage.js";
 
 const fiveHour: UsageWindow = {
   id: "five-hour", kind: "five-hour", usedPercent: 26, remainingPercent: 74,
@@ -53,6 +53,36 @@ test("account usage falls back to the remote host only when local usage is unava
     { hostId: "mac", health: { state: "ready", changedAt: 1 }, snapshot: remoteSnapshot }
   );
   assert.equal(source.hostId, "mac");
+});
+
+test("account usage accepts fresh macOS quota without a Codex snapshot", () => {
+  const localUsage = usage([weekly]);
+  const source = selectAccountUsageSource({
+    hostId: "mac",
+    health: { state: "ready", changedAt: localUsage.observedAt },
+    usage: localUsage,
+    theme: "dark"
+  });
+  assert.equal(source.usage, localUsage);
+  assert.equal(source.snapshot, undefined);
+});
+
+test("macOS never falls back to renderer quota windows", () => {
+  const bridge = usage([fiveHour]);
+  const resetOnly = composeMacUsage(undefined, bridge);
+  assert.deepEqual(resetOnly?.windows, []);
+  assert.equal(resetOnly?.resetCreditsAvailable, 2);
+
+  const codexBar = usage([weekly]);
+  const combined = composeMacUsage(codexBar, bridge);
+  assert.deepEqual(combined?.windows, [weekly]);
+  assert.equal(combined?.resetCreditsAvailable, 2);
+
+  assert.equal(composeMacUsage(undefined, {
+    ...bridge,
+    resetCreditsAvailable: null,
+    resetCreditsApplicable: null
+  }), undefined);
 });
 
 test("renderer refreshes stale account usage without waiting for application focus", async () => {

@@ -87,6 +87,13 @@ test("active queue remains an explicit projection and does not mutate native rou
   assert.deepEqual(projected.map((slot) => slot.sourceSlot), [1, 4]);
 });
 
+test("OpenCode opaque task identities preserve case", () => {
+  const older = trusted({ ...routed(0, "working", 100, mac, "connection:SessionA"), taskSource: "opencode" }, 100, 1);
+  const newer = trusted({ ...routed(1, "working", 200, mac, "connection:sessiona"), taskSource: "opencode" }, 200, 2);
+  const projected = projectActiveQueue([older, newer], [snapshot(mac)], new ActiveQueueRankIndex());
+  assert.deepEqual(keys(projected), ["connection:sessiona", "connection:SessionA"]);
+});
+
 test("active queue orders attention and completion as before, then seeds trusted working starts newest first", () => {
   const slots = [
     trusted(routed(0, "working", 400), 400, 1),

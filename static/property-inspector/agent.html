@@ -10,24 +10,49 @@
     label { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 8px; margin-top: 10px; cursor: pointer; }
     label:first-of-type { margin-top: 0; }
     input { width: 17px; height: 17px; margin: 0; accent-color: #1683ff; }
+    select { min-width: 126px; color: #eee; background: #202020; border: 1px solid #666; border-radius: 3px; padding: 4px 6px; }
     p { margin: 12px 0 0 100px; color: #a9a9a9; line-height: 1.35; }
   </style>
 </head>
 <body>
   <label>
+    <span>Task source</span>
+    <select id="task-source" disabled>
+      <option>Codex</option>
+      <option>OpenCode</option>
+      <option>Both</option>
+    </select>
+  </label>
+  <p>Applies to all six Agent keys. OpenCode support covers this Mac's local service and saved SSH connections.</p>
+  <label>
     <span>Context ring</span>
     <input id="show-context-rings" type="checkbox" checked disabled>
   </label>
-  <p>This global option applies to all six Codex agent keys on this computer.</p>
+  <p>This global option applies to Codex tasks. OpenCode labels never expose task content.</p>
   <label>
     <span>Active queue</span>
     <input id="active-queue" type="checkbox" disabled>
   </label>
-  <p>Uses Codex's full native pinned + unpinned sidebar catalog when available, with an automatic fallback to the six Micro slots. Place <strong>Agent 1</strong> through <strong>Agent N</strong> contiguously. Idle chats are unavailable while enabled; <strong>custom</strong> keeps its six configured candidates and may compact them.</p>
+  <p id="active-queue-help">Uses Codex's full native pinned + unpinned sidebar catalog when available, with a fallback to the six Micro slots. Place <strong>Agent 1</strong> through <strong>Agent N</strong> contiguously. Idle chats are unavailable; <strong>custom</strong> keeps its six configured candidates and may compact them. OpenCode and Both always use this queue.</p>
   <script>
     let websocket;
     let pluginContext;
     let globalSettings = {};
+
+    function applySettings() {
+      const source = ["Codex", "OpenCode", "Both"].includes(globalSettings.taskSource)
+        ? globalSettings.taskSource : "Codex";
+      document.getElementById("task-source").value = source;
+      document.getElementById("show-context-rings").checked = globalSettings.showContextRings !== false;
+      const forcedQueue = source !== "Codex";
+      document.getElementById("active-queue").checked = forcedQueue || globalSettings.activeQueueEnabled === true;
+      document.getElementById("show-context-rings").disabled = false;
+      document.getElementById("task-source").disabled = false;
+      document.getElementById("active-queue").disabled = forcedQueue;
+      document.getElementById("active-queue-help").textContent = forcedQueue
+        ? "OpenCode and Both always use the Active queue. Return to Codex to restore your saved preference."
+        : "Uses Codex's full native pinned + unpinned sidebar catalog when available, with a fallback to the six Micro slots. Place Agent 1 through Agent N contiguously.";
+    }
 
     window.connectElgatoStreamDeckSocket = (port, uuid, registerEvent) => {
       pluginContext = uuid;
@@ -40,12 +65,19 @@
         const event = JSON.parse(message.data);
         if (event.event !== "didReceiveGlobalSettings") return;
         globalSettings = event.payload?.settings ?? {};
-        document.getElementById("show-context-rings").checked = globalSettings.showContextRings !== false;
-        document.getElementById("active-queue").checked = globalSettings.activeQueueEnabled === true;
-        document.getElementById("show-context-rings").disabled = false;
-        document.getElementById("active-queue").disabled = false;
+        applySettings();
       });
     };
+
+    document.getElementById("task-source").addEventListener("change", (event) => {
+      globalSettings = { ...globalSettings, taskSource: event.target.value };
+      applySettings();
+      if (websocket?.readyState === WebSocket.OPEN) {
+        websocket.send(JSON.stringify({
+          event: "setGlobalSettings", context: pluginContext, payload: globalSettings
+        }));
+      }
+    });
 
     document.getElementById("show-context-rings").addEventListener("change", (event) => {
       globalSettings = { ...globalSettings, showContextRings: event.target.checked };

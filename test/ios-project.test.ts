@@ -231,8 +231,8 @@ test("Agent property inspector exposes an informed global active queue opt-in", 
     inspector.indexOf('if (event.event !== "didReceiveGlobalSettings") return;'),
     inspector.indexOf('document.getElementById("show-context-rings").addEventListener'));
   assert.match(settingsReceived, /globalSettings\s*=\s*event\.payload\?\.settings\s*\?\?\s*\{\}/);
-  assert.match(settingsReceived, /getElementById\("show-context-rings"\)\.disabled\s*=\s*false/);
-  assert.match(settingsReceived, /getElementById\("active-queue"\)\.disabled\s*=\s*false/);
+  assert.match(inspector, /getElementById\("show-context-rings"\)\.disabled\s*=\s*false/);
+  assert.match(inspector, /getElementById\("active-queue"\)\.disabled\s*=\s*forcedQueue/);
 });
 
 test("iPhone agent keys expose animated long-press details without replacing tap activation", async () => {

@@ -12,6 +12,7 @@ export function visualStatusFromMicro(status: string): AgentVisualStatus {
     case "done":
       return "complete";
     case "approval":
+    case "attention":
     case "awaiting-approval":
     case "awaiting-response":
       return "input";

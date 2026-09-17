@@ -10,6 +10,7 @@ import {
 import { CodexRelayClient, readRelayClientConfig } from "./codex-relay-client.js";
 import { CodexRelayServer, readRelayServerConfig } from "./codex-relay-server.js";
 import { CodexMicroRendererBridge, localBridgeFailureReason } from "./codex-micro-renderer-bridge.js";
+import { readCodexBarUsage } from "./codex-bar-usage.js";
 import { getOrCreateHostIdentity } from "./host-identity.js";
 import type { OfficialKeycapId } from "./keycaps.js";
 import { HostActivityIndex, type HostSnapshot, type RelayCommand } from "./relay-protocol.js";
@@ -18,12 +19,20 @@ import {
   renderRateLimitResetKey, renderUsageLimitKey, renderUsageOverviewKey, type BuiltinIconName
 } from "./render.js";
 import { openCodexThread } from "./codex-open.js";
+import { foregroundOpenCode } from "./opencode-open.js";
+import { getOrCreateOpenCodeIdentitySecret } from "./opencode-secret.js";
+import {
+  OpenCodeCollector,
+  type OpenCodeCollectorSnapshot,
+  type OpenCodeTask
+} from "./opencode/index.js";
 import { visualStatusFromMicro } from "./status.js";
+import { parseTaskSource, selectTaskCandidates, shouldCollectOpenCode, usesActiveQueue } from "./task-source.js";
 import type {
   CodexHost, HostHealth, MicroActionSlot, MicroDirection, MicroSnapshot, ReasoningAdjustment,
-  RoutedAgentSlot, UsageLimitMode, UsageWindowKind
+  RoutedAgentSlot, TaskSource, UsageLimitMode, UsageSnapshot, UsageWindowKind
 } from "./types.js";
-import { selectAccountUsageSource, selectUsageWindow, type AccountUsageSource } from "./usage.js";
+import { composeMacUsage, selectAccountUsageSource, selectUsageWindow, type AccountUsageSource } from "./usage.js";
 
 export type FixedIconSource =
   | { kind: "local"; keycapId: string }
@@ -37,6 +46,7 @@ type ActionIdentity = { id: string };
 export type AgentDisplaySettings = {
   showContextRings?: boolean;
   activeQueueEnabled?: boolean;
+  taskSource?: TaskSource;
 };
 
 const USER_ICON_ROOT = join(codexDeckStateRoot(), "icons");
@@ -65,6 +75,11 @@ export class DeckController {
   private localMobileRelayServer?: CodexRelayServer;
   private localHost?: CodexHost;
   private localSnapshot?: HostSnapshot;
+  private codexBarUsage?: UsageSnapshot;
+  private openCodeSlots: RoutedAgentSlot[] = [];
+  private openCodeHealth: HostHealth = { state: "connecting", reason: "awaiting-snapshot", changedAt: Date.now() };
+  private openCodeCollector?: OpenCodeCollector;
+  private openCodeDemandGeneration = 0;
   private routedSlots: RoutedAgentSlot[] = [];
   private targetHostId?: string;
   private targetPlatform: ControlTarget = "win32";
@@ -82,6 +97,7 @@ export class DeckController {
   private lastHostHealthSignature = "";
   private showContextRings = true;
   private activeQueueEnabled = false;
+  private taskSource: TaskSource = "Codex";
 
   async start(): Promise<void> {
     this.stopped = false;
@@ -93,6 +109,7 @@ export class DeckController {
       persistedTarget, this.localHost.platform, relayConfig != null);
     if (this.targetPlatform !== persistedTarget) await writeControlTarget(this.targetPlatform);
     if (this.targetPlatform === this.localHost.platform) this.targetHostId = this.localHost.hostId;
+    await this.syncOpenCodeCollectorDemand();
     if (relayConfig) {
       this.relayClient = new CodexRelayClient(
         relayConfig,
@@ -171,6 +188,7 @@ export class DeckController {
       const settings = await streamDeck.settings.getGlobalSettings<AgentDisplaySettings>();
       this.showContextRings = settings.showContextRings !== false;
       this.activeQueueEnabled = settings.activeQueueEnabled === true;
+      this.taskSource = parseTaskSource(settings.taskSource);
     } catch (error) {
       streamDeck.logger.warn(`Agent display settings were unavailable; using defaults: ${String(error)}`);
     }
@@ -178,12 +196,16 @@ export class DeckController {
 
   stop(): void {
     this.stopped = true;
+    this.openCodeDemandGeneration++;
     if (this.poll) clearInterval(this.poll);
     if (this.animation) clearInterval(this.animation);
     this.relayClient?.close();
     void this.mobileRelayServer?.close();
     void this.localMobileRelayServer?.close();
     this.microBridge.close();
+    const collector = this.openCodeCollector;
+    this.openCodeCollector = undefined;
+    void collector?.stop();
   }
 
   registerAgent(slot: number, action: KeyAction): void {
@@ -198,15 +220,24 @@ export class DeckController {
   setAgentDisplaySettings(settings: AgentDisplaySettings): void {
     const showContextRings = settings.showContextRings !== false;
     const activeQueueEnabled = settings.activeQueueEnabled === true;
+    const taskSource = parseTaskSource(settings.taskSource);
     const contextRingsChanged = this.showContextRings !== showContextRings;
     const activeQueueChanged = this.activeQueueEnabled !== activeQueueEnabled;
-    if (!contextRingsChanged && !activeQueueChanged) return;
+    const taskSourceChanged = this.taskSource !== taskSource;
+    if (!contextRingsChanged && !activeQueueChanged && !taskSourceChanged) return;
     this.showContextRings = showContextRings;
     this.activeQueueEnabled = activeQueueEnabled;
-    if (activeQueueChanged) {
+    this.taskSource = taskSource;
+    if (activeQueueChanged || taskSourceChanged) {
       this.activeQueueRankIndex.clear();
-      void this.refreshDisplay().catch((error) =>
-        streamDeck.logger.error(`Agent display settings refresh failed: ${String(error)}`));
+      if (taskSourceChanged) {
+        const synchronize = this.syncOpenCodeCollectorDemand();
+        void this.refreshDisplay().catch(() => streamDeck.logger.error("Agent display settings refresh failed."));
+        void synchronize.then(() => this.refreshDisplay()).catch(() =>
+          streamDeck.logger.error("Agent display settings refresh failed."));
+      } else {
+        void this.refreshDisplay().catch(() => streamDeck.logger.error("Agent display settings refresh failed."));
+      }
     } else {
       void Promise.all([...this.agents.values()].map((registration) => this.renderAgent(registration)));
     }
@@ -288,7 +319,7 @@ export class DeckController {
     if (registered) await this.renderRateLimitReset(registered);
     if (startedAt == null || Date.now() - startedAt < RESET_HOLD_MS) return false;
     const source = this.accountUsageSource();
-    const usage = source.snapshot?.usage;
+    const usage = source.usage ?? source.snapshot?.usage;
     if ((usage?.resetCreditsAvailable ?? 0) <= 0) throw new Error("No rate-limit reset credit is available.");
     if (usage?.resetCreditsApplicable === 0) throw new Error("No rate-limit reset credit is currently applicable.");
     await this.sendToHost(source.hostId, { kind: "rate-limit-reset" }, () => this.microBridge.consumeRateLimitReset());
@@ -317,14 +348,20 @@ export class DeckController {
       return;
     }
     const assignment = act === 0 ? this.pressedAgents.get(slot) : this.routedSlots[slot];
-    if (act === 1 && this.activeQueueEnabled && !assignment) {
+    if (act === 1 && this.effectiveActiveQueueEnabled() && !assignment) {
       this.pressedAgents.delete(slot);
       this.emptyAgentPresses.add(slot);
       return;
     }
     if (act === 1) this.emptyAgentPresses.delete(slot);
-    if (this.activeQueueEnabled && !assignment) return;
+    if (this.effectiveActiveQueueEnabled() && !assignment) return;
     if (!assignment) throw new Error(`No Codex task is assigned to global agent slot ${slot + 1}.`);
+    if (assignment.taskSource === "opencode") {
+      if (act === 1) this.pressedAgents.set(slot, assignment);
+      else this.pressedAgents.delete(slot);
+      if (act === 1) await foregroundOpenCode();
+      return;
+    }
     if (act === 1) this.pressedAgents.set(slot, assignment);
     else this.pressedAgents.delete(slot);
     if (!assignment.threadKey) throw new Error("The selected Codex task has no stable thread identity.");
@@ -374,6 +411,7 @@ export class DeckController {
   }
 
   private async refreshOnce(): Promise<void> {
+    if (process.platform === "darwin") this.codexBarUsage = await readCodexBarUsage();
     try {
       const snapshot = await this.microBridge.refresh();
       this.localHost = await getOrCreateHostIdentity();
@@ -393,7 +431,86 @@ export class DeckController {
     await this.refreshDisplay();
   }
 
+  private async syncOpenCodeCollectorDemand(): Promise<void> {
+    const demanded = this.openCodeDemanded();
+    if (demanded && this.openCodeCollector) return;
+    const generation = ++this.openCodeDemandGeneration;
+    if (!demanded) {
+      const collector = this.openCodeCollector;
+      this.openCodeCollector = undefined;
+      this.openCodeSlots = [];
+      this.openCodeHealth = { state: "connecting", reason: "awaiting-snapshot", changedAt: Date.now() };
+      await collector?.stop();
+      return;
+    }
+    this.openCodeHealth = { state: "connecting", reason: "awaiting-snapshot", changedAt: Date.now() };
+    try {
+      const secret = await getOrCreateOpenCodeIdentitySecret();
+      if (generation !== this.openCodeDemandGeneration || !this.openCodeDemanded()) return;
+      const collector = new OpenCodeCollector({ identitySecret: secret });
+      this.openCodeCollector = collector;
+      const snapshot = await collector.start();
+      if (generation !== this.openCodeDemandGeneration || !this.openCodeDemanded()) {
+        if (this.openCodeCollector === collector) this.openCodeCollector = undefined;
+        await collector.stop();
+        return;
+      }
+      this.applyOpenCodeSnapshot(snapshot);
+    } catch {
+      if (generation !== this.openCodeDemandGeneration) return;
+      const collector = this.openCodeCollector;
+      this.openCodeCollector = undefined;
+      await collector?.stop();
+      this.openCodeSlots = [];
+      this.openCodeHealth = { state: "degraded", reason: "native-signals-unavailable", changedAt: Date.now() };
+      streamDeck.logger.warn("OpenCode collector is unavailable.");
+    }
+  }
+
+  private refreshOpenCodeSnapshot(): void {
+    const collector = this.openCodeCollector;
+    if (!collector) return;
+    this.applyOpenCodeSnapshot(collector.snapshot());
+  }
+
+  private openCodeDemanded(): boolean {
+    return !this.stopped && shouldCollectOpenCode(this.taskSource, process.platform);
+  }
+
+  private applyOpenCodeSnapshot(snapshot: OpenCodeCollectorSnapshot): void {
+    if (!this.localHost) return;
+    const healthy = snapshot.connections.some((connection) => connection.health === "ready" || connection.health === "capacity-exceeded");
+    const observedAt = snapshot.observedAt || Date.now();
+    this.openCodeHealth = healthy
+      ? { state: "ready", changedAt: observedAt }
+      : { state: "degraded", reason: "native-signals-unavailable", changedAt: observedAt };
+    this.openCodeSlots = snapshot.connections
+      .flatMap((connection) => connection.tasks.map((task) => ({ task, observedAt: connection.observedAt })))
+      .map(({ task, observedAt: connectionObservedAt }, sourceSlot) =>
+        this.openCodeSlot(task, sourceSlot, connectionObservedAt));
+  }
+
+  private openCodeSlot(task: OpenCodeTask, sourceSlot: number, observedAt: number): RoutedAgentSlot {
+    return {
+      id: sourceSlot,
+      sourceSlot,
+      catalogIndex: sourceSlot,
+      taskSource: "opencode",
+      host: this.localHost!,
+      threadKey: `${task.connectionId}\0${task.sessionId}`,
+      conversationId: `${task.connectionId}\0${task.sessionId}`,
+      title: task.label,
+      status: task.status,
+      selected: false,
+      activityAt: task.terminalAt ?? task.workStartedAt,
+      workStartedAt: task.workStartedAt,
+      workStartRevision: task.workStartRevision,
+      observedAt
+    };
+  }
+
   private async refreshDisplay(): Promise<void> {
+    this.refreshOpenCodeSnapshot();
     const remoteSnapshot = this.relayClient?.currentSnapshot();
     if (this.localHost && this.targetPlatform !== this.localHost.platform && remoteSnapshot) this.targetHostId = remoteSnapshot.host.hostId;
     else if (this.localHost && this.targetPlatform === this.localHost.platform) this.targetHostId = this.localHost.hostId;
@@ -417,23 +534,25 @@ export class DeckController {
       }
     }
     const now = Date.now();
-    const merged = this.activeQueueEnabled
+    const activeQueueEnabled = this.effectiveActiveQueueEnabled();
+    const codexSlots = activeQueueEnabled
       ? this.activityIndex.mergeActiveCatalog(inputs, now, this.localHost?.hostId)
       : this.activityIndex.merge(inputs, now, this.localHost?.hostId);
-    this.routedSlots = this.activeQueueEnabled
+    const merged = selectTaskCandidates(this.taskSource, codexSlots, this.openCodeSlots);
+    this.routedSlots = activeQueueEnabled
       ? projectActiveQueue(merged, inputs, this.activeQueueRankIndex, now)
       : merged;
 
-    const assignments = this.routedSlots.map((slot) => `${slot.id}=${slot.host.platform}:${slot.threadKey ?? "empty"}`).join(" ");
+    const assignments = this.routedSlots.map((slot) => `${slot.id}=${slot.taskSource ?? "codex"}:${slot.host.platform}`).join(" ");
     if (assignments !== this.lastAssignmentSignature) {
       this.lastAssignmentSignature = assignments;
-      streamDeck.logger.info(`Codex multi-host slots: ${assignments || "empty"}`);
+      streamDeck.logger.info(`Agent slots: ${assignments || "empty"}`);
     }
 
-    const statuses = this.routedSlots.map((slot) => `${slot.host.hostId}:${slot.threadKey}:${slot.status}:${slot.selected}`).join(",");
+    const statuses = this.routedSlots.map((slot) => `${slot.taskSource ?? "codex"}:${slot.host.hostId}:${slot.status}:${slot.selected}`).join(",");
     if (statuses !== this.lastStatusSignature) {
       this.lastStatusSignature = statuses;
-      streamDeck.logger.info(`Codex multi-host states: ${this.routedSlots.map((slot) => `${slot.id + 1}=${slot.status}`).join(" ") || "empty"}`);
+      streamDeck.logger.info(`Agent states: ${this.routedSlots.map((slot) => `${slot.id + 1}=${slot.status}`).join(" ") || "empty"}`);
     }
 
     const target = this.targetSnapshot();
@@ -460,10 +579,11 @@ export class DeckController {
 
   private async renderAgent({ action, slot }: AgentRegistration): Promise<void> {
     const agent = this.routedSlots[slot];
-    const health = agent ? this.healthForHost(agent.host) : this.targetHealth();
+    const health = agent?.taskSource === "opencode" ? this.openCodeHealth
+      : agent ? this.healthForHost(agent.host) : this.selectedTaskHealth();
     const isLocalAgent = agent ? agent.host.hostId === this.localHost?.hostId : !this.isRemoteTarget();
     const codexStopped = slot < 4 && isLocalAgent && health.state === "degraded" && health.reason === "codex-not-running";
-    const healthyQueueGap = this.activeQueueEnabled && !agent && health.state === "ready";
+    const healthyQueueGap = this.effectiveActiveQueueEnabled() && !agent && health.state === "ready";
     if (codexStopped || healthyQueueGap) {
       await this.setImage(action, renderAgentBlackKey());
       return;
@@ -474,10 +594,11 @@ export class DeckController {
     const title = agent?.title ?? (agent?.threadKey && health.state === "ready" ? "New chat" : unavailableTitle);
     const status = agent ? visualStatusFromMicro(agent.status) : "empty";
     const theme = this.targetSnapshot()?.theme ?? this.localSnapshot?.snapshot.theme ?? "dark";
-    const hostBadge = agent && this.relayClient ? (agent.host.platform === "darwin" ? "M" : "W") : undefined;
+    const hostBadge = agent?.taskSource === "opencode" ? "O"
+      : agent && this.relayClient ? (agent.host.platform === "darwin" ? "M" : "W") : undefined;
     await this.setImage(action, renderAgentKey(
       slot, title, status, agent?.selected ?? false, this.animationFrame, theme, hostBadge,
-      health.state, agent?.contextUsedPercent, this.showContextRings));
+      health.state, agent?.contextUsedPercent, this.showContextRings && agent?.taskSource !== "opencode"));
   }
 
   private async renderAnimatedAgents(): Promise<void> {
@@ -516,26 +637,27 @@ export class DeckController {
 
   private async renderUsageLimit({ action, mode }: UsageLimitRegistration): Promise<void> {
     const source = this.accountUsageSource();
-    const snapshot = source.snapshot;
-    const window = selectUsageWindow(snapshot?.usage, mode);
+    const usage = source.usage ?? source.snapshot?.usage;
+    const window = selectUsageWindow(usage, mode);
     const requestedKind: UsageWindowKind = mode === "auto" ? (window?.kind ?? "other") : mode;
-    await this.setImage(action, renderUsageLimitKey(window, requestedKind, snapshot?.theme ?? "dark", source.health.state));
+    await this.setImage(action, renderUsageLimitKey(window, requestedKind, source.theme ?? source.snapshot?.theme ?? "dark", source.health.state));
   }
 
   private async renderUsageOverview(action: KeyAction): Promise<void> {
     const source = this.accountUsageSource();
-    await this.setImage(action, renderUsageOverviewKey(source.snapshot?.usage?.windows ?? [], source.snapshot?.theme ?? "dark", source.health.state));
+    const usage = source.usage ?? source.snapshot?.usage;
+    await this.setImage(action, renderUsageOverviewKey(usage?.windows ?? [], source.theme ?? source.snapshot?.theme ?? "dark", source.health.state));
   }
 
   private async renderRateLimitReset(action: KeyAction): Promise<void> {
     const source = this.accountUsageSource();
-    const snapshot = source.snapshot;
+    const usage = source.usage ?? source.snapshot?.usage;
     const startedAt = this.resetHolds.get(action.id);
     const progress = startedAt == null ? 0 : Math.min(1, (Date.now() - startedAt) / RESET_HOLD_MS);
     await this.setImage(action, renderRateLimitResetKey(
-      snapshot?.usage?.resetCreditsAvailable ?? null,
+      usage?.resetCreditsAvailable ?? null,
       progress,
-      snapshot?.theme ?? "dark",
+      source.theme ?? source.snapshot?.theme ?? "dark",
       source.health.state
     ));
   }
@@ -558,6 +680,16 @@ export class DeckController {
     return { state: "offline", reason: "relay-disconnected", changedAt: Date.now() };
   }
 
+  private selectedTaskHealth(): HostHealth {
+    if (this.taskSource === "OpenCode") return this.openCodeHealth;
+    if (this.taskSource === "Codex") return this.targetHealth();
+    const codex = this.targetHealth();
+    if (codex.state === "ready" || this.openCodeHealth.state === "ready") {
+      return { state: "ready", changedAt: Math.max(codex.changedAt, this.openCodeHealth.changedAt) };
+    }
+    return this.openCodeHealth.state === "connecting" ? codex : this.openCodeHealth;
+  }
+
   private targetSnapshot(): MicroSnapshot | undefined {
     const remote = this.relayClient?.currentSnapshot();
     if (this.localHost && this.targetPlatform !== this.localHost.platform) return remote?.snapshot;
@@ -565,18 +697,34 @@ export class DeckController {
   }
 
   private accountUsageSource(): AccountUsageSource {
+    const bridgeUsage = this.localSnapshot?.snapshot.usage;
+    const macUsage = composeMacUsage(this.codexBarUsage, bridgeUsage);
+    const localUsage = this.localHost?.platform === "darwin" ? macUsage : bridgeUsage;
+    const localUsageHealth: HostHealth = this.localHost?.platform === "darwin"
+      ? this.codexBarUsage
+        ? { state: "ready", changedAt: this.codexBarUsage.observedAt }
+        : this.localHealth.state === "ready"
+          ? { state: "degraded", reason: "snapshot-stale", changedAt: Date.now() }
+          : this.localHealth
+      : localUsage
+        ? { state: "ready", changedAt: localUsage.observedAt }
+        : this.localHealth;
     const local: AccountUsageSource = {
-      health: this.localHealth,
+      health: localUsageHealth,
       hostId: this.localHost?.hostId,
-      snapshot: this.localSnapshot?.snapshot
+      snapshot: this.localSnapshot?.snapshot,
+      usage: localUsage,
+      theme: this.localSnapshot?.snapshot.theme ?? "dark"
     };
     const remoteSnapshot = this.relayClient?.currentSnapshot();
     const remote: AccountUsageSource | undefined = remoteSnapshot ? {
       health: this.relayClient?.currentHealth() ?? { state: "offline", reason: "relay-disconnected", changedAt: Date.now() },
       hostId: remoteSnapshot.host.hostId,
-      snapshot: remoteSnapshot.snapshot
+      snapshot: remoteSnapshot.snapshot,
+      usage: remoteSnapshot.snapshot.usage,
+      theme: remoteSnapshot.snapshot.theme
     } : undefined;
-    return selectAccountUsageSource(local, remote);
+    return this.localHost?.platform === "darwin" ? local : selectAccountUsageSource(local, remote);
   }
 
   private isRemoteTarget(): boolean {
@@ -614,6 +762,10 @@ export class DeckController {
     if (this.lastImages.get(action.id) === image) return;
     await Promise.all([action.setImage(image), action.setTitle("")]);
     this.lastImages.set(action.id, image);
+  }
+
+  private effectiveActiveQueueEnabled(): boolean {
+    return usesActiveQueue(this.taskSource, this.activeQueueEnabled);
   }
 
   private renderUsageAction(label: string, action: KeyAction, render: () => Promise<void>): void {

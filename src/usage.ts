@@ -1,9 +1,11 @@
-import type { HostHealth, MicroSnapshot, UsageLimitMode, UsageSnapshot, UsageWindow, UsageWindowKind } from "./types.js";
+import type { HostHealth, MicroSnapshot, ThemeMode, UsageLimitMode, UsageSnapshot, UsageWindow, UsageWindowKind } from "./types.js";
 
 export type AccountUsageSource = {
   health: HostHealth;
   hostId?: string;
   snapshot?: MicroSnapshot;
+  usage?: UsageSnapshot;
+  theme?: ThemeMode;
 };
 
 export const FIVE_HOUR_MINUTES = 5 * 60;
@@ -40,7 +42,26 @@ export function clampPercent(value: number): number {
 
 export function selectAccountUsageSource(local: AccountUsageSource, remote?: AccountUsageSource): AccountUsageSource {
   const candidates = [local, remote].filter((candidate): candidate is AccountUsageSource => candidate != null);
-  return candidates.find((candidate) => candidate.health.state === "ready" && candidate.snapshot?.usage != null)
-    ?? candidates.find((candidate) => candidate.snapshot?.usage != null)
+  return candidates.find((candidate) => candidate.health.state === "ready" && (candidate.usage ?? candidate.snapshot?.usage) != null)
+    ?? candidates.find((candidate) => (candidate.usage ?? candidate.snapshot?.usage) != null)
     ?? local;
+}
+
+/** macOS quota windows are authoritative only when they came from CodexBar. */
+export function composeMacUsage(
+  codexBar: UsageSnapshot | undefined,
+  bridge: UsageSnapshot | undefined
+): UsageSnapshot | undefined {
+  if (codexBar) return {
+    ...codexBar,
+    resetCreditsAvailable: bridge?.resetCreditsAvailable ?? null,
+    resetCreditsApplicable: bridge?.resetCreditsApplicable ?? null
+  };
+  if (!bridge || (bridge.resetCreditsAvailable == null && bridge.resetCreditsApplicable == null)) return;
+  return {
+    windows: [],
+    observedAt: bridge.observedAt,
+    resetCreditsAvailable: bridge.resetCreditsAvailable,
+    resetCreditsApplicable: bridge.resetCreditsApplicable
+  };
 }

@@ -10,6 +10,7 @@ test("native Micro states map to the Stream Deck status palette", () => {
   assert.equal(visualStatusFromMicro("done"), "complete");
   assert.equal(visualStatusFromMicro("completed"), "complete");
   assert.equal(visualStatusFromMicro("approval"), "input");
+  assert.equal(visualStatusFromMicro("attention"), "input");
   assert.equal(visualStatusFromMicro("awaiting-approval"), "input");
   assert.equal(visualStatusFromMicro("awaiting-response"), "input");
   assert.equal(visualStatusFromMicro("error"), "error");

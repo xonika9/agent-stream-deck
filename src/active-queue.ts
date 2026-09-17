@@ -26,7 +26,7 @@ type RankRecord = WorkingRank & {
 type QueueGroup = "attention" | "completion" | "working";
 type QueueState = "idle" | "other" | QueueGroup;
 
-const ATTENTION_STATUSES = new Set(["approval", "awaiting-approval", "awaiting-response", "error"]);
+const ATTENTION_STATUSES = new Set(["attention", "approval", "awaiting-approval", "awaiting-response", "error"]);
 const COMPLETION_STATUSES = new Set(["unread", "complete", "completed", "done"]);
 const WORKING_STATUSES = new Set(["working", "thinking"]);
 const GROUP_ORDER: Record<QueueGroup, number> = { attention: 0, completion: 1, working: 2 };
@@ -250,6 +250,7 @@ function compareLegacyTies(left: QueueCandidate, right: QueueCandidate): number 
 }
 
 function queueIdentity(slot: RoutedAgentSlot): string {
+  if (slot.taskSource === "opencode") return `opencode:${slot.host.hostId}:${slot.threadKey ?? ""}`;
   return slot.conversationId
     ? `trusted:${slot.conversationId.toLowerCase()}`
     : `host:${slot.host.hostId}:exact:${slot.threadKey!.toLowerCase()}`;
