@@ -3,6 +3,7 @@ title: Unified Codex and OpenCode Queue - Plan
 type: feat
 date: 2026-09-17
 deepened: 2026-09-17
+scope_amended: 2026-09-18
 artifact_contract: ce-unified-plan/v1
 artifact_readiness: implementation-ready
 product_contract_source: ce-plan-bootstrap
@@ -10,6 +11,37 @@ execution: code
 ---
 
 # Unified Codex and OpenCode Queue - Plan
+
+## 2026-09-18 scope amendment (authoritative)
+
+The maintainer confirmed that the release needs only the currently characterized
+macOS setup: OpenCode Desktop `2.0.5`, its managed local `sidecar`, and saved SSH
+connections. This amendment supersedes every broader requirement below. The
+original plan is retained after this section as historical design material for a
+possible future expansion; it is not a release gate for the scoped work.
+
+The operative scope is:
+
+- keep the six Agent actions and add global `Codex`, `OpenCode`, and `Both`
+  selection;
+- force the existing Active queue for `OpenCode` and `Both`, with one neutral
+  ranking and content-free `OpenCode N` labels;
+- collect the local sidecar and saved SSH connections independently, without
+  launching a stopped local or remote service;
+- start the collector only while local settings select `OpenCode` or `Both`, and
+  tear down all SSH process groups when demand ends;
+- read macOS quota windows only from a fresh CodexBar widget snapshot; retain the
+  existing Windows usage and reset behavior;
+- preserve all existing Windows-only, macOS-only, Codex relay, and iOS behavior.
+
+Explicitly excluded from this release are WSL, saved HTTP connections, renderer
+SQLite/WAL, native SQLite dependencies, OpenCode relay extensions, Windows
+OpenCode collection, helper/cache ownership, and iOS OpenCode display. Therefore
+the earlier U1 SQLite/WSL `no-go` receipt no longer blocks this scoped
+implementation. These exclusions must fail closed rather than silently falling
+back to process memory, Chromium storage, logs, hotkeys, or task databases.
+
+## Original broad plan (non-operative after the amendment)
 
 ## Goal Capsule
 

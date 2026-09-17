@@ -19,4 +19,6 @@ Codex Deck starts Codex with a Chrome DevTools endpoint bound to `127.0.0.1`. Th
 
 The optional multi-host relay is a separate authenticated, typed protocol. Use only its loopback SSH tunnel or an explicit Tailscale address. Nearby iPhone pairing exposes only that authenticated relay over pinned TLS on one explicit RFC 1918 LAN address; it never exposes the Chrome DevTools endpoint. Never forward CDP, use wildcard/public listeners, commit relay state, or share pairing tokens in commands, issues, logs, or screenshots.
 
+OpenCode monitoring is opt-in. The characterized macOS integration accepts only a descriptor-checked local loopback service and saved SSH connections that authenticate non-interactively through the user's existing SSH configuration. It must not expose endpoints or credentials, start a stopped service or WSL distribution, open OpenCode SQLite, read process/Chromium state, or project task titles, messages, locations, permission/form contents, costs, or token counts outside the adapter.
+
 Release artifacts are audited for private runtime state, known personal setup markers, and protected Codex keycap SVG files. This reduces accidental packaging risk but does not replace review.

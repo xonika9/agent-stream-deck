@@ -73,7 +73,7 @@ In Windows + Mac mode, choose the same agent-source mode in both Codex apps when
 
 ## Features
 
-- Six dynamic agent keys using the source and assignments selected in **Codex Settings > Codex Micro**.
+- Six dynamic agent keys with a global **Codex**, **OpenCode**, or **Both** task source.
 - Optional global **Active queue** for all six Agent actions on one computer; it is off by default.
 - Live idle, working, unread completion, approval/input, error, and empty states.
 - Codex-aligned light and dark rendering with restrained status animation.
@@ -98,6 +98,8 @@ Codex Deck derives that working-order signal only from the type, timestamp, and 
 If the renderer's full catalog is temporarily unavailable or incompatible, Active queue fails closed to the existing six native Micro slots without taking the normal snapshot offline. A healthy black position is unassigned and does nothing when pressed. Connecting, degraded, and offline diagnostics remain visible.
 
 On a profile with N Agent buttons, place logical **Agent 1** through **Agent N** next to each other in order. Idle chats cannot be opened from those buttons while the queue is enabled. Pinned and unpinned tasks participate in the full native catalog; **custom** deliberately keeps only its six configured candidates, and the queue may still compact the relevant ones. Disable Active queue to restore the exact existing single-host or multi-host agent-source layout.
+
+Selecting **OpenCode** or **Both** forces Active queue while preserving the saved Codex-only preference. The characterized OpenCode path covers OpenCode Desktop `2.0.5` on macOS: its managed local service and saved non-interactive SSH connections. Tasks use content-free `OpenCode N` labels; raw titles, locations, messages, connection targets, and credentials never enter rendering or logs. Pressing an OpenCode key only brings OpenCode Desktop forward. WSL and saved HTTP connections are not part of this first integration.
 
 ## Recommended 15-key layout
 
@@ -129,7 +131,7 @@ The page-navigation and profile-switch keys are built-in Stream Deck actions. Al
 
 ![Usage limit, overview, and reset-credit controls](docs/assets/usage-controls-preview.svg)
 
-Add **Usage Limit** for the existing circular capacity display. Its Stream Deck property inspector can pin the key to **5 hours** or **Weekly**, while **Automatic** prefers 5 hours and falls back to weekly whenever Codex temporarily omits the shorter window. **Usage Overview** shows both windows as separate horizontal bars; a missing window stays visible as unavailable instead of being mistaken for zero capacity.
+Add **Usage Limit** for the existing circular capacity display. Its Stream Deck property inspector can pin the key to **5 hours** or **Weekly**, while **Automatic** prefers 5 hours and falls back to weekly whenever the shorter window is unavailable. **Usage Overview** shows both windows as separate horizontal bars; a missing window stays visible as unavailable instead of being mistaken for zero capacity. On macOS, quota windows come from a fresh CodexBar widget snapshot and remain available while Codex Desktop is closed. Windows retains its existing Codex Desktop usage source.
 
 **Rate Limit Reset** shows the number of credits Codex currently reports. The count remains centered inside the reset arrow and the action is dimmed only when no credit is available. Consuming a credit requires holding the key for 1.2 seconds; a short tap does nothing, and Codex's current applicability check still has to pass. This action uses Codex's current native usage client and is therefore subject to the same undocumented compatibility boundary as the Micro bridge.
 
@@ -172,6 +174,7 @@ No virtual HID driver is installed and no Codex application file is patched. See
 - CDP is privileged: another untrusted process running as the same local user could try to access it.
 - Codex Deck has no telemetry, cloud service, or update service.
 - Codex Deck reads exact local rollout filenames for ownership and a bounded recent tail for structural status tags plus numeric `token_count` fields. It does not parse or relay prompts, responses, project names, or other conversation content.
+- OpenCode monitoring is off in the default Codex mode. When selected, the characterized macOS collector reads only user-owned service/SSH registration data and bounded API projections; it never opens OpenCode SQLite, starts WSL, or publishes task content.
 - Optional SVGs stay in the user-local icons directory and are never uploaded.
 - Multi-host mode accepts only authenticated, typed Codex Deck commands over SSH or Tailscale; wildcard and arbitrary public-IP listeners are rejected.
 - Private relay tokens, local host state, logs, and personal paths are excluded by the release audit.
@@ -181,6 +184,8 @@ Do not use the launcher while running untrusted local software. See [SECURITY.md
 ## Compatibility
 
 Compatibility is versioned with each release because Codex Deck depends on undocumented Codex desktop internals. After the first xonika9 release, consult the notes and validation evidence on the [releases page](https://github.com/xonika9/codex-stream-deck/releases) for the tested combinations.
+
+OpenCode compatibility is intentionally narrower than Codex compatibility; see [OpenCode compatibility](docs/OPENCODE_COMPATIBILITY.md).
 
 The last upstream validation covered the Windows physical-device path and the Windows + Mac relay on a real setup. It also covered the macOS launcher, watcher, native bridge, and plugin package, but not a Stream Deck physically attached to the Mac. Treat those results as historical validation evidence, not as strict minimums, maximums, or a guarantee for later Codex builds.
 
