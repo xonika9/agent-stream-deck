@@ -62,7 +62,10 @@ For the characterized macOS OpenCode setup, the plugin starts a separate
 collector only when the global Agent source is `OpenCode` or `Both`. It discovers
 the managed local service from its user-owned loopback registration and saved SSH
 connections from `opencode.settings`. SSH uses non-interactive authentication and
-a temporary loopback forward. The adapter publishes only opaque identities,
+a temporary loopback forward. If a CLI-managed remote service has no registration
+file, bounded `opencode pair` and authenticated `opencode api` output supply the
+same private registration inside the adapter. Compatibility is decided from the
+authenticated identity and bounded API shapes rather than an exact version. The adapter publishes only opaque identities,
 content-free labels, normalized state, and bounded timestamps. It does not open
 OpenCode SQLite, invoke WSL, launch a stopped service, or expose connection and
 task content.
@@ -83,8 +86,11 @@ The global task-source selector runs before this projection. `Codex` preserves
 the saved Active queue preference; `OpenCode` and `Both` force the projection
 without overwriting that preference. OpenCode candidates use the same
 attention/completion/working groups but keep case-sensitive opaque identities
-and never receive a context ring. An OpenCode key-down only foregrounds OpenCode
-Desktop; key-up is intentionally a no-op.
+and never receive a context ring. An OpenCode key-down foregrounds OpenCode
+Desktop and acknowledges the exact currently displayed terminal revision in the
+collector's process-local state; key-up is intentionally a no-op. A later
+terminal timestamp clears that acknowledgement and becomes visible again. No
+viewed state is written to OpenCode or a relay.
 
 The projection drops `idle`, `off`, and unknown states, then compacts candidates
 into display positions zero through five. Attention and error states sort first;
@@ -125,7 +131,7 @@ projection does not change owner routing, the loopback-only CDP endpoint,
 independent Windows-only or macOS-only operation, optional multi-host operation,
 or the privacy boundaries below.
 
-Usage data remains account-scoped and therefore does not follow the Mac/Windows function-key target. On macOS, quota windows come from the newest valid CodexBar `widget-snapshot.json` Codex entry and expire after five minutes; this path does not start or attach Codex Desktop and does not fall back to renderer quota from another host. Reset-credit counters may still be overlaid from an already-attached local Codex bridge. Windows retains the renderer-owned usage query and its existing fallback behavior. Window identity is derived from duration rather than primary/secondary ordering. A missing 5-hour window is unavailable, and Automatic mode falls back to weekly.
+Usage data remains account-scoped and therefore does not follow the Mac/Windows function-key target. On macOS, quota windows come from the newest valid CodexBar `widget-snapshot.json` Codex entry and expire after five minutes; this path does not start or attach Codex Desktop and does not fall back to renderer quota from another host. Reset-credit counters may still be overlaid from an already-attached local Codex bridge. Windows retains the renderer-owned usage query and its existing fallback behavior. Window identity is derived from duration rather than primary/secondary ordering. A missing 5-hour window is unavailable, and Automatic mode falls back to weekly. Usage controls display and fill the consumed percentage while retaining warning colors derived from remaining capacity.
 
 Reset consumption is the only mutating usage operation. It is a narrow typed relay command and calls Codex's current native reset-credit client only after the Stream Deck key has been held for 1.2 seconds. The bridge verifies both availability and applicability, selects an available plan-supported credit, uses a unique redemption request ID, and then refreshes the renderer query. No credential, raw endpoint access, or arbitrary request surface is exposed to the relay.
 
@@ -231,9 +237,11 @@ CDP provides privileged access to the Codex renderer. Binding to `127.0.0.1` pre
 In desktop-only single-host mode Codex Deck has no server, API key, analytics
 endpoint, or update service. Runtime data stays between Stream Deck, the local
 plugin process, the local Codex renderer, and explicitly selected local OpenCode
-transports. OpenCode endpoints, SSH targets, credentials, task titles, messages,
-locations, and permission/form content remain inside the adapter and are not
-logged or rendered. Optional iPhone Nearby pairing
+transports. OpenCode endpoints, SSH targets, credentials, messages, locations,
+and permission/form content remain inside the adapter and are not logged or
+rendered. A bounded, sanitized OpenCode task title may flow only into the
+same-process local Stream Deck renderer; it is excluded from logs and every
+relay. Optional iPhone Nearby pairing
 adds only the authenticated pinned-TLS relay on one explicit private LAN
 address; Chrome DevTools remains on loopback. Optional multi-host mode adds one
 user-configured Mac listener reachable through SSH or inside the encrypted

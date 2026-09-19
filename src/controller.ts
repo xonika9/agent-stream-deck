@@ -49,11 +49,16 @@ export type AgentDisplaySettings = {
   taskSource?: TaskSource;
 };
 
+type DeckControllerDependencies = {
+  foregroundOpenCode: () => Promise<void>;
+};
+
 const USER_ICON_ROOT = join(codexDeckStateRoot(), "icons");
 const LOCAL_MOBILE_CONFIG = "mobile-local-relay-server.json";
 const RESET_HOLD_MS = 1_200;
 
 export class DeckController {
+  private readonly foregroundOpenCodeAction: () => Promise<void>;
   private readonly microBridge = new CodexMicroRendererBridge((message) => streamDeck.logger.info(message));
   private readonly agents = new Map<string, AgentRegistration>();
   private readonly microActions = new Map<string, MicroActionRegistration>();
@@ -98,6 +103,10 @@ export class DeckController {
   private showContextRings = true;
   private activeQueueEnabled = false;
   private taskSource: TaskSource = "Codex";
+
+  constructor(dependencies: Partial<DeckControllerDependencies> = {}) {
+    this.foregroundOpenCodeAction = dependencies.foregroundOpenCode ?? foregroundOpenCode;
+  }
 
   async start(): Promise<void> {
     this.stopped = false;
@@ -359,7 +368,16 @@ export class DeckController {
     if (assignment.taskSource === "opencode") {
       if (act === 1) this.pressedAgents.set(slot, assignment);
       else this.pressedAgents.delete(slot);
-      if (act === 1) await foregroundOpenCode();
+      if (act === 1) {
+        await this.foregroundOpenCodeAction();
+        const separator = assignment.threadKey?.indexOf("\0") ?? -1;
+        const collector = this.openCodeCollector;
+        if (collector && separator > 0 && assignment.threadKey &&
+          collector.acknowledgeTask(
+            assignment.threadKey.slice(0, separator),
+            assignment.threadKey.slice(separator + 1)
+          )) await this.refreshDisplay();
+      }
       return;
     }
     if (act === 1) this.pressedAgents.set(slot, assignment);
@@ -499,7 +517,7 @@ export class DeckController {
       host: this.localHost!,
       threadKey: `${task.connectionId}\0${task.sessionId}`,
       conversationId: `${task.connectionId}\0${task.sessionId}`,
-      title: task.label,
+      title: task.displayTitle ?? task.label,
       status: task.status,
       selected: false,
       activityAt: task.terminalAt ?? task.workStartedAt,
@@ -593,7 +611,7 @@ export class DeckController {
         : health.state === "connecting" ? "Connecting" : "Not assigned";
     const title = agent?.title ?? (agent?.threadKey && health.state === "ready" ? "New chat" : unavailableTitle);
     const status = agent ? visualStatusFromMicro(agent.status) : "empty";
-    const theme = this.targetSnapshot()?.theme ?? this.localSnapshot?.snapshot.theme ?? "dark";
+    const theme = this.targetSnapshot()?.theme ?? this.localSnapshot?.snapshot.theme ?? "light";
     const hostBadge = agent?.taskSource === "opencode" ? "O"
       : agent && this.relayClient ? (agent.host.platform === "darwin" ? "M" : "W") : undefined;
     await this.setImage(action, renderAgentKey(

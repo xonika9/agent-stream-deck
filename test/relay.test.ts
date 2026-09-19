@@ -1556,6 +1556,107 @@ test("active queue settings default off and a change immediately reprojects regi
   assert.ok(images.length >= 2, "global option change rerenders registered Agent actions");
 });
 
+test("OpenCode task titles render locally and fall back to their content-free alias", async () => {
+  const controller = new DeckController();
+  const images: string[] = [];
+  const internal = controller as unknown as {
+    localHost?: CodexHost;
+    targetHostId?: string;
+    targetPlatform: CodexHost["platform"];
+    openCodeHealth: { state: "ready" };
+    routedSlots: RoutedAgentSlot[];
+    openCodeSlot: (task: {
+      source: "opencode";
+      connectionId: string;
+      sessionId: string;
+      label: string;
+      displayTitle?: string;
+      status: "working";
+    }, sourceSlot: number, observedAt: number) => RoutedAgentSlot;
+    renderAgent: (registration: { action: unknown; slot: number }) => Promise<void>;
+  };
+  internal.localHost = host;
+  internal.targetHostId = host.hostId;
+  internal.targetPlatform = host.platform;
+  internal.openCodeHealth = { state: "ready" };
+  const task: Parameters<typeof internal.openCodeSlot>[0] = {
+    source: "opencode" as const,
+    connectionId: "opaque-connection",
+    sessionId: "opaque-session",
+    label: "OpenCode 7",
+    displayTitle: "Live chat",
+    status: "working" as const
+  };
+  internal.routedSlots = [internal.openCodeSlot(task, 0, Date.now())];
+  const action = {
+    id: "opencode-title", setImage: async (image: string) => { images.push(image); }, setTitle: async () => {}
+  };
+
+  await internal.renderAgent({ action, slot: 0 });
+  const titled = decodeURIComponent(images.at(-1)!);
+  assert.match(titled, /Live chat/);
+  assert.match(titled, /data-agent-host="O"/);
+  assert.match(titled, /data-theme="light"/);
+
+  delete task.displayTitle;
+  internal.routedSlots = [internal.openCodeSlot(task, 0, Date.now())];
+  action.id = "opencode-alias";
+  await internal.renderAgent({ action, slot: 0 });
+  assert.match(decodeURIComponent(images.at(-1)!), /OpenCode 7/);
+});
+
+test("pressing a terminal OpenCode task acknowledges that result after foregrounding", async () => {
+  const foregrounded: string[] = [];
+  const acknowledged: string[] = [];
+  const controller = new DeckController({
+    foregroundOpenCode: async () => { foregrounded.push("foregrounded"); }
+  });
+  const internal = controller as unknown as {
+    activeQueueEnabled: boolean;
+    localHost?: CodexHost;
+    targetHostId?: string;
+    targetPlatform: CodexHost["platform"];
+    openCodeHealth: { state: "ready" };
+    openCodeCollector?: {
+      acknowledgeTask: (connectionId: string, sessionId: string) => boolean;
+      snapshot: () => { version: 1; observedAt: number; connections: [] };
+    };
+    routedSlots: RoutedAgentSlot[];
+  };
+  internal.activeQueueEnabled = true;
+  internal.localHost = host;
+  internal.targetHostId = host.hostId;
+  internal.targetPlatform = host.platform;
+  internal.openCodeHealth = { state: "ready" };
+  internal.openCodeCollector = {
+    acknowledgeTask(connectionId, sessionId) {
+      acknowledged.push(`${connectionId}:${sessionId}`);
+      return true;
+    },
+    snapshot: () => ({ version: 1, observedAt: Date.now(), connections: [] })
+  };
+  internal.routedSlots = [{
+    id: 0,
+    sourceSlot: 0,
+    catalogIndex: 0,
+    taskSource: "opencode",
+    host,
+    threadKey: "opaque-connection\0opaque-session",
+    conversationId: "opaque-connection\0opaque-session",
+    title: "Finished task",
+    status: "complete",
+    selected: false,
+    activityAt: Date.now(),
+    observedAt: Date.now()
+  }];
+
+  await controller.sendAgent(0, 1);
+
+  assert.deepEqual(foregrounded, ["foregrounded"]);
+  assert.deepEqual(acknowledged, ["opaque-connection:opaque-session"]);
+  assert.deepEqual(internal.routedSlots, []);
+});
+
 test("controller startup settings load defaults active queue off and restores persisted true", async () => {
   const settingsApi = streamDeck.settings as unknown as {
     getGlobalSettings: () => Promise<{ activeQueueEnabled?: boolean }>;

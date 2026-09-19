@@ -15,7 +15,7 @@ execution: code
 ## 2026-09-18 scope amendment (authoritative)
 
 The maintainer confirmed that the release needs only the currently characterized
-macOS setup: OpenCode Desktop `2.0.5`, its managed local `sidecar`, and saved SSH
+macOS setup: OpenCode Desktop validated against `2.0.5`, its managed local `sidecar`, and saved SSH
 connections. This amendment supersedes every broader requirement below. The
 original plan is retained after this section as historical design material for a
 possible future expansion; it is not a release gate for the scoped work.
@@ -25,9 +25,13 @@ The operative scope is:
 - keep the six Agent actions and add global `Codex`, `OpenCode`, and `Both`
   selection;
 - force the existing Active queue for `OpenCode` and `Both`, with one neutral
-  ranking and content-free `OpenCode N` labels;
+  ranking, bounded local task titles, and content-free `OpenCode N` fallback
+  labels; titles stay out of logs and relays;
 - collect the local sidecar and saved SSH connections independently, without
   launching a stopped local or remote service;
+- decide compatibility from protected registration, authenticated identity, and
+  bounded API capabilities rather than pinning every connection to one patch
+  version;
 - start the collector only while local settings select `OpenCode` or `Both`, and
   tear down all SSH process groups when demand ends;
 - read macOS quota windows only from a fresh CodexBar widget snapshot; retain the
@@ -70,7 +74,7 @@ On macOS, usage windows come only from Codex Bar's `widget-snapshot.json`. Missi
 - **R2:** Apply the selected source to all existing Agent actions without imposing a four-button limit; the implementation continues to support all six action identifiers even when the current layout contains four.
 - **R3:** `OpenCode` and `Both` always use the Active queue because OpenCode has no fixed native-slot equivalent. Preserve the user's stored Active queue preference and restore it when the source returns to `Codex`.
 - **R4:** Rank both sources in one queue: attention or error first, completed and unread second, working third. Hide idle tasks and render unused healthy positions black.
-- **R5:** Keep a successful or failed terminal task until its source reports it viewed or five minutes have elapsed on the collector's local clock since the normalized terminal event. Bind the deadline to the execution revision so refresh, reconnect, cache replay, or remote clock skew cannot extend it. An unresolved permission or form remains attention-worthy without that timeout.
+- **R5:** Keep a successful or failed terminal task until its source reports it viewed, its displayed Stream Deck key is pressed, or five minutes have elapsed on the collector's local clock since the normalized terminal event. A key press acknowledges only the current terminal revision in process-local memory; a later terminal timestamp for the same identity is eligible again. Bind the deadline and acknowledgement to the execution revision so refresh, reconnect, cache replay, or remote clock skew cannot extend or incorrectly suppress it. An unresolved permission or form remains attention-worthy without that timeout.
 - **R6:** Move a working task only after a new trusted user-started root execution. Opening, selecting, refreshing, reconnecting, child execution, background execution, or a generic status change must not reorder it.
 - **R7:** Apply the six-position projection only after source filtering, cross-host merging, source-neutral ranking, and per-source freshness checks.
 
@@ -114,7 +118,7 @@ On macOS, usage windows come only from Codex Bar's `widget-snapshot.json`. Missi
 - **A2 — Mixed queue:** With one Codex approval, one OpenCode error, one Codex completion, one OpenCode completion, and two working tasks, all six positions follow the common priority and stable-working rules without source preference.
 - **A3 — Partial failure:** Saved SSH is unavailable while sidecar and saved HTTP are healthy; their tasks remain visible, SSH retains independent degraded health, and no global empty state appears.
 - **A4 — Identity isolation:** Two connections report the same `sessionId`; they remain separate assignments and activation still targets their owning host.
-- **A5 — Terminal retention:** An OpenCode run completes. It disappears immediately when `viewed >= idle`, otherwise at the five-minute boundary, and reconnecting does not extend the boundary.
+- **A5 — Terminal retention:** An OpenCode run completes. It disappears immediately when `viewed >= idle`, when its Stream Deck key acknowledges that terminal revision, or otherwise at the five-minute boundary. Reconnecting does not extend the boundary, and a later completion remains eligible.
 - **A6 — Stable work order:** A child run and ordinary session update do not move a working root task. A later trusted root `session.execution.started` event does.
 - **A7 — Foreground only:** Pressing an OpenCode assignment brings the owning Desktop app forward or starts it; no API mutation, form response, permission reply, TUI, or session route is invoked.
 - **A8 — macOS without Codex:** Codex Desktop is stopped, Codex Bar has a fresh snapshot, and usage renders while demanded OpenCode collection and relay remain operational.
@@ -164,7 +168,7 @@ On macOS, usage windows come only from Codex Bar's `widget-snapshot.json`. Missi
 ## Assumptions
 
 - The currently saved SSH connection can authenticate non-interactively through the user's existing SSH configuration or can be reached through a supported OpenCode Desktop broker. U1 must validate this assumption before the release proceeds; failure records `no-go` and stops the release.
-- OpenCode errors use the same viewed-or-five-minute retention rule as successful completions.
+- OpenCode errors use the same viewed, locally acknowledged, or five-minute retention rule as successful completions.
 - The macOS Codex Bar freshness window is five minutes, which tolerates the selected two-minute refresh cadence while failing visibly after missed refreshes. Make the constant named and fixture-tested rather than user-configurable in this release.
 - The OpenCode connection label is optional display metadata only; task identity and queue rank never depend on it.
 - OpenCode monitoring is opt-in through local source selection or an explicitly OpenCode-authorized relay subscription; a default `Codex` upgrade with no subscribed peer opens no OpenCode database, HTTP, SSH, or WSL transport.
@@ -265,8 +269,8 @@ flowchart TD
   Pending -->|no| Active{Root execution active?}
   Active -->|yes| Working[Working]
   Active -->|no| Outcome{Last terminal outcome}
-  Outcome -->|failed| Error[Error until viewed or five minutes]
-  Outcome -->|succeeded| Complete[Complete until viewed or five minutes]
+  Outcome -->|failed| Error[Error until viewed, acknowledged, or five minutes]
+  Outcome -->|succeeded| Complete[Complete until viewed, acknowledged, or five minutes]
   Outcome -->|none or shutdown interruption| Idle[Hidden idle]
   Attention --> Resolve[Pending item resolves]
   Resolve --> Snapshot
@@ -393,7 +397,7 @@ flowchart LR
 - Add a separate source snapshot with host/source kind, generation, reconciliation timestamps, health/error code, bounds metadata, and tasks. Pass a separate health map to the queue projector.
 - Adapt resolved Codex candidates after existing mirror/ownership logic; do not alter native fixed-slot behavior when source is `Codex` and Active queue is off.
 - Remove status-transition inferred promotion from working rank. Seed cold-start tasks in stable first-observed order and promote only a newer trusted root-start revision.
-- Project completion and error expiry directly from terminal/viewed timestamps rather than extending it on refresh.
+- Project completion and error expiry from terminal/viewed timestamps plus revision-bound local key acknowledgement rather than extending it on refresh.
 - Define independent health aggregation and healthy-black versus all-selected-sources-degraded behavior.
 
 **Execution note:** Preserve the prior Active queue tests as characterization before changing the common projector.
@@ -404,7 +408,7 @@ flowchart LR
 - Keep equal OpenCode session IDs from two connections distinct and preserve case in opaque IDs.
 - Keep KTD13-derived connection IDs stable across restart and distinct across raw Desktop keys without exposing those keys.
 - Hold working positions through refresh, selection, child activity, reconnect, and status-only transitions; promote only a newer root-start revision.
-- Hide viewed and expired terminal tasks at exact boundaries and retain unresolved attention indefinitely.
+- Hide viewed, locally acknowledged, and expired terminal tasks at exact boundaries and retain unresolved attention indefinitely.
 - Apply source filtering before the six-item slice and support 1, 4, and 6 Agent actions with black healthy gaps.
 - Keep healthy source tasks visible when another source or connection is degraded; show degradation only when every selected source is unavailable.
 - Seed an OpenCode title with credential and path canaries; only the non-content label may reach rendering, cache, relay, logs, or artifacts.
@@ -558,7 +562,7 @@ flowchart LR
 
 **Work:**
 
-- Document `Codex`, `OpenCode`, and `Both`, forced queue behavior, foreground-only activation, source markers, viewed/expiry semantics, and six-button support.
+- Document `Codex`, `OpenCode`, and `Both`, forced queue behavior, foreground activation with local terminal acknowledgement, source markers, viewed/expiry semantics, and six-button support.
 - Document supported OpenCode Desktop profiles and the diagnostic behavior for unknown-but-shape-compatible versions versus incompatible shapes, interactive-only SSH auth, stopped WSL, missing Desktop, and partial connection failure.
 - Update architecture and security boundaries for the private registry adapters, collector cache, relay extension, and strict secret exclusions.
 - Document the threat model, saved-HTTP transport policy, generic OpenCode labels, native-addon provenance, helper process ownership, and explicit SSH/WSL no-go conditions.
@@ -569,7 +573,7 @@ flowchart LR
 
 **Test scenarios:**
 
-- Documentation assertions find the default source, all three modes, foreground-only limitation, no-permission-actions statement, and Codex Bar dependency.
+- Documentation assertions find the default source, all three modes, foreground-plus-local-acknowledgement limitation, no-permission-actions statement, and Codex Bar dependency.
 - Security docs prohibit endpoint/credential relay and retain the loopback-only Codex DevTools rule.
 - Platform docs separately describe Windows-only, macOS-only without Codex Desktop, and optional relay setup.
 - Compatibility notes name characterized OpenCode versions, explain `uncharacterized-compatible`, and do not promise support for uncharacterized shapes.
@@ -726,7 +730,7 @@ On Windows and multi-host environments, when available:
 - A default `Codex` upgrade with no OpenCode-authorized relay subscriber opens no OpenCode store or network transport; source monitoring starts and stops with explicit local or subscribed demand.
 - All configured Agent actions, up to six, share one source-neutral queue with the agreed priority, terminal retention, stable working order, and black empty positions.
 - Every supported OpenCode Desktop connection has stable `(host, connection, session)` identity, independent source health, reconciliation, pre-parse bounds, non-content labels, and secret-free output.
-- OpenCode key-down only foregrounds or launches Desktop on the owning host; exact navigation and all task mutations are absent.
+- OpenCode key-down foregrounds or launches Desktop on the owning host and may acknowledge the displayed terminal revision only in collector memory; exact navigation and all OpenCode task mutations are absent.
 - macOS quota windows come only from a fresh Codex Bar snapshot and remain available with Codex Desktop stopped; legacy Windows/iOS clients receive them through `MicroSnapshot.usage`. Reset-credit counters come only from an already-attached bridge, never launch Codex, and Windows reset behavior remains unchanged.
 - Relay protocol 1 remains backward compatible, keeps existing tokens Codex-only until explicit reauthorization and rotation, never reports placeholder Codex as healthy to old clients, publishes OpenCode and usage independently of Codex health, stays within 64 KiB, and does not transmit connection or credential material.
 - Old iOS decoding and current Codex mobile behavior remain intact.

@@ -16,7 +16,7 @@ const MAX_CONNECTIONS = 17;
 const MAX_SSH_SERVERS = 16;
 const FETCH_TIMEOUT_MS = 5_000;
 const TERMINAL_RETENTION_MS = 5 * 60_000;
-const POLL_INTERVAL_MS = 2 * 60_000;
+const POLL_INTERVAL_MS = 5_000;
 const ID_PATTERN = /^[A-Za-z0-9._:-]{1,256}$/u;
 const SSH_EXECUTABLE = "/usr/bin/ssh";
 
@@ -27,6 +27,8 @@ export type OpenCodeTask = {
   connectionId: string;
   sessionId: string;
   label: string;
+  /** Bounded title for this process's local Stream Deck renderer only. */
+  displayTitle?: string;
   status: OpenCodeTaskStatus;
   workStartedAt?: number;
   workStartRevision?: number;
@@ -76,12 +78,13 @@ export interface OpenCodeCollectorDependencies {
   terminateProcessGroup(process: OpenCodeProcess): Promise<void>;
 }
 
-type Registration = { id?: string; url: string; password: string; version: "2.0.5"; pid: number };
+type Registration = { id?: string; url: string; password: string; version: string; pid: number };
 type SshServer = { id: string; target: string; name: string };
 type Connection = {
   connectionId: string;
   endpoint: string;
   password: string;
+  version: string;
   pid: number;
   authenticationProbed?: boolean;
   tunnel?: OpenCodeProcess;
@@ -89,10 +92,11 @@ type Connection = {
 type RawSession = {
   id: string;
   parentID?: string;
+  displayTitle?: string;
   outcome?: "succeeded" | "failed" | "interrupted";
   time: { created: number; updated: number; idle?: number; viewed?: number };
 };
-type TerminalBinding = { sourceAt: number; localAt: number; lastSeenAt: number };
+type TerminalBinding = { sourceAt: number; localAt: number; lastSeenAt: number; acknowledged: boolean };
 type LabelBinding = { ordinal: number; lastSeenAt: number };
 
 const REMOTE_DISCOVERY_SCRIPT = String.raw`set -eu
@@ -102,7 +106,7 @@ status=$("$cli" service status 2>/dev/null || true)
 [ "$status" != stopped ] || exit 0
 printf 'OPENCODE_SERVICE_STATUS=%s\n' "$status"
 platform=$(uname -s 2>/dev/null || true)
-for file in "\${XDG_STATE_HOME:-$HOME/.local/state}"/opencode/service*.json; do
+for file in "${"$"}{XDG_STATE_HOME:-$HOME/.local/state}"/opencode/service*.json; do
   [ -f "$file" ] || continue
   [ ! -L "$file" ] || continue
   size=$(wc -c < "$file" | tr -d ' ')
@@ -117,6 +121,11 @@ for file in "\${XDG_STATE_HOME:-$HOME/.local/state}"/opencode/service*.json; do
   cat "$file"
   printf '\nOPENCODE_REGISTRATION_END\n'
 done
+printf 'OPENCODE_PAIR_BEGIN\n'
+"$cli" pair 2>/dev/null || true
+printf '\nOPENCODE_PAIR_END\nOPENCODE_PAIR_STATUS_BEGIN\n'
+"$cli" api GET /api/status 2>/dev/null || true
+printf '\nOPENCODE_PAIR_STATUS_END\n'
 `;
 
 function defaultDependencies(): OpenCodeCollectorDependencies {
@@ -180,6 +189,26 @@ export class OpenCodeCollector {
 
   snapshot(): OpenCodeCollectorSnapshot {
     return this.current;
+  }
+
+  acknowledgeTask(connectionId: string, sessionId: string): boolean {
+    const task = this.current.connections
+      .flatMap((connection) => connection.tasks)
+      .find((candidate) => candidate.connectionId === connectionId && candidate.sessionId === sessionId &&
+        (candidate.status === "complete" || candidate.status === "error"));
+    if (!task) return false;
+    const binding = this.terminalBindings.get(taskIdentity(connectionId, sessionId));
+    if (!binding || binding.acknowledged) return false;
+    binding.acknowledged = true;
+    this.current = {
+      ...this.current,
+      connections: this.current.connections.map((connection) => ({
+        ...connection,
+        tasks: connection.tasks.filter((candidate) =>
+          candidate.connectionId !== connectionId || candidate.sessionId !== sessionId)
+      }))
+    };
+    return true;
   }
 
   async stop(): Promise<void> {
@@ -246,6 +275,7 @@ export class OpenCodeCollector {
           connectionId: this.opaqueId(`local\0${registration.id ?? name}`),
           endpoint: registration.url,
           password: registration.password,
+          version: registration.version,
           pid: registration.pid
         });
       } catch {
@@ -330,7 +360,6 @@ export class OpenCodeCollector {
     const tunnel = await this.deps.spawn(SSH_EXECUTABLE, [
       ...common,
       "-o", "ExitOnForwardFailure=yes",
-      "-o", "ClearAllForwardings=yes",
       "-o", "ControlMaster=no",
       "-o", "ControlPath=none",
       "-L", forward,
@@ -342,7 +371,15 @@ export class OpenCodeCollector {
       const endpoint = `http://127.0.0.1:${localPort}`;
       const unauthenticated = await this.fetchResponse(endpoint, "/api/status", undefined, 16 * 1024);
       if (unauthenticated.status !== 401 && unauthenticated.status !== 403) throw new Error("ssh-auth-boundary");
-      return { connectionId, endpoint, password: registration.password, pid: registration.pid, authenticationProbed: true, tunnel };
+      return {
+        connectionId,
+        endpoint,
+        password: registration.password,
+        version: registration.version,
+        pid: registration.pid,
+        authenticationProbed: true,
+        tunnel
+      };
     } catch (error) {
       await this.terminateChild(tunnel);
       throw error;
@@ -358,7 +395,7 @@ export class OpenCodeCollector {
       connection.authenticationProbed = true;
     }
     const status = await this.fetchJson(connection, "/api/status", 16 * 1024);
-    if (!isRecord(status) || status.version !== "2.0.5" || status.pid !== connection.pid) {
+    if (!isRecord(status) || status.version !== connection.version || status.pid !== connection.pid) {
       return { ...unavailable(connection.connectionId, now), health: "incompatible" };
     }
     const [activeRaw, permissionRaw, formRaw, rootsRaw] = await Promise.all([
@@ -425,9 +462,10 @@ export class OpenCodeCollector {
         if (root.time.viewed !== undefined && root.time.viewed >= sourceAt) continue;
         let binding = this.terminalBindings.get(identity);
         if (!binding || binding.sourceAt !== sourceAt) {
-          binding = { sourceAt, localAt: normalizeTime(sourceAt, now), lastSeenAt: now };
+          binding = { sourceAt, localAt: normalizeTime(sourceAt, now), lastSeenAt: now, acknowledged: false };
           this.terminalBindings.set(identity, binding);
         } else binding.lastSeenAt = now;
+        if (binding.acknowledged) continue;
         if (now - binding.localAt >= TERMINAL_RETENTION_MS) continue;
         task = {
           source: "opencode", connectionId: connection.connectionId, sessionId: root.id,
@@ -437,6 +475,7 @@ export class OpenCodeCollector {
         };
       }
       if (!task) continue;
+      if (root.displayTitle) task.displayTitle = root.displayTitle;
       candidates.push({ ...task, label: "" });
     }
     candidates.sort(compareTasks);
@@ -522,7 +561,8 @@ function parseRegistration(bytes: Buffer, remote = false): Registration | null {
   try { value = JSON.parse(bytes.toString("utf8")); } catch { return null; }
   if (!isRecord(value) || (value.id !== undefined && !boundedString(value.id, 256)) ||
     !boundedString(value.url, 2048) || !boundedString(value.password, 1024) || value.password.length === 0 ||
-    value.version !== "2.0.5" || !positiveInteger(value.pid)) return null;
+    !boundedString(value.version, 64) || value.version.length === 0 || /[\u0000-\u001f\u007f]/u.test(value.version) ||
+    !positiveInteger(value.pid)) return null;
   try { loopbackAddress(value.url, remote); } catch { return null; }
   return { id: value.id as string | undefined, url: value.url, password: value.password, version: value.version, pid: value.pid };
 }
@@ -537,7 +577,35 @@ function parseRemoteRegistration(output: string): Registration | null {
     const parsed = parseRegistration(Buffer.from(match[1] ?? ""), true);
     if (parsed?.url === status) return parsed;
   }
-  return null;
+  const pairOutput = remoteBlock(output, "OPENCODE_PAIR", 32 * 1024);
+  const pairStatus = remoteBlock(output, "OPENCODE_PAIR_STATUS", 65_536);
+  if (!pairOutput || !pairStatus) return null;
+  const cleanPairOutput = pairOutput.replace(/\u001b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/gu, "");
+  const pairPassword = cleanPairOutput.match(/^\s*Password\s+([A-Za-z0-9._~+/=-]{1,1024})\s*$/mu)?.[1];
+  if (!pairPassword) return null;
+  let identity: unknown;
+  try { identity = JSON.parse(pairStatus); } catch { return null; }
+  if (!isRecord(identity) || !boundedString(identity.version, 64) || identity.version.length === 0 ||
+    !positiveInteger(identity.pid)) return null;
+  return parseRegistration(Buffer.from(JSON.stringify({
+    url: status,
+    password: pairPassword,
+    version: identity.version,
+    pid: identity.pid
+  })), true);
+}
+
+function remoteBlock(output: string, name: string, maximumBytes: number): string | null {
+  const normalized = output.replace(/\r\n/gu, "\n");
+  const opening = `${name}_BEGIN\n`;
+  const closing = `\n${name}_END`;
+  const start = normalized.indexOf(opening);
+  if (start < 0 || normalized.indexOf(opening, start + opening.length) >= 0) return null;
+  const contentStart = start + opening.length;
+  const end = normalized.indexOf(closing, contentStart);
+  if (end < 0 || normalized.indexOf(closing, end + closing.length) >= 0) return null;
+  const content = normalized.slice(contentStart, end);
+  return Buffer.byteLength(content, "utf8") <= maximumBytes ? content : null;
 }
 
 function parseSshServers(bytes: Buffer): SshServer[] {
@@ -613,6 +681,7 @@ function parseSession(value: unknown): RawSession {
   return {
     id: value.id,
     parentID: value.parentID as string | undefined,
+    displayTitle: sanitizeDisplayTitle(value.title),
     outcome: value.outcome as RawSession["outcome"],
     time: {
       created: value.time.created,
@@ -621,6 +690,24 @@ function parseSession(value: unknown): RawSession {
       viewed: value.time.viewed as number | undefined
     }
   };
+}
+
+function sanitizeDisplayTitle(value: unknown): string | undefined {
+  if (typeof value !== "string") return;
+  const cleaned = value
+    .replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+  if (!cleaned) return;
+  const characters: string[] = [];
+  let bytes = 0;
+  for (const character of cleaned) {
+    const size = Buffer.byteLength(character, "utf8");
+    if (characters.length >= 120 || bytes + size > 256) break;
+    characters.push(character);
+    bytes += size;
+  }
+  return characters.join("") || undefined;
 }
 
 async function readBoundedBody(response: Response, maximumBytes: number): Promise<string> {

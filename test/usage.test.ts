@@ -95,11 +95,11 @@ test("renderer refreshes stale account usage without waiting for application foc
 
 test("single usage key preserves the circular design and centers numeric weight", () => {
   const healthy = decode(renderUsageLimitKey(fiveHour, "five-hour", "dark"));
-  assert.match(healthy, /data-usage-remaining="74"/);
-  assert.match(healthy, />74<\/text>/);
+  assert.match(healthy, /data-usage-used="26"/);
+  assert.match(healthy, />26<\/text>/);
   assert.match(healthy, /data-usage-percent="vector" transform="translate\(87 57\)"/);
   assert.match(healthy, />5H<\/text>/);
-  assert.match(healthy, /data-usage-value="74" x="65" y="80" text-anchor="middle"/);
+  assert.match(healthy, /data-usage-value="26" x="65" y="80" text-anchor="middle"/);
 
   const unavailable = decode(renderUsageLimitKey(undefined, "five-hour", "dark"));
   assert.match(unavailable, />—<\/text>/);
@@ -110,12 +110,12 @@ test("overview renders independent 5-hour and weekly progress bars", () => {
   const svg = decode(renderUsageOverviewKey([fiveHour, weekly], "dark"));
   assert.match(svg, /data-usage-window="5H"/);
   assert.match(svg, /data-usage-window="WK"/);
-  assert.match(svg, /data-usage-remaining="74"/);
-  assert.match(svg, /data-usage-remaining="12"/);
+  assert.match(svg, /data-usage-used="26"/);
+  assert.match(svg, /data-usage-used="88"/);
 
   const weeklyOnly = decode(renderUsageOverviewKey([weekly], "dark"));
   assert.match(weeklyOnly, /data-usage-window="5H"[\s\S]*>—<\/text>/);
-  assert.match(weeklyOnly, /data-usage-window="WK"[\s\S]*>12%<\/text>/);
+  assert.match(weeklyOnly, /data-usage-window="WK"[\s\S]*>88%<\/text>/);
 });
 
 test("reset key keeps the count in the fixed circle center and exposes hold progress", () => {

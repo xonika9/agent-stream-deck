@@ -23,12 +23,18 @@ function response(value: unknown, status = 200): Response {
 function session(
   id: string,
   updated: number,
-  input: { parentID?: string; outcome?: "succeeded" | "failed" | "interrupted"; idle?: number; viewed?: number } = {}
+  input: {
+    parentID?: string;
+    outcome?: "succeeded" | "failed" | "interrupted";
+    idle?: number;
+    viewed?: number;
+    title?: string;
+  } = {}
 ) {
   return {
     id,
     parentID: input.parentID,
-    title: `PRIVATE TITLE ${id}`,
+    title: input.title ?? `PRIVATE TITLE ${id}`,
     location: { directory: `/private/${id}` },
     cost: 999,
     tokens: { input: 123 },
@@ -48,6 +54,7 @@ function fixture(input: {
   const requests: Array<{ url: string; authorization?: string }> = [];
   const processes = [...(input.processes ?? [])];
   const terminated: number[] = [];
+  const intervals: number[] = [];
   const spawnCalls: Array<{ command: string; args: string[]; env: NodeJS.ProcessEnv; detached: boolean }> = [];
   const dependencies: OpenCodeCollectorDependencies = {
     homeDirectory: HOME,
@@ -55,7 +62,10 @@ function fixture(input: {
     settingsPath: SETTINGS,
     currentUid: 501,
     now: () => input.now ?? 1_000_000,
-    setInterval: () => ({}) as NodeJS.Timeout,
+    setInterval: (_callback, milliseconds) => {
+      intervals.push(milliseconds);
+      return {} as NodeJS.Timeout;
+    },
     clearInterval: () => undefined,
     files: {
       async list(path) {
@@ -89,7 +99,7 @@ function fixture(input: {
     async waitForLoopbackPort() { return input.waitForTunnel !== false; },
     async terminateProcessGroup(process) { terminated.push(process.pid); process.kill("SIGTERM"); }
   };
-  return { dependencies, requests, terminated, spawnCalls };
+  return { dependencies, requests, terminated, spawnCalls, intervals };
 }
 
 function localRegistration(extra: Record<string, unknown> = {}) {
@@ -127,13 +137,14 @@ test("discovers a descriptor-approved local registration without publishing its 
   assert.equal(JSON.stringify(snapshot).includes("4096"), false);
   assert.equal(JSON.stringify(snapshot).includes("fixture-password"), false);
   assert.ok(setup.requests.every((request) => request.authorization == null || !request.authorization.includes("fixture-password")));
+  assert.deepEqual(setup.intervals, [5_000]);
 });
 
 test("rejects unsafe, non-loopback, broad, and incompatible registrations before fetch", async () => {
   const files: Record<string, FileEntry> = {
     [`${STATE}/service.json`]: { body: localRegistration(), safe: false },
     [`${STATE}/service-bad-url.json`]: { body: localRegistration({ id: "bad-url", url: "http://example.com:4096" }) },
-    [`${STATE}/service-bad-version.json`]: { body: localRegistration({ id: "bad-version", version: "2.0.6" }) },
+    [`${STATE}/service-bad-version.json`]: { body: localRegistration({ id: "bad-version", version: "" }) },
     [`${STATE}/service-bad-pid.json`]: { body: localRegistration({ id: "bad-pid", pid: 0 }) }
   };
   const setup = fixture({ files, routes: basicRoutes() });
@@ -144,6 +155,40 @@ test("rejects unsafe, non-loopback, broad, and incompatible registrations before
 
   assert.deepEqual(snapshot.connections, []);
   assert.equal(setup.requests.length, 0);
+});
+
+test("accepts a future service version when the authenticated API capabilities still match", async () => {
+  const routes = basicRoutes();
+  routes["/api/status"] = ({ authorization }) => authorization
+    ? response({ version: "2.0.6", pid: 42 })
+    : response({}, 401);
+  const setup = fixture({
+    files: { [`${STATE}/service.json`]: { body: localRegistration({ version: "2.0.6" }) } },
+    routes
+  });
+  const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
+
+  const snapshot = await collector.start();
+  await collector.stop();
+
+  assert.equal(snapshot.connections[0]!.health, "ready");
+});
+
+test("rejects a stale registration when the authenticated service identity does not match", async () => {
+  const routes = basicRoutes();
+  routes["/api/status"] = ({ authorization }) => authorization
+    ? response({ version: "2.0.7", pid: 42 })
+    : response({}, 401);
+  const setup = fixture({
+    files: { [`${STATE}/service.json`]: { body: localRegistration({ version: "2.0.6" }) } },
+    routes
+  });
+  const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
+
+  const snapshot = await collector.start();
+  await collector.stop();
+
+  assert.equal(snapshot.connections[0]!.health, "incompatible");
 });
 
 test("does not send a local service credential before the authentication boundary is proven", async () => {
@@ -200,15 +245,41 @@ test("projects only sanitized roots with attention precedence and mixed active a
     connectionId: tasks[0]!.connectionId,
     sessionId: "ses_working",
     label: "OpenCode 4",
+    displayTitle: "PRIVATE TITLE ses_working",
     status: "working",
     workStartedAt: now - 2_100,
     workStartRevision: 0
   });
+  assert.deepEqual(tasks.map((task) => task.displayTitle), [
+    "PRIVATE TITLE ses_attention",
+    "PRIVATE TITLE ses_error",
+    "PRIVATE TITLE ses_complete",
+    "PRIVATE TITLE ses_working"
+  ]);
   assert.deepEqual(tasks.map((task) => task.label), ["OpenCode 1", "OpenCode 2", "OpenCode 3", "OpenCode 4"]);
   const serialized = JSON.stringify(snapshot);
-  for (const privateValue of ["PRIVATE TITLE", "/private/", "SECRET_RESOURCE", "SECRET_FORM", "cost", "tokens", "location"]) {
+  for (const privateValue of ["/private/", "SECRET_RESOURCE", "SECRET_FORM", "cost", "tokens", "location"]) {
     assert.equal(serialized.includes(privateValue), false, privateValue);
   }
+});
+
+test("bounds and sanitizes titles before local rendering", async () => {
+  const routes = basicRoutes();
+  routes["/api/session/active"] = response({ data: { ses_title: { type: "running" } } });
+  routes["/api/session?parentID=null&order=desc&limit=100"] = response({
+    data: [session("ses_title", 999_000, { title: `  Visible\u0000 chat\n${"界".repeat(200)}  ` })],
+    cursor: {}
+  });
+  const setup = fixture({ files: { [`${STATE}/service.json`]: { body: localRegistration() } }, routes });
+  const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
+
+  const snapshot = await collector.start();
+  await collector.stop();
+  const title = snapshot.connections[0]!.tasks[0]!.displayTitle;
+
+  assert.ok(title?.startsWith("Visible chat "));
+  assert.ok(Buffer.byteLength(title ?? "", "utf8") <= 256);
+  assert.doesNotMatch(title ?? "", /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u);
 });
 
 test("expires terminal outcomes at five minutes and hides outcomes viewed after idle", async () => {
@@ -229,6 +300,37 @@ test("expires terminal outcomes at five minutes and hides outcomes viewed after 
   await collector.stop();
 
   assert.deepEqual(snapshot.connections[0]!.tasks.map((task) => task.sessionId), ["ses_kept"]);
+});
+
+test("acknowledges only the current terminal result and shows a later completion again", async () => {
+  const now = 3_000_000;
+  let idle = now - 1_000;
+  const setup = fixture({
+    now,
+    files: { [`${STATE}/service.json`]: { body: localRegistration() } },
+    routes: {
+      ...basicRoutes(now),
+      "/api/session?parentID=null&order=desc&limit=100": () => response({
+        data: [session("ses_ack", idle, { outcome: "succeeded", idle })],
+        cursor: {}
+      })
+    }
+  });
+  const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
+
+  const first = await collector.start();
+  const task = first.connections[0]!.tasks[0]!;
+  assert.equal(collector.acknowledgeTask(task.connectionId, task.sessionId), true);
+  assert.deepEqual(collector.snapshot().connections[0]!.tasks, []);
+
+  const sameResult = await collector.refresh();
+  assert.deepEqual(sameResult.connections[0]!.tasks, []);
+
+  idle += 500;
+  const nextResult = await collector.refresh();
+  await collector.stop();
+
+  assert.deepEqual(nextResult.connections[0]!.tasks.map((candidate) => candidate.sessionId), ["ses_ack"]);
 });
 
 test("keeps a healthy connection visible when another connection fails", async () => {
@@ -300,6 +402,58 @@ test("keeps a content-free task alias stable across a missed refresh", async () 
   assert.equal(restored.connections[0]!.tasks[0]!.label, first.connections[0]!.tasks[0]!.label);
 });
 
+test("discovers a CLI-managed SSH service through bounded pair output", async () => {
+  const remoteUrl = "http://127.0.0.1:4096";
+  const remotePassword = "private-pair-password";
+  let discoveryInput = "";
+  const discovery: OpenCodeProcess = {
+    pid: 7101,
+    stdout: [
+      `OPENCODE_SERVICE_STATUS=${remoteUrl}`,
+      "OPENCODE_PAIR_BEGIN",
+      `\u001b[36m  Password  ${remotePassword}\u001b[0m`,
+      "OPENCODE_PAIR_END",
+      "OPENCODE_PAIR_STATUS_BEGIN",
+      JSON.stringify({ version: "2.0.6", pid: 88 }),
+      "OPENCODE_PAIR_STATUS_END",
+      ""
+    ].join("\n"),
+    stderr: "",
+    exited: Promise.resolve(0),
+    write(data) { discoveryInput += String(data); },
+    end() {},
+    kill() {}
+  };
+  const tunnel: OpenCodeProcess = {
+    pid: 7102,
+    stdout: "",
+    stderr: "",
+    exited: new Promise(() => undefined),
+    write() {},
+    end() {},
+    kill() {}
+  };
+  const routes = basicRoutes();
+  routes["/api/status"] = ({ authorization }) => authorization
+    ? response({ version: "2.0.6", pid: 88 })
+    : response({}, 401);
+  const setup = fixture({
+    files: { [SETTINGS]: { body: { "ssh.servers": [{ id: "fedora", target: "test-host", name: "Fedora" }] } } },
+    routes,
+    processes: [discovery, tunnel]
+  });
+  const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
+
+  const snapshot = await collector.start();
+  await collector.stop();
+
+  assert.equal(snapshot.connections[0]!.health, "ready");
+  assert.equal(JSON.stringify(snapshot).includes(remotePassword), false);
+  assert.equal(JSON.stringify(setup.spawnCalls).includes(remotePassword), false);
+  assert.match(discoveryInput, /"\$\{XDG_STATE_HOME:-\$HOME\/\.local\/state\}"/u);
+  assert.doesNotMatch(discoveryInput, /\\\$\{/u);
+});
+
 test("stop tears down every SSH process group", async () => {
   let tunnelKilled = false;
   const discovery: OpenCodeProcess = {
@@ -338,6 +492,7 @@ test("stop tears down every SSH process group", async () => {
   assert.deepEqual(setup.spawnCalls.map((call) => call.command), ["/usr/bin/ssh", "/usr/bin/ssh"]);
   assert.ok(setup.spawnCalls[0]!.args.includes("BatchMode=yes"));
   assert.ok(setup.spawnCalls[1]!.args.includes("ExitOnForwardFailure=yes"));
+  assert.equal(setup.spawnCalls[1]!.args.includes("ClearAllForwardings=yes"), false);
   assert.ok(setup.spawnCalls[1]!.args.some((argument) => argument.startsWith("127.0.0.1:43123:")));
   assert.equal(JSON.stringify(setup.spawnCalls).includes("fixture-password"), false);
   assert.equal(Object.keys(setup.spawnCalls[0]!.env).some((key) => /password|token|secret/iu.test(key)), false);

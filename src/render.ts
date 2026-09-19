@@ -197,12 +197,13 @@ export function renderHostTargetKey(label: "WIN" | "MAC", health: HostHealthStat
 export function renderUsageLimitKey(window: UsageWindow | undefined, requestedKind: UsageWindowKind, theme: ThemeMode = "dark", health: HostHealthState = "ready"): string {
   const surface = SURFACES[theme];
   const remaining = window ? Math.round(clampPercent(window.remainingPercent)) : null;
+  const used = window ? Math.round(clampPercent(window.usedPercent)) : null;
   const signal = usageSignal(remaining, health, theme);
   const track = theme === "dark" ? "#45494C" : "#AAB2B8";
   const circumference = 2 * Math.PI * 40;
-  const dash = remaining == null ? 0 : circumference * remaining / 100;
+  const dash = used == null ? 0 : circumference * used / 100;
   const label = usageLabel(window?.kind ?? requestedKind);
-  const digits = remaining == null ? 0 : String(remaining).length;
+  const digits = used == null ? 0 : String(used).length;
   const numberX = digits >= 3 ? 61 : digits === 2 ? 65 : 69;
   const fontSize = digits >= 3 ? 27 : 30;
   return toDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
@@ -215,11 +216,11 @@ export function renderUsageLimitKey(window: UsageWindow | undefined, requestedKi
     <rect x="7.5" y="7.5" width="129" height="129" rx="15" fill="none" stroke="${surface.innerBorder}" stroke-width="1"/>
     <circle cx="72" cy="70" r="55" fill="url(#usageBloom)"/>
     <circle cx="72" cy="70" r="40" fill="none" stroke="${track}" stroke-width="7"/>
-    ${remaining == null ? "" : `<circle data-usage-remaining="${remaining}" cx="72" cy="70" r="40" fill="none" stroke="${signal}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${dash.toFixed(2)} ${circumference.toFixed(2)}" transform="rotate(-90 72 70)"/>`}
+    ${used == null ? "" : `<circle data-usage-used="${used}" cx="72" cy="70" r="40" fill="none" stroke="${signal}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${dash.toFixed(2)} ${circumference.toFixed(2)}" transform="rotate(-90 72 70)"/>`}
     ${health === "degraded" || health === "offline" ? `<circle cx="72" cy="70" r="48" fill="none" stroke="${signal}" stroke-width="4" stroke-opacity=".13" filter="url(#usageGlow)"/>` : ""}
-    ${remaining == null
+    ${used == null
       ? `<text x="72" y="80" text-anchor="middle" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="31" font-weight="700" fill="${signal}">—</text>`
-      : `<text data-usage-value="${remaining}" x="${numberX}" y="80" text-anchor="middle" fill="${surface.title}" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="${fontSize}" font-weight="700">${remaining}</text><g data-usage-percent="vector" transform="translate(87 57)" fill="none" stroke="${signal}" stroke-width="2.4" stroke-linecap="round"><circle cx="2.5" cy="2.5" r="1.7"/><circle cx="10" cy="12" r="1.7"/><path d="M11 1L1.5 13.5"/></g>`}
+      : `<text data-usage-value="${used}" x="${numberX}" y="80" text-anchor="middle" fill="${surface.title}" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="${fontSize}" font-weight="700">${used}</text><g data-usage-percent="vector" transform="translate(87 57)" fill="none" stroke="${signal}" stroke-width="2.4" stroke-linecap="round"><circle cx="2.5" cy="2.5" r="1.7"/><circle cx="10" cy="12" r="1.7"/><path d="M11 1L1.5 13.5"/></g>`}
     <text x="72" y="126" text-anchor="middle" fill="${surface.title}" fill-opacity=".62" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.2">${label}</text>
   </svg>`);
 }
@@ -270,14 +271,15 @@ export function renderRateLimitResetKey(
 
 function renderUsageBar(label: string, window: UsageWindow | undefined, y: number, surface: SurfacePalette, theme: ThemeMode, health: HostHealthState): string {
   const remaining = window ? Math.round(clampPercent(window.remainingPercent)) : null;
+  const used = window ? Math.round(clampPercent(window.usedPercent)) : null;
   const signal = usageSignal(remaining, health, theme);
   const track = theme === "dark" ? "#45494C" : "#AAB2B8";
-  const width = remaining == null ? 0 : 96 * remaining / 100;
+  const width = used == null ? 0 : 96 * used / 100;
   return `<g data-usage-window="${label}">
     <text x="24" y="${y}" fill="${surface.title}" fill-opacity=".72" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing=".8">${label}</text>
-    <text x="120" y="${y}" text-anchor="end" fill="${remaining == null ? signal : surface.title}" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">${remaining == null ? "—" : `${remaining}%`}</text>
+    <text x="120" y="${y}" text-anchor="end" fill="${used == null ? signal : surface.title}" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">${used == null ? "—" : `${used}%`}</text>
     <rect x="24" y="${y + 10}" width="96" height="10" rx="5" fill="${track}"/>
-    ${remaining == null ? "" : `<rect data-usage-remaining="${remaining}" x="24" y="${y + 10}" width="${width.toFixed(2)}" height="10" rx="5" fill="${signal}"/>`}
+    ${used == null ? "" : `<rect data-usage-used="${used}" x="24" y="${y + 10}" width="${width.toFixed(2)}" height="10" rx="5" fill="${signal}"/>`}
   </g>`;
 }
 
