@@ -32,7 +32,7 @@ import type {
   CodexHost, HostHealth, MicroActionSlot, MicroDirection, MicroSnapshot, ReasoningAdjustment,
   RoutedAgentSlot, TaskSource, UsageLimitMode, UsageSnapshot, UsageWindowKind
 } from "./types.js";
-import { composeMacUsage, selectAccountUsageSource, selectUsageWindow, type AccountUsageSource } from "./usage.js";
+import { composeMacUsage, selectAccountUsageSource, selectUsageWindow, usageTheme, type AccountUsageSource } from "./usage.js";
 
 export type FixedIconSource =
   | { kind: "local"; keycapId: string }
@@ -658,13 +658,13 @@ export class DeckController {
     const usage = source.usage ?? source.snapshot?.usage;
     const window = selectUsageWindow(usage, mode);
     const requestedKind: UsageWindowKind = mode === "auto" ? (window?.kind ?? "other") : mode;
-    await this.setImage(action, renderUsageLimitKey(window, requestedKind, source.theme ?? source.snapshot?.theme ?? "dark", source.health.state));
+    await this.setImage(action, renderUsageLimitKey(window, requestedKind, usageTheme(source), source.health.state));
   }
 
   private async renderUsageOverview(action: KeyAction): Promise<void> {
     const source = this.accountUsageSource();
     const usage = source.usage ?? source.snapshot?.usage;
-    await this.setImage(action, renderUsageOverviewKey(usage?.windows ?? [], source.theme ?? source.snapshot?.theme ?? "dark", source.health.state));
+    await this.setImage(action, renderUsageOverviewKey(usage?.windows ?? [], usageTheme(source), source.health.state));
   }
 
   private async renderRateLimitReset(action: KeyAction): Promise<void> {
@@ -675,7 +675,7 @@ export class DeckController {
     await this.setImage(action, renderRateLimitResetKey(
       usage?.resetCreditsAvailable ?? null,
       progress,
-      source.theme ?? source.snapshot?.theme ?? "dark",
+      usageTheme(source),
       source.health.state
     ));
   }
@@ -732,7 +732,7 @@ export class DeckController {
       hostId: this.localHost?.hostId,
       snapshot: this.localSnapshot?.snapshot,
       usage: localUsage,
-      theme: this.localSnapshot?.snapshot.theme ?? "dark"
+      theme: this.localSnapshot?.snapshot.theme
     };
     const remoteSnapshot = this.relayClient?.currentSnapshot();
     const remote: AccountUsageSource | undefined = remoteSnapshot ? {

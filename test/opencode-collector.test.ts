@@ -12,6 +12,7 @@ const STATE = `${HOME}/.local/state/opencode`;
 const SETTINGS = `${HOME}/Library/Application Support/ai.opencode.desktop/opencode.settings`;
 
 type FileEntry = { body: unknown; safe?: boolean };
+type RouteEntry = Response | ((request: { url: string; authorization?: string }) => Response | Promise<Response>);
 
 function response(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), {
@@ -45,8 +46,8 @@ function session(
 
 function fixture(input: {
   files?: Record<string, FileEntry>;
-  routes?: Record<string, Response | ((request: { url: string; authorization?: string }) => Response | Promise<Response>)>;
-  now?: number;
+  routes?: Record<string, RouteEntry>;
+  now?: number | (() => number);
   processes?: OpenCodeProcess[];
   waitForTunnel?: boolean;
 }) {
@@ -61,7 +62,7 @@ function fixture(input: {
     stateDirectory: STATE,
     settingsPath: SETTINGS,
     currentUid: 501,
-    now: () => input.now ?? 1_000_000,
+    now: () => typeof input.now === "function" ? input.now() : (input.now ?? 1_000_000),
     setInterval: (_callback, milliseconds) => {
       intervals.push(milliseconds);
       return {} as NodeJS.Timeout;
@@ -106,7 +107,7 @@ function localRegistration(extra: Record<string, unknown> = {}) {
   return { id: "managed", url: "http://127.0.0.1:4096", password: "fixture-password", version: "2.0.5", pid: 42, ...extra };
 }
 
-function basicRoutes(now = 1_000_000) {
+function basicRoutes(now = 1_000_000): Record<string, RouteEntry> {
   return {
     "/api/status": ({ authorization }: { authorization?: string }) => authorization
       ? response({ version: "2.0.5", pid: 42 })
@@ -138,6 +139,27 @@ test("discovers a descriptor-approved local registration without publishing its 
   assert.equal(JSON.stringify(snapshot).includes("fixture-password"), false);
   assert.ok(setup.requests.every((request) => request.authorization == null || !request.authorization.includes("fixture-password")));
   assert.deepEqual(setup.intervals, [5_000]);
+});
+
+test("accepts the protected api info identity route when api status was removed", async () => {
+  const routes = basicRoutes();
+  routes["/api/status"] = ({ authorization }) => authorization ? response({}, 404) : response({}, 401);
+  routes["/api/info"] = ({ authorization }) => authorization
+    ? response({ version: "2.0.5", pid: 42, urls: [], paths: {} })
+    : response({}, 401);
+  const setup = fixture({
+    files: { [`${STATE}/service.json`]: { body: localRegistration() } },
+    routes
+  });
+  const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
+
+  const snapshot = await collector.start();
+  await collector.stop();
+
+  assert.equal(snapshot.connections[0]!.health, "ready");
+  const infoRequests = setup.requests.filter((request) => new URL(request.url).pathname === "/api/info");
+  assert.equal(infoRequests[0]!.authorization, undefined);
+  assert.notEqual(infoRequests[1]!.authorization, undefined);
 });
 
 test("rejects unsafe, non-loopback, broad, and incompatible registrations before fetch", async () => {
@@ -282,24 +304,27 @@ test("bounds and sanitizes titles before local rendering", async () => {
   assert.doesNotMatch(title ?? "", /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u);
 });
 
-test("expires terminal outcomes at five minutes and hides outcomes viewed after idle", async () => {
-  const now = 3_000_000;
+test("admits recent terminal outcomes without later expiry and hides old or viewed outcomes", async () => {
+  let now = 3_000_000;
   const routes = basicRoutes(now);
   routes["/api/session?parentID=null&order=desc&limit=100"] = response({
     data: [
       session("ses_kept", now - 299_999, { outcome: "succeeded", idle: now - 299_999 }),
-      session("ses_expired", now - 300_000, { outcome: "failed", idle: now - 300_000 }),
+      session("ses_old", now - 300_000, { outcome: "failed", idle: now - 300_000 }),
       session("ses_viewed", now - 1_000, { outcome: "failed", idle: now - 1_000, viewed: now - 500 })
     ],
     cursor: {}
   });
-  const setup = fixture({ now, files: { [`${STATE}/service.json`]: { body: localRegistration() } }, routes });
+  const setup = fixture({ now: () => now, files: { [`${STATE}/service.json`]: { body: localRegistration() } }, routes });
   const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
 
-  const snapshot = await collector.start();
+  const first = await collector.start();
+  now += 1_000_000;
+  const later = await collector.refresh();
   await collector.stop();
 
-  assert.deepEqual(snapshot.connections[0]!.tasks.map((task) => task.sessionId), ["ses_kept"]);
+  assert.deepEqual(first.connections[0]!.tasks.map((task) => task.sessionId), ["ses_kept"]);
+  assert.deepEqual(later.connections[0]!.tasks.map((task) => task.sessionId), ["ses_kept"]);
 });
 
 test("acknowledges only the current terminal result and shows a later completion again", async () => {
@@ -434,7 +459,8 @@ test("discovers a CLI-managed SSH service through bounded pair output", async ()
     kill() {}
   };
   const routes = basicRoutes();
-  routes["/api/status"] = ({ authorization }) => authorization
+  routes["/api/status"] = ({ authorization }) => authorization ? response({}, 404) : response({}, 401);
+  routes["/api/info"] = ({ authorization }) => authorization
     ? response({ version: "2.0.6", pid: 88 })
     : response({}, 401);
   const setup = fixture({
@@ -452,6 +478,7 @@ test("discovers a CLI-managed SSH service through bounded pair output", async ()
   assert.equal(JSON.stringify(setup.spawnCalls).includes(remotePassword), false);
   assert.match(discoveryInput, /"\$\{XDG_STATE_HOME:-\$HOME\/\.local\/state\}"/u);
   assert.doesNotMatch(discoveryInput, /\\\$\{/u);
+  assert.match(discoveryInput, /\/api\/info/u);
 });
 
 test("stop tears down every SSH process group", async () => {

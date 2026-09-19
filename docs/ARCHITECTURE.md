@@ -90,7 +90,10 @@ and never receive a context ring. An OpenCode key-down foregrounds OpenCode
 Desktop and acknowledges the exact currently displayed terminal revision in the
 collector's process-local state; key-up is intentionally a no-op. A later
 terminal timestamp clears that acknowledgement and becomes visible again. No
-viewed state is written to OpenCode or a relay.
+viewed state is written to OpenCode or a relay. Terminal history older than five
+minutes at first observation is treated as the startup baseline and is not
+backfilled. Once a newer terminal result is admitted, it has no display timeout
+and remains until source-viewed or locally acknowledged.
 
 The projection drops `idle`, `off`, and unknown states, then compacts candidates
 into display positions zero through five. Attention and error states sort first;
@@ -131,7 +134,7 @@ projection does not change owner routing, the loopback-only CDP endpoint,
 independent Windows-only or macOS-only operation, optional multi-host operation,
 or the privacy boundaries below.
 
-Usage data remains account-scoped and therefore does not follow the Mac/Windows function-key target. On macOS, quota windows come from the newest valid CodexBar `widget-snapshot.json` Codex entry and expire after five minutes; this path does not start or attach Codex Desktop and does not fall back to renderer quota from another host. Reset-credit counters may still be overlaid from an already-attached local Codex bridge. Windows retains the renderer-owned usage query and its existing fallback behavior. Window identity is derived from duration rather than primary/secondary ordering. A missing 5-hour window is unavailable, and Automatic mode falls back to weekly. Usage controls display and fill the consumed percentage while retaining warning colors derived from remaining capacity.
+Usage data remains account-scoped and therefore does not follow the Mac/Windows function-key target. On macOS, quota windows come from the newest valid CodexBar `widget-snapshot.json` Codex entry and expire after five minutes; this path does not start or attach Codex Desktop and does not fall back to renderer quota from another host. Reset-credit counters may still be overlaid from an already-attached local Codex bridge. Windows retains the renderer-owned usage query and its existing fallback behavior. Window identity is derived from duration rather than primary/secondary ordering. A missing 5-hour window is unavailable, and Automatic mode falls back to weekly. Usage controls display and fill the consumed percentage while retaining warning colors derived from remaining capacity. Without a renderer theme, usage controls use the same light fallback as OpenCode Agent keys.
 
 Reset consumption is the only mutating usage operation. It is a narrow typed relay command and calls Codex's current native reset-credit client only after the Stream Deck key has been held for 1.2 seconds. The bridge verifies both availability and applicability, selects an available plan-supported credit, uses a unique redemption request ID, and then refreshes the renderer query. No credential, raw endpoint access, or arbitrary request surface is exposed to the relay.
 

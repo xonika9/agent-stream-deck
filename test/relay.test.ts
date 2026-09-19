@@ -1605,6 +1605,28 @@ test("OpenCode task titles render locally and fall back to their content-free al
   assert.match(decodeURIComponent(images.at(-1)!), /OpenCode 7/);
 });
 
+test("macOS usage source leaves theme unset when Codex has no renderer snapshot", () => {
+  const controller = new DeckController();
+  const internal = controller as unknown as {
+    localHost?: CodexHost;
+    localHealth: { state: "degraded"; reason: "codex-not-running"; changedAt: number };
+    codexBarUsage?: {
+      windows: [];
+      observedAt: number;
+      resetCreditsAvailable: null;
+      resetCreditsApplicable: null;
+    };
+    accountUsageSource: () => { theme?: "light" | "dark" };
+  };
+  internal.localHost = host;
+  internal.localHealth = { state: "degraded", reason: "codex-not-running", changedAt: 1 };
+  internal.codexBarUsage = {
+    windows: [], observedAt: 2, resetCreditsAvailable: null, resetCreditsApplicable: null
+  };
+
+  assert.equal(internal.accountUsageSource().theme, undefined);
+});
+
 test("pressing a terminal OpenCode task acknowledges that result after foregrounding", async () => {
   const foregrounded: string[] = [];
   const acknowledged: string[] = [];

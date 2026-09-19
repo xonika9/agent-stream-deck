@@ -15,8 +15,9 @@ const MAX_ANCESTOR_DEPTH = 16;
 const MAX_CONNECTIONS = 17;
 const MAX_SSH_SERVERS = 16;
 const FETCH_TIMEOUT_MS = 5_000;
-const TERMINAL_RETENTION_MS = 5 * 60_000;
+const TERMINAL_ADMISSION_WINDOW_MS = 5 * 60_000;
 const POLL_INTERVAL_MS = 5_000;
+const IDENTITY_PATHS = ["/api/status", "/api/info"] as const;
 const ID_PATTERN = /^[A-Za-z0-9._:-]{1,256}$/u;
 const SSH_EXECUTABLE = "/usr/bin/ssh";
 
@@ -87,6 +88,7 @@ type Connection = {
   version: string;
   pid: number;
   authenticationProbed?: boolean;
+  identityPath?: string;
   tunnel?: OpenCodeProcess;
 };
 type RawSession = {
@@ -124,7 +126,12 @@ done
 printf 'OPENCODE_PAIR_BEGIN\n'
 "$cli" pair 2>/dev/null || true
 printf '\nOPENCODE_PAIR_END\nOPENCODE_PAIR_STATUS_BEGIN\n'
-"$cli" api GET /api/status 2>/dev/null || true
+identity=$("$cli" api GET /api/info 2>/dev/null || true)
+case "$identity" in
+  *'"version"'*'"pid"'*) ;;
+  *) identity=$("$cli" api GET /api/status 2>/dev/null || true) ;;
+esac
+printf '%s' "$identity"
 printf '\nOPENCODE_PAIR_STATUS_END\n'
 `;
 
@@ -369,17 +376,16 @@ export class OpenCodeCollector {
     try {
       if (!await this.deps.waitForLoopbackPort(localPort, FETCH_TIMEOUT_MS)) throw new Error("ssh-forward");
       const endpoint = `http://127.0.0.1:${localPort}`;
-      const unauthenticated = await this.fetchResponse(endpoint, "/api/status", undefined, 16 * 1024);
-      if (unauthenticated.status !== 401 && unauthenticated.status !== 403) throw new Error("ssh-auth-boundary");
-      return {
+      const connection: Connection = {
         connectionId,
         endpoint,
         password: registration.password,
         version: registration.version,
         pid: registration.pid,
-        authenticationProbed: true,
         tunnel
       };
+      if (!await this.verifyIdentity(connection)) throw new Error("ssh-identity");
+      return connection;
     } catch (error) {
       await this.terminateChild(tunnel);
       throw error;
@@ -387,15 +393,7 @@ export class OpenCodeCollector {
   }
 
   private async collectConnection(connection: Connection, now: number): Promise<OpenCodeConnectionSnapshot> {
-    if (!connection.authenticationProbed) {
-      const unauthenticated = await this.fetchResponse(connection.endpoint, "/api/status", undefined, 16 * 1024);
-      if (unauthenticated.status !== 401 && unauthenticated.status !== 403) {
-        return { ...unavailable(connection.connectionId, now), health: "incompatible" };
-      }
-      connection.authenticationProbed = true;
-    }
-    const status = await this.fetchJson(connection, "/api/status", 16 * 1024);
-    if (!isRecord(status) || status.version !== connection.version || status.pid !== connection.pid) {
+    if (!await this.verifyIdentity(connection)) {
       return { ...unavailable(connection.connectionId, now), health: "incompatible" };
     }
     const [activeRaw, permissionRaw, formRaw, rootsRaw] = await Promise.all([
@@ -462,11 +460,16 @@ export class OpenCodeCollector {
         if (root.time.viewed !== undefined && root.time.viewed >= sourceAt) continue;
         let binding = this.terminalBindings.get(identity);
         if (!binding || binding.sourceAt !== sourceAt) {
-          binding = { sourceAt, localAt: normalizeTime(sourceAt, now), lastSeenAt: now, acknowledged: false };
+          const localAt = normalizeTime(sourceAt, now);
+          binding = {
+            sourceAt,
+            localAt,
+            lastSeenAt: now,
+            acknowledged: now - localAt >= TERMINAL_ADMISSION_WINDOW_MS
+          };
           this.terminalBindings.set(identity, binding);
         } else binding.lastSeenAt = now;
         if (binding.acknowledged) continue;
-        if (now - binding.localAt >= TERMINAL_RETENTION_MS) continue;
         task = {
           source: "opencode", connectionId: connection.connectionId, sessionId: root.id,
           status: root.outcome === "failed" ? "error" : "complete",
@@ -494,6 +497,39 @@ export class OpenCodeCollector {
     const result = await this.fetchResponse(connection.endpoint, path, auth, maximumBytes);
     if (result.status < 200 || result.status >= 300) throw new Error("http-status");
     try { return JSON.parse(result.body); } catch { throw new Error("invalid-json"); }
+  }
+
+  private async verifyIdentity(connection: Connection): Promise<boolean> {
+    if (connection.authenticationProbed && connection.identityPath) {
+      const response = await this.fetchAuthenticated(connection, connection.identityPath, 16 * 1024);
+      if (response.status !== 404) return this.identityMatches(connection, response);
+      connection.authenticationProbed = false;
+      connection.identityPath = undefined;
+    }
+    for (const path of IDENTITY_PATHS) {
+      const unauthenticated = await this.fetchResponse(connection.endpoint, path, undefined, 16 * 1024);
+      if (unauthenticated.status === 404) continue;
+      if (unauthenticated.status !== 401 && unauthenticated.status !== 403) return false;
+      const response = await this.fetchAuthenticated(connection, path, 16 * 1024);
+      if (response.status === 404) continue;
+      if (!this.identityMatches(connection, response)) return false;
+      connection.authenticationProbed = true;
+      connection.identityPath = path;
+      return true;
+    }
+    return false;
+  }
+
+  private fetchAuthenticated(connection: Connection, path: string, maximumBytes: number) {
+    const authorization = `Basic ${Buffer.from(`opencode:${connection.password}`).toString("base64")}`;
+    return this.fetchResponse(connection.endpoint, path, authorization, maximumBytes);
+  }
+
+  private identityMatches(connection: Connection, response: { status: number; body: string }): boolean {
+    if (response.status < 200 || response.status >= 300) return false;
+    let identity: unknown;
+    try { identity = JSON.parse(response.body); } catch { return false; }
+    return isRecord(identity) && identity.version === connection.version && identity.pid === connection.pid;
   }
 
   private async fetchResponse(endpoint: string, path: string, authorization?: string, maximumBytes = RESPONSE_LIMIT) {

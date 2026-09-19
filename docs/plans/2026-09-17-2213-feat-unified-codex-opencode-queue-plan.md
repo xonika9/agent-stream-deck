@@ -3,7 +3,7 @@ title: Unified Codex and OpenCode Queue - Plan
 type: feat
 date: 2026-09-17
 deepened: 2026-09-17
-scope_amended: 2026-09-18
+scope_amended: 2026-09-19
 artifact_contract: ce-unified-plan/v1
 artifact_readiness: implementation-ready
 product_contract_source: ce-plan-bootstrap
@@ -32,6 +32,13 @@ The operative scope is:
 - decide compatibility from protected registration, authenticated identity, and
   bounded API capabilities rather than pinning every connection to one patch
   version;
+- accept authenticated identity from current `/api/info` or legacy
+  `/api/status`, proving the unauthenticated boundary separately before sending
+  the existing credential;
+- admit terminal results only from the five-minute startup catch-up window, then
+  keep every admitted revision without a display timeout until OpenCode reports
+  it viewed or its Stream Deck key acknowledges it; do not backfill older
+  terminal history;
 - start the collector only while local settings select `OpenCode` or `Both`, and
   tear down all SSH process groups when demand ends;
 - read macOS quota windows only from a fresh CodexBar widget snapshot; retain the

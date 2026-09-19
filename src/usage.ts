@@ -47,6 +47,10 @@ export function selectAccountUsageSource(local: AccountUsageSource, remote?: Acc
     ?? local;
 }
 
+export function usageTheme(source: AccountUsageSource): ThemeMode {
+  return source.theme ?? source.snapshot?.theme ?? "light";
+}
+
 /** macOS quota windows are authoritative only when they came from CodexBar. */
 export function composeMacUsage(
   codexBar: UsageSnapshot | undefined,

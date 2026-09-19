@@ -4,7 +4,7 @@ import test from "node:test";
 import { renderRateLimitResetKey, renderUsageLimitKey, renderUsageOverviewKey } from "../src/render.js";
 import { parseRelayCommand } from "../src/relay-protocol.js";
 import type { MicroSnapshot, UsageSnapshot, UsageWindow } from "../src/types.js";
-import { composeMacUsage, parseUsageLimitMode, selectAccountUsageSource, selectUsageWindow, usageWindowKind } from "../src/usage.js";
+import { composeMacUsage, parseUsageLimitMode, selectAccountUsageSource, selectUsageWindow, usageTheme, usageWindowKind } from "../src/usage.js";
 
 const fiveHour: UsageWindow = {
   id: "five-hour", kind: "five-hour", usedPercent: 26, remainingPercent: 74,
@@ -65,6 +65,18 @@ test("account usage accepts fresh macOS quota without a Codex snapshot", () => {
   });
   assert.equal(source.usage, localUsage);
   assert.equal(source.snapshot, undefined);
+});
+
+test("usage rendering falls back to light without overriding an available theme", () => {
+  const health = { state: "ready", changedAt: 1 } as const;
+  assert.equal(usageTheme({ health, usage: usage([weekly]) }), "light");
+  assert.equal(usageTheme({ health, usage: usage([weekly]), theme: "dark" }), "dark");
+  assert.equal(usageTheme({
+    health,
+    snapshot: {
+      slots: [], layout: { slots: {} }, agentSource: "priority", lightingAutoOff: false, theme: "dark"
+    } as unknown as MicroSnapshot
+  }), "dark");
 });
 
 test("macOS never falls back to renderer quota windows", () => {

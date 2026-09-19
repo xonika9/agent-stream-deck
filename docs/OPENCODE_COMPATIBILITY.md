@@ -44,10 +44,18 @@ the characterized API shapes must all pass. A future version with matching
 capabilities remains available; a mismatched capability fails only that
 connection closed.
 
+Authenticated service identity accepts the current `/api/info` route and the
+legacy `/api/status` route. Each candidate route must independently prove a
+`401` or `403` unauthenticated boundary before Codex Deck sends the existing
+service credential.
+
 OpenCode `2.0.5` does not consistently publish `time.viewed` for remote roots.
 The collector still honors that source field when present, but a Stream Deck
 key-down locally acknowledges only the currently displayed completion or error.
 That acknowledgement is in-memory, is never sent to OpenCode or a relay, and is
-invalidated by a later terminal timestamp for the same opaque task identity.
+invalidated by a later terminal timestamp for the same opaque task identity. A
+terminal result admitted within five minutes of first observation remains until
+one of those acknowledgements; it does not expire on a display timer. Older
+terminal history present when monitoring starts is not backfilled.
 When no Codex renderer snapshot is available to supply a theme, OpenCode Agent
-keys use the renderer's light fallback rather than changing to dark.
+and usage keys use the renderer's light fallback rather than changing to dark.
