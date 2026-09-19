@@ -12,7 +12,14 @@ const STATE = `${HOME}/.local/state/opencode`;
 const SETTINGS = `${HOME}/Library/Application Support/ai.opencode.desktop/opencode.settings`;
 
 type FileEntry = { body: unknown; safe?: boolean };
-type RouteEntry = Response | ((request: { url: string; authorization?: string }) => Response | Promise<Response>);
+type CapturedRequest = {
+  url: string;
+  method: string;
+  authorization?: string;
+  contentType?: string;
+  body?: string;
+};
+type RouteEntry = Response | ((request: CapturedRequest) => Response | Promise<Response>);
 
 function response(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), {
@@ -52,7 +59,7 @@ function fixture(input: {
   waitForTunnel?: boolean;
 }) {
   const files = input.files ?? {};
-  const requests: Array<{ url: string; authorization?: string }> = [];
+  const requests: CapturedRequest[] = [];
   const processes = [...(input.processes ?? [])];
   const terminated: number[] = [];
   const intervals: number[] = [];
@@ -81,14 +88,21 @@ function fixture(input: {
       }
     },
     async fetch(url, init) {
-      const authorization = new Headers(init?.headers).get("authorization") ?? undefined;
-      requests.push({ url, authorization });
+      const headers = new Headers(init?.headers);
+      const request = {
+        url,
+        method: init?.method ?? "GET",
+        authorization: headers.get("authorization") ?? undefined,
+        contentType: headers.get("content-type") ?? undefined,
+        body: typeof init?.body === "string" ? init.body : undefined
+      };
+      requests.push(request);
       const parsed = new URL(url);
       const route = input.routes?.[`${parsed.host}${parsed.pathname}${parsed.search}`]
         ?? input.routes?.[parsed.pathname + parsed.search]
         ?? input.routes?.[parsed.pathname];
       if (!route) throw new Error("unavailable");
-      return typeof route === "function" ? route({ url, authorization }) : route.clone();
+      return typeof route === "function" ? route(request) : route.clone();
     },
     async spawn(command, args, options) {
       spawnCalls.push({ command, args: [...args], env: { ...options.env }, detached: options.detached });
@@ -345,7 +359,7 @@ test("acknowledges only the current terminal result and shows a later completion
 
   const first = await collector.start();
   const task = first.connections[0]!.tasks[0]!;
-  assert.equal(collector.acknowledgeTask(task.connectionId, task.sessionId), true);
+  assert.equal(collector.acknowledgeTask(task.connectionId, task.sessionId, task.terminalAt!), true);
   assert.deepEqual(collector.snapshot().connections[0]!.tasks, []);
 
   const sameResult = await collector.refresh();
@@ -356,6 +370,122 @@ test("acknowledges only the current terminal result and shows a later completion
   await collector.stop();
 
   assert.deepEqual(nextResult.connections[0]!.tasks.map((candidate) => candidate.sessionId), ["ses_ack"]);
+});
+
+test("publishes the acknowledged terminal revision through the official session view route", async () => {
+  const now = 3_000_000;
+  const idle = now - 1_000;
+  const routes = basicRoutes(now);
+  routes["/api/session?parentID=null&order=desc&limit=100"] = response({
+    data: [session("ses_ack", idle, { outcome: "succeeded", idle })], cursor: {}
+  });
+  routes["/api/session/ses_ack/view"] = (request) => {
+    assert.equal(request.method, "POST");
+    assert.notEqual(request.authorization, undefined);
+    assert.equal(request.contentType, "application/json");
+    assert.deepEqual(JSON.parse(request.body ?? "null"), { idle });
+    return new Response(null, { status: 204 });
+  };
+  const setup = fixture({
+    now,
+    files: { [`${STATE}/service.json`]: { body: localRegistration({ version: "2.0.10" }) } },
+    routes: {
+      ...routes,
+      "/api/status": ({ authorization }) => authorization
+        ? response({ version: "2.0.10", pid: 42 })
+        : response({}, 401)
+    }
+  });
+  const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
+
+  const first = await collector.start();
+  const task = first.connections[0]!.tasks[0]!;
+  assert.equal(collector.acknowledgeTask(task.connectionId, task.sessionId, task.terminalAt!), true);
+  assert.equal(await collector.publishTaskViewed(task.connectionId, task.sessionId), true);
+  await collector.stop();
+
+  assert.equal(setup.requests.filter((request) => new URL(request.url).pathname.endsWith("/view")).length, 1);
+  assert.deepEqual(collector.snapshot().connections[0]!.tasks, []);
+});
+
+test("keeps the local acknowledgement when the session view route is unavailable", async () => {
+  const now = 3_000_000;
+  const idle = now - 1_000;
+  const routes = basicRoutes(now);
+  routes["/api/session?parentID=null&order=desc&limit=100"] = response({
+    data: [session("ses_legacy", idle, { outcome: "failed", idle })], cursor: {}
+  });
+  routes["/api/session/ses_legacy/view"] = response({}, 404);
+  const setup = fixture({
+    now,
+    files: { [`${STATE}/service.json`]: { body: localRegistration() } },
+    routes
+  });
+  const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
+
+  const first = await collector.start();
+  const task = first.connections[0]!.tasks[0]!;
+  assert.equal(collector.acknowledgeTask(task.connectionId, task.sessionId, task.terminalAt!), true);
+  assert.equal(await collector.publishTaskViewed(task.connectionId, task.sessionId), false);
+  await collector.stop();
+
+  assert.deepEqual(collector.snapshot().connections[0]!.tasks, []);
+});
+
+test("does not publish a synthetic view revision when OpenCode omits the idle timestamp", async () => {
+  const now = 3_000_000;
+  const updated = now - 1_000;
+  const routes = basicRoutes(now);
+  routes["/api/session?parentID=null&order=desc&limit=100"] = response({
+    data: [session("ses_no_idle", updated, { outcome: "succeeded" })], cursor: {}
+  });
+  routes["/api/session/ses_no_idle/view"] = new Response(null, { status: 204 });
+  const setup = fixture({
+    now,
+    files: { [`${STATE}/service.json`]: { body: localRegistration({ version: "2.0.10" }) } },
+    routes: {
+      ...routes,
+      "/api/status": ({ authorization }) => authorization
+        ? response({ version: "2.0.10", pid: 42 })
+        : response({}, 401)
+    }
+  });
+  const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
+
+  const first = await collector.start();
+  const task = first.connections[0]!.tasks[0]!;
+  assert.equal(collector.acknowledgeTask(task.connectionId, task.sessionId, task.terminalAt!), true);
+  assert.equal(await collector.publishTaskViewed(task.connectionId, task.sessionId), false);
+  await collector.stop();
+
+  assert.equal(setup.requests.some((request) => new URL(request.url).pathname.endsWith("/view")), false);
+});
+
+test("does not acknowledge a newer terminal revision through a stale displayed assignment", async () => {
+  const now = 3_000_000;
+  let idle = now - 1_000;
+  const setup = fixture({
+    now,
+    files: { [`${STATE}/service.json`]: { body: localRegistration() } },
+    routes: {
+      ...basicRoutes(now),
+      "/api/session?parentID=null&order=desc&limit=100": () => response({
+        data: [session("ses_race", idle, { outcome: "succeeded", idle })], cursor: {}
+      })
+    }
+  });
+  const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
+
+  const first = await collector.start();
+  const displayed = first.connections[0]!.tasks[0]!;
+  idle += 500;
+  const refreshed = await collector.refresh();
+  const current = refreshed.connections[0]!.tasks[0]!;
+
+  assert.notEqual(displayed.terminalAt, current.terminalAt);
+  assert.equal(collector.acknowledgeTask(displayed.connectionId, displayed.sessionId, displayed.terminalAt!), false);
+  assert.deepEqual(collector.snapshot().connections[0]!.tasks.map((task) => task.terminalAt), [current.terminalAt]);
+  await collector.stop();
 });
 
 test("keeps a healthy connection visible when another connection fails", async () => {

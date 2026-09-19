@@ -98,7 +98,13 @@ type RawSession = {
   outcome?: "succeeded" | "failed" | "interrupted";
   time: { created: number; updated: number; idle?: number; viewed?: number };
 };
-type TerminalBinding = { sourceAt: number; localAt: number; lastSeenAt: number; acknowledged: boolean };
+type TerminalBinding = {
+  sourceAt: number;
+  idleAt?: number;
+  localAt: number;
+  lastSeenAt: number;
+  acknowledged: boolean;
+};
 type LabelBinding = { ordinal: number; lastSeenAt: number };
 
 const REMOTE_DISCOVERY_SCRIPT = String.raw`set -eu
@@ -160,6 +166,7 @@ export class OpenCodeCollector {
   private readonly labels = new Map<string, LabelBinding>();
   private readonly terminalBindings = new Map<string, TerminalBinding>();
   private readonly tunnels = new Map<string, Connection>();
+  private readonly connections = new Map<string, Connection>();
   private readonly children = new Set<OpenCodeProcess>();
   private readonly abortControllers = new Set<AbortController>();
   private nextLabel = 1;
@@ -198,14 +205,14 @@ export class OpenCodeCollector {
     return this.current;
   }
 
-  acknowledgeTask(connectionId: string, sessionId: string): boolean {
+  acknowledgeTask(connectionId: string, sessionId: string, terminalAt: number): boolean {
     const task = this.current.connections
       .flatMap((connection) => connection.tasks)
       .find((candidate) => candidate.connectionId === connectionId && candidate.sessionId === sessionId &&
         (candidate.status === "complete" || candidate.status === "error"));
     if (!task) return false;
     const binding = this.terminalBindings.get(taskIdentity(connectionId, sessionId));
-    if (!binding || binding.acknowledged) return false;
+    if (!binding || binding.localAt !== terminalAt || binding.acknowledged) return false;
     binding.acknowledged = true;
     this.current = {
       ...this.current,
@@ -218,6 +225,29 @@ export class OpenCodeCollector {
     return true;
   }
 
+  async publishTaskViewed(connectionId: string, sessionId: string): Promise<boolean> {
+    const binding = this.terminalBindings.get(taskIdentity(connectionId, sessionId));
+    const connection = this.connections.get(connectionId);
+    if (!binding?.acknowledged || binding.idleAt === undefined || !connection) return false;
+    try {
+      const authorization = `Basic ${Buffer.from(`opencode:${connection.password}`).toString("base64")}`;
+      const response = await this.fetchResponse(
+        connection.endpoint,
+        `/api/session/${encodeURIComponent(sessionId)}/view`,
+        authorization,
+        16 * 1024,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ idle: binding.idleAt })
+        }
+      );
+      return response.status >= 200 && response.status < 300;
+    } catch {
+      return false;
+    }
+  }
+
   async stop(): Promise<void> {
     if (!this.running && this.tunnels.size === 0) return;
     this.running = false;
@@ -227,6 +257,7 @@ export class OpenCodeCollector {
     for (const controller of this.abortControllers) controller.abort();
     this.abortControllers.clear();
     this.tunnels.clear();
+    this.connections.clear();
     await this.terminateChildren();
     await this.inFlight?.catch(() => undefined);
     await this.terminateChildren();
@@ -248,10 +279,17 @@ export class OpenCodeCollector {
         return unavailable(connection.connectionId, now);
       }
     });
+    if (!this.running || generation !== this.generation) return this.current;
+    this.connections.clear();
+    for (const [index, connection] of discovered.entries()) {
+      const health = results[index]?.health;
+      if (health === "ready" || health === "capacity-exceeded") {
+        this.connections.set(connection.connectionId, connection);
+      }
+    }
     results.push(...ssh.failures.map((connectionId) => unavailable(connectionId, now)));
     const deduplicated = [...new Map(results.map((result) => [result.connectionId, result])).values()]
       .sort((left, right) => left.connectionId.localeCompare(right.connectionId));
-    if (!this.running || generation !== this.generation) return this.current;
     for (const connection of deduplicated) {
       for (const task of connection.tasks) {
         const identity = taskIdentity(task.connectionId, task.sessionId);
@@ -463,12 +501,16 @@ export class OpenCodeCollector {
           const localAt = normalizeTime(sourceAt, now);
           binding = {
             sourceAt,
+            idleAt: root.time.idle,
             localAt,
             lastSeenAt: now,
             acknowledged: now - localAt >= TERMINAL_ADMISSION_WINDOW_MS
           };
           this.terminalBindings.set(identity, binding);
-        } else binding.lastSeenAt = now;
+        } else {
+          binding.lastSeenAt = now;
+          if (root.time.idle !== undefined) binding.idleAt = root.time.idle;
+        }
         if (binding.acknowledged) continue;
         task = {
           source: "opencode", connectionId: connection.connectionId, sessionId: root.id,
@@ -532,14 +574,23 @@ export class OpenCodeCollector {
     return isRecord(identity) && identity.version === connection.version && identity.pid === connection.pid;
   }
 
-  private async fetchResponse(endpoint: string, path: string, authorization?: string, maximumBytes = RESPONSE_LIMIT) {
+  private async fetchResponse(
+    endpoint: string,
+    path: string,
+    authorization?: string,
+    maximumBytes = RESPONSE_LIMIT,
+    request: Pick<RequestInit, "method" | "headers" | "body"> = {}
+  ) {
     const controller = new AbortController();
     this.abortControllers.add(controller);
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
+      const headers = new Headers(request.headers);
+      if (authorization) headers.set("authorization", authorization);
       const response = await this.deps.fetch(new URL(path, endpoint).toString(), {
-        method: "GET",
-        headers: authorization ? { authorization } : undefined,
+        method: request.method ?? "GET",
+        headers,
+        body: request.body,
         redirect: "error",
         signal: controller.signal
       });

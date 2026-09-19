@@ -88,10 +88,13 @@ without overwriting that preference. OpenCode candidates use the same
 attention/completion/working groups but keep case-sensitive opaque identities
 and never receive a context ring. An OpenCode key-down foregrounds OpenCode
 Desktop and acknowledges the exact currently displayed terminal revision in the
-collector's process-local state; key-up is intentionally a no-op. A later
-terminal timestamp clears that acknowledgement and becomes visible again. No
-viewed state is written to OpenCode or a relay. Terminal history older than five
-minutes at first observation is treated as the startup baseline and is not
+collector's process-local state; key-up is intentionally a no-op. After local
+removal, the collector best-effort publishes the same revision through
+OpenCode's authenticated `session.view` route. Unsupported routes and transport
+failures leave the local acknowledgement intact. A later terminal timestamp
+clears that acknowledgement and becomes visible again. No viewed state or raw
+OpenCode connection material is written to a relay. Terminal history older than
+five minutes at first observation is treated as the startup baseline and is not
 backfilled. Once a newer terminal result is admitted, it has no display timeout
 and remains until source-viewed or locally acknowledged.
 

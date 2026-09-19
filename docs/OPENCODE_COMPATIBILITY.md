@@ -3,7 +3,7 @@
 The first OpenCode integration targets the maintainer's characterized setup:
 
 - macOS;
-- OpenCode Desktop on macOS, validated against `2.0.5`;
+- OpenCode Desktop on macOS, validated against `2.0.5` and `2.0.10`;
 - the managed local `sidecar` service;
 - saved SSH connections that authenticate non-interactively through the user's
   existing SSH configuration.
@@ -50,12 +50,18 @@ legacy `/api/status` route. Each candidate route must independently prove a
 service credential.
 
 OpenCode `2.0.5` does not consistently publish `time.viewed` for remote roots.
-The collector still honors that source field when present, but a Stream Deck
-key-down locally acknowledges only the currently displayed completion or error.
-That acknowledgement is in-memory, is never sent to OpenCode or a relay, and is
+The collector still honors that source field when present. A Stream Deck
+key-down immediately acknowledges only the currently displayed completion or
+error in memory, then makes a best-effort authenticated
+`POST /api/session/{sessionID}/view` with that result's exact `idle` revision.
+OpenCode `2.0.10` exposes this route; older or incompatible services may reject
+it without restoring the locally acknowledged key or degrading other
+connections. The acknowledgement is never sent through a relay and is
 invalidated by a later terminal timestamp for the same opaque task identity. A
 terminal result admitted within five minutes of first observation remains until
 one of those acknowledgements; it does not expire on a display timer. Older
-terminal history present when monitoring starts is not backfilled.
+terminal history present when monitoring starts is not backfilled. OpenCode
+Desktop `2.0.10` still clears its own renderer notification locally when a chat
+opens, so opening a chat does not reliably publish `time.viewed` by itself.
 When no Codex renderer snapshot is available to supply a theme, OpenCode Agent
 and usage keys use the renderer's light fallback rather than changing to dark.

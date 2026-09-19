@@ -372,11 +372,16 @@ export class DeckController {
         await this.foregroundOpenCodeAction();
         const separator = assignment.threadKey?.indexOf("\0") ?? -1;
         const collector = this.openCodeCollector;
-        if (collector && separator > 0 && assignment.threadKey &&
-          collector.acknowledgeTask(
-            assignment.threadKey.slice(0, separator),
-            assignment.threadKey.slice(separator + 1)
-          )) await this.refreshDisplay();
+        if (collector && separator > 0 && assignment.threadKey) {
+          const connectionId = assignment.threadKey.slice(0, separator);
+          const sessionId = assignment.threadKey.slice(separator + 1);
+          if (assignment.activityAt !== undefined &&
+            collector.acknowledgeTask(connectionId, sessionId, assignment.activityAt)) {
+            const publication = collector.publishTaskViewed(connectionId, sessionId);
+            await this.refreshDisplay();
+            void publication.catch(() => undefined);
+          }
+        }
       }
       return;
     }

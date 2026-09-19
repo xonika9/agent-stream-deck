@@ -1630,6 +1630,7 @@ test("macOS usage source leaves theme unset when Codex has no renderer snapshot"
 test("pressing a terminal OpenCode task acknowledges that result after foregrounding", async () => {
   const foregrounded: string[] = [];
   const acknowledged: string[] = [];
+  const published: string[] = [];
   const controller = new DeckController({
     foregroundOpenCode: async () => { foregrounded.push("foregrounded"); }
   });
@@ -1640,7 +1641,8 @@ test("pressing a terminal OpenCode task acknowledges that result after foregroun
     targetPlatform: CodexHost["platform"];
     openCodeHealth: { state: "ready" };
     openCodeCollector?: {
-      acknowledgeTask: (connectionId: string, sessionId: string) => boolean;
+      acknowledgeTask: (connectionId: string, sessionId: string, terminalAt: number) => boolean;
+      publishTaskViewed: (connectionId: string, sessionId: string) => Promise<boolean>;
       snapshot: () => { version: 1; observedAt: number; connections: [] };
     };
     routedSlots: RoutedAgentSlot[];
@@ -1651,12 +1653,17 @@ test("pressing a terminal OpenCode task acknowledges that result after foregroun
   internal.targetPlatform = host.platform;
   internal.openCodeHealth = { state: "ready" };
   internal.openCodeCollector = {
-    acknowledgeTask(connectionId, sessionId) {
-      acknowledged.push(`${connectionId}:${sessionId}`);
+    acknowledgeTask(connectionId, sessionId, terminalAt) {
+      acknowledged.push(`${connectionId}:${sessionId}:${terminalAt}`);
+      return true;
+    },
+    async publishTaskViewed(connectionId, sessionId) {
+      published.push(`${connectionId}:${sessionId}`);
       return true;
     },
     snapshot: () => ({ version: 1, observedAt: Date.now(), connections: [] })
   };
+  const terminalAt = Date.now();
   internal.routedSlots = [{
     id: 0,
     sourceSlot: 0,
@@ -1668,14 +1675,15 @@ test("pressing a terminal OpenCode task acknowledges that result after foregroun
     title: "Finished task",
     status: "complete",
     selected: false,
-    activityAt: Date.now(),
+    activityAt: terminalAt,
     observedAt: Date.now()
   }];
 
   await controller.sendAgent(0, 1);
 
   assert.deepEqual(foregrounded, ["foregrounded"]);
-  assert.deepEqual(acknowledged, ["opaque-connection:opaque-session"]);
+  assert.deepEqual(acknowledged, [`opaque-connection:opaque-session:${terminalAt}`]);
+  assert.deepEqual(published, ["opaque-connection:opaque-session"]);
   assert.deepEqual(internal.routedSlots, []);
 });
 
