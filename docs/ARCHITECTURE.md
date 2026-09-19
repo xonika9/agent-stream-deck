@@ -95,8 +95,9 @@ failures leave the local acknowledgement intact. A later terminal timestamp
 clears that acknowledgement and becomes visible again. No viewed state or raw
 OpenCode connection material is written to a relay. Terminal history older than
 five minutes at first observation is treated as the startup baseline and is not
-backfilled. Once a newer terminal result is admitted, it has no display timeout
-and remains until source-viewed or locally acknowledged.
+backfilled. Once a newer successful or failed terminal result is admitted, it
+remains until source-viewed, locally acknowledged, or five minutes have elapsed
+from its normalized terminal event; polling may delay removal by up to one cycle.
 
 The projection drops `idle`, `off`, and unknown states, then compacts candidates
 into display positions zero through five. Attention and error states sort first;

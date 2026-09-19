@@ -15,9 +15,9 @@ const MAX_ANCESTOR_DEPTH = 16;
 const MAX_CONNECTIONS = 17;
 const MAX_SSH_SERVERS = 16;
 const FETCH_TIMEOUT_MS = 5_000;
-const TERMINAL_ADMISSION_WINDOW_MS = 5 * 60_000;
+const TERMINAL_RETENTION_WINDOW_MS = 5 * 60_000;
 const POLL_INTERVAL_MS = 5_000;
-const IDENTITY_PATHS = ["/api/status", "/api/info"] as const;
+const IDENTITY_PATHS = ["/api/info", "/api/status"] as const;
 const ID_PATTERN = /^[A-Za-z0-9._:-]{1,256}$/u;
 const SSH_EXECUTABLE = "/usr/bin/ssh";
 
@@ -316,8 +316,16 @@ export class OpenCodeCollector {
         const bytes = await this.deps.files.readSecure(join(this.deps.stateDirectory, name), REGISTRATION_LIMIT, this.deps.currentUid);
         const registration = parseRegistration(bytes);
         if (!registration) continue;
+        const connectionId = this.opaqueId(`local\0${registration.id ?? name}`);
+        const existing = this.connections.get(connectionId);
+        if (existing && !existing.tunnel && existing.endpoint === registration.url &&
+          existing.password === registration.password && existing.version === registration.version &&
+          existing.pid === registration.pid) {
+          connections.push(existing);
+          continue;
+        }
         connections.push({
-          connectionId: this.opaqueId(`local\0${registration.id ?? name}`),
+          connectionId,
           endpoint: registration.url,
           password: registration.password,
           version: registration.version,
@@ -504,13 +512,14 @@ export class OpenCodeCollector {
             idleAt: root.time.idle,
             localAt,
             lastSeenAt: now,
-            acknowledged: now - localAt >= TERMINAL_ADMISSION_WINDOW_MS
+            acknowledged: now - localAt >= TERMINAL_RETENTION_WINDOW_MS
           };
           this.terminalBindings.set(identity, binding);
         } else {
           binding.lastSeenAt = now;
           if (root.time.idle !== undefined) binding.idleAt = root.time.idle;
         }
+        if (now - binding.localAt >= TERMINAL_RETENTION_WINDOW_MS) binding.acknowledged = true;
         if (binding.acknowledged) continue;
         task = {
           source: "opencode", connectionId: connection.connectionId, sessionId: root.id,

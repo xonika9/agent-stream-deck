@@ -123,7 +123,7 @@ function localRegistration(extra: Record<string, unknown> = {}) {
 
 function basicRoutes(now = 1_000_000): Record<string, RouteEntry> {
   return {
-    "/api/status": ({ authorization }: { authorization?: string }) => authorization
+    "/api/info": ({ authorization }: { authorization?: string }) => authorization
       ? response({ version: "2.0.5", pid: 42 })
       : response({}, 401),
     "/api/session/active": response({ data: {} }),
@@ -155,7 +155,7 @@ test("discovers a descriptor-approved local registration without publishing its 
   assert.deepEqual(setup.intervals, [5_000]);
 });
 
-test("accepts the protected api info identity route when api status was removed", async () => {
+test("prefers api info and reuses its authenticated identity route across polls", async () => {
   const routes = basicRoutes();
   routes["/api/status"] = ({ authorization }) => authorization ? response({}, 404) : response({}, 401);
   routes["/api/info"] = ({ authorization }) => authorization
@@ -168,12 +168,60 @@ test("accepts the protected api info identity route when api status was removed"
   const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
 
   const snapshot = await collector.start();
+  await collector.refresh();
+  await collector.stop();
+
+  assert.equal(snapshot.connections[0]!.health, "ready");
+  const statusRequests = setup.requests.filter((request) => new URL(request.url).pathname === "/api/status");
+  const infoRequests = setup.requests.filter((request) => new URL(request.url).pathname === "/api/info");
+  assert.equal(statusRequests.length, 0);
+  assert.deepEqual(infoRequests.map((request) => request.authorization === undefined), [true, false, false]);
+});
+
+test("falls back to legacy api status and reuses it across polls", async () => {
+  const routes = basicRoutes();
+  routes["/api/info"] = response({}, 404);
+  routes["/api/status"] = ({ authorization }) => authorization
+    ? response({ version: "2.0.5", pid: 42 })
+    : response({}, 401);
+  const setup = fixture({
+    files: { [`${STATE}/service.json`]: { body: localRegistration() } },
+    routes
+  });
+  const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
+
+  const snapshot = await collector.start();
+  await collector.refresh();
   await collector.stop();
 
   assert.equal(snapshot.connections[0]!.health, "ready");
   const infoRequests = setup.requests.filter((request) => new URL(request.url).pathname === "/api/info");
-  assert.equal(infoRequests[0]!.authorization, undefined);
-  assert.notEqual(infoRequests[1]!.authorization, undefined);
+  const statusRequests = setup.requests.filter((request) => new URL(request.url).pathname === "/api/status");
+  assert.equal(infoRequests.length, 1);
+  assert.deepEqual(statusRequests.map((request) => request.authorization === undefined), [true, false, false]);
+});
+
+test("reprobes the authentication boundary when a local registration changes", async () => {
+  const registration = localRegistration();
+  let identityPid = registration.pid;
+  const routes = basicRoutes();
+  routes["/api/info"] = ({ authorization }) => authorization
+    ? response({ version: "2.0.5", pid: identityPid })
+    : response({}, 401);
+  const setup = fixture({
+    files: { [`${STATE}/service.json`]: { body: registration } },
+    routes
+  });
+  const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
+
+  await collector.start();
+  registration.pid = 43;
+  identityPid = 43;
+  await collector.refresh();
+  await collector.stop();
+
+  const infoRequests = setup.requests.filter((request) => new URL(request.url).pathname === "/api/info");
+  assert.deepEqual(infoRequests.map((request) => request.authorization === undefined), [true, false, true, false]);
 });
 
 test("rejects unsafe, non-loopback, broad, and incompatible registrations before fetch", async () => {
@@ -195,7 +243,7 @@ test("rejects unsafe, non-loopback, broad, and incompatible registrations before
 
 test("accepts a future service version when the authenticated API capabilities still match", async () => {
   const routes = basicRoutes();
-  routes["/api/status"] = ({ authorization }) => authorization
+  routes["/api/info"] = ({ authorization }) => authorization
     ? response({ version: "2.0.6", pid: 42 })
     : response({}, 401);
   const setup = fixture({
@@ -212,7 +260,7 @@ test("accepts a future service version when the authenticated API capabilities s
 
 test("rejects a stale registration when the authenticated service identity does not match", async () => {
   const routes = basicRoutes();
-  routes["/api/status"] = ({ authorization }) => authorization
+  routes["/api/info"] = ({ authorization }) => authorization
     ? response({ version: "2.0.7", pid: 42 })
     : response({}, 401);
   const setup = fixture({
@@ -230,7 +278,7 @@ test("rejects a stale registration when the authenticated service identity does 
 test("does not send a local service credential before the authentication boundary is proven", async () => {
   const setup = fixture({
     files: { [`${STATE}/service.json`]: { body: localRegistration() } },
-    routes: { "/api/status": response({ version: "2.0.5", pid: 42 }) }
+    routes: { "/api/info": response({ version: "2.0.5", pid: 42 }) }
   });
   const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
 
@@ -256,7 +304,7 @@ test("projects only sanitized roots with attention precedence and mixed active a
     now,
     files: { [`${STATE}/service.json`]: { body: localRegistration() } },
     routes: {
-      "/api/status": ({ authorization }) => authorization ? response({ version: "2.0.5", pid: 42 }) : response({}, 401),
+      "/api/info": ({ authorization }) => authorization ? response({ version: "2.0.5", pid: 42 }) : response({}, 401),
       "/api/session/active": response({ data: { ses_working: { type: "running" }, ses_attention: { type: "running" } } }),
       "/api/permission/request": response({ data: [{ id: "per_private", sessionID: "ses_child", resources: ["SECRET_RESOURCE"] }] }),
       "/api/form": response({ data: [{ id: "frm_private", sessionID: "ses_attention", title: "SECRET_FORM", fields: [] }] }),
@@ -318,12 +366,13 @@ test("bounds and sanitizes titles before local rendering", async () => {
   assert.doesNotMatch(title ?? "", /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u);
 });
 
-test("admits recent terminal outcomes without later expiry and hides old or viewed outcomes", async () => {
+test("expires successful and failed terminal outcomes five minutes after their event", async () => {
   let now = 3_000_000;
   const routes = basicRoutes(now);
   routes["/api/session?parentID=null&order=desc&limit=100"] = response({
     data: [
-      session("ses_kept", now - 299_999, { outcome: "succeeded", idle: now - 299_999 }),
+      session("ses_complete", now - 299_999, { outcome: "succeeded", idle: now - 299_999 }),
+      session("ses_error", now - 299_999, { outcome: "failed", idle: now - 299_999 }),
       session("ses_old", now - 300_000, { outcome: "failed", idle: now - 300_000 }),
       session("ses_viewed", now - 1_000, { outcome: "failed", idle: now - 1_000, viewed: now - 500 })
     ],
@@ -333,12 +382,12 @@ test("admits recent terminal outcomes without later expiry and hides old or view
   const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
 
   const first = await collector.start();
-  now += 1_000_000;
+  now += 1;
   const later = await collector.refresh();
   await collector.stop();
 
-  assert.deepEqual(first.connections[0]!.tasks.map((task) => task.sessionId), ["ses_kept"]);
-  assert.deepEqual(later.connections[0]!.tasks.map((task) => task.sessionId), ["ses_kept"]);
+  assert.deepEqual(first.connections[0]!.tasks.map((task) => task.sessionId), ["ses_error", "ses_complete"]);
+  assert.deepEqual(later.connections[0]!.tasks, []);
 });
 
 test("acknowledges only the current terminal result and shows a later completion again", async () => {
@@ -391,7 +440,7 @@ test("publishes the acknowledged terminal revision through the official session 
     files: { [`${STATE}/service.json`]: { body: localRegistration({ version: "2.0.10" }) } },
     routes: {
       ...routes,
-      "/api/status": ({ authorization }) => authorization
+      "/api/info": ({ authorization }) => authorization
         ? response({ version: "2.0.10", pid: 42 })
         : response({}, 401)
     }
@@ -445,7 +494,7 @@ test("does not publish a synthetic view revision when OpenCode omits the idle ti
     files: { [`${STATE}/service.json`]: { body: localRegistration({ version: "2.0.10" }) } },
     routes: {
       ...routes,
-      "/api/status": ({ authorization }) => authorization
+      "/api/info": ({ authorization }) => authorization
         ? response({ version: "2.0.10", pid: 42 })
         : response({}, 401)
     }
@@ -494,7 +543,7 @@ test("keeps a healthy connection visible when another connection fails", async (
     [`${STATE}/service-b.json`]: { body: localRegistration({ id: "b", url: "http://127.0.0.1:4102", pid: 102 }) }
   };
   const ok = basicRoutes();
-  ok["/api/status"] = ({ authorization }) => authorization ? response({ version: "2.0.5", pid: 101 }) : response({}, 401);
+  ok["/api/info"] = ({ authorization }) => authorization ? response({ version: "2.0.5", pid: 101 }) : response({}, 401);
   ok["/api/session?parentID=null&order=desc&limit=100"] = response({
     data: [session("ses_ok", 999_000, { outcome: "succeeded", idle: 999_000 })], cursor: {}
   });
@@ -635,7 +684,7 @@ test("stop tears down every SSH process group", async () => {
   const routes = basicRoutes();
   const setup = fixture({
     files: { [SETTINGS]: { body: settings } },
-    routes: { ...routes, "/api/status": ({ authorization }) => authorization ? response({ version: "2.0.5", pid: 77 }) : response({}, 401) },
+    routes: { ...routes, "/api/info": ({ authorization }) => authorization ? response({ version: "2.0.5", pid: 77 }) : response({}, 401) },
     processes: [discovery, tunnel]
   });
   const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });

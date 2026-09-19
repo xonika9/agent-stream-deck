@@ -44,8 +44,10 @@ the characterized API shapes must all pass. A future version with matching
 capabilities remains available; a mismatched capability fails only that
 connection closed.
 
-Authenticated service identity accepts the current `/api/info` route and the
-legacy `/api/status` route. Each candidate route must independently prove a
+Authenticated service identity prefers the current `/api/info` route and falls
+back to the legacy `/api/status` route only when needed. The selected route is
+reused across polls while the local registration is unchanged; a registration
+change requires a fresh probe. Each candidate route must independently prove a
 `401` or `403` unauthenticated boundary before Codex Deck sends the existing
 service credential.
 
@@ -58,9 +60,11 @@ OpenCode `2.0.10` exposes this route; older or incompatible services may reject
 it without restoring the locally acknowledged key or degrading other
 connections. The acknowledgement is never sent through a relay and is
 invalidated by a later terminal timestamp for the same opaque task identity. A
-terminal result admitted within five minutes of first observation remains until
-one of those acknowledgements; it does not expire on a display timer. Older
-terminal history present when monitoring starts is not backfilled. OpenCode
+successful or failed terminal result remains visible until it is viewed,
+acknowledged, or reaches five minutes after its normalized terminal event. The
+five-second polling cycle performs the removal, so the display may lag the exact
+deadline by one poll. Older terminal history present when monitoring starts is
+not backfilled. OpenCode
 Desktop `2.0.10` still clears its own renderer notification locally when a chat
 opens, so opening a chat does not reliably publish `time.viewed` by itself.
 When no Codex renderer snapshot is available to supply a theme, OpenCode Agent
