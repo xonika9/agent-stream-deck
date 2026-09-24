@@ -558,12 +558,15 @@ export class DeckController {
     }
     const now = Date.now();
     const activeQueueEnabled = this.effectiveActiveQueueEnabled();
+    const queueInputs = activeQueueEnabled && this.localHealth.reason === "codex-not-running"
+      ? inputs.filter((input) => input.host.hostId !== this.localHost?.hostId)
+      : inputs;
     const codexSlots = activeQueueEnabled
-      ? this.activityIndex.mergeActiveCatalog(inputs, now, this.localHost?.hostId)
+      ? this.activityIndex.mergeActiveCatalog(queueInputs, now, this.localHost?.hostId)
       : this.activityIndex.merge(inputs, now, this.localHost?.hostId);
     const merged = selectTaskCandidates(this.taskSource, codexSlots, this.openCodeSlots);
     this.routedSlots = activeQueueEnabled
-      ? projectActiveQueue(merged, inputs, this.activeQueueRankIndex, now)
+      ? projectActiveQueue(merged, queueInputs, this.activeQueueRankIndex, now)
       : merged;
 
     const assignments = this.routedSlots.map((slot) => `${slot.id}=${slot.taskSource ?? "codex"}:${slot.host.platform}`).join(" ");

@@ -1477,6 +1477,53 @@ test("controller applies the active queue only after host routing and preserves 
   assert.deepEqual(internal.routedSlots.map((slot) => slot.sourceSlot), [1, 4]);
 });
 
+test("Both queue drops stopped local Codex tasks before assigning the first key to OpenCode", async () => {
+  const controller = new DeckController({ foregroundOpenCode: async () => {} });
+  const images: string[] = [];
+  let alerts = 0;
+  const internal = controller as unknown as {
+    taskSource: "Both";
+    localHost?: CodexHost;
+    localSnapshot?: HostSnapshot;
+    localHealth: { state: "degraded"; reason: "codex-not-running"; changedAt: number };
+    openCodeHealth: { state: "ready"; changedAt: number };
+    openCodeSlots: RoutedAgentSlot[];
+    routedSlots: RoutedAgentSlot[];
+    refreshDisplay: () => Promise<void>;
+    microBridge: { sendAgent: () => Promise<void> };
+  };
+  internal.taskSource = "Both";
+  internal.localHost = host;
+  const staleSnapshot = structuredClone(snapshot);
+  staleSnapshot.slots[0]!.status = "complete";
+  staleSnapshot.slots[0]!.activityAt = 100;
+  internal.localSnapshot = { host, snapshot: staleSnapshot, observedAt: Date.now() };
+  internal.localHealth = { state: "degraded", reason: "codex-not-running", changedAt: Date.now() };
+  internal.openCodeHealth = { state: "ready", changedAt: Date.now() };
+  internal.openCodeSlots = [{
+    id: 0, sourceSlot: 0, taskSource: "opencode", host,
+    threadKey: "connection\0session", title: "OpenCode task", status: "complete",
+    selected: false, activityAt: 200, observedAt: Date.now()
+  }];
+  internal.microBridge.sendAgent = async () => { throw new Error("Stopped Codex must not receive a press"); };
+  await internal.refreshDisplay();
+
+  const action = new Agent1(controller);
+  const event = { action: {
+    id: "first-key", isKey: () => true,
+    setImage: async (image: string) => { images.push(decodeURIComponent(image)); },
+    setTitle: async () => {}, showAlert: async () => { alerts++; }
+  } };
+  action.onWillAppear(event as never);
+  await new Promise((resolve) => setImmediate(resolve));
+  await action.onKeyDown(event as never);
+  await action.onKeyUp(event as never);
+
+  assert.equal(internal.routedSlots[0]?.taskSource, "opencode");
+  assert.match(images.at(-1)!, /data-agent-host="O"/);
+  assert.equal(alerts, 0);
+});
+
 test("controller keeps one working-rank epoch, advances on a higher revision, and resets it on disable", async () => {
   const input = structuredClone(snapshot);
   input.slots.forEach((slot) => { slot.status = "idle"; slot.selected = false; });
