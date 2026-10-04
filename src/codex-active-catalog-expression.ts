@@ -13,6 +13,7 @@ export function buildActiveCatalogDiscoveryExpression(
   // The full sidebar catalog is optional. Resolver incompatibility is cached,
   // while per-thread races only suppress the catalog for the current poll.
   let activeCatalog;
+  let pinnedSidebarThreadKeys;
   const activeCatalogResolverCacheKey = Symbol.for('codex-deck-active-catalog-resolvers');
   const activeCatalogResolverFormat = 2;
   const appInitialUrl = urls.find((url) => url.includes('/assets/app-initial-'));
@@ -110,6 +111,7 @@ export function buildActiveCatalogDiscoveryExpression(
           dedupedAll.some((key, index) => orderedKeys[index] !== key)) {
           throw new Error('Sidebar catalog arrays are inconsistent.');
         }
+        pinnedSidebarThreadKeys = [...new Set(pinnedKeys)];
         // Fail closed before resolving even one per-key task descriptor. A
         // truncated array must never be advertised as a complete catalog.
         if (dedupedAll.length > ${ACTIVE_CATALOG_MAX_CANDIDATES}) {

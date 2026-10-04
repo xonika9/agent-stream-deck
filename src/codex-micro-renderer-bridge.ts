@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import WebSocket from "ws";
 import { buildActiveCatalogDiscoveryExpression, buildSnapshotPayloadExpression } from "./codex-active-catalog-expression.js";
+import { readPinnedSidebarSlots } from "./codex-sidebar.js";
 import { codexDeckStateRoot } from "./codex-deck-paths.js";
 import { OFFICIAL_KEYCAP_IDS, type OfficialKeycapId } from "./keycaps.js";
 import { CodexSessionOwnershipIndex } from "./session-ownership.js";
@@ -62,7 +63,7 @@ export function threadKeysEquivalent(left: string, right: string): boolean {
 export function selectSidebarThreadId(threadKey: string, sidebarThreadIds: readonly string[]): string | undefined {
   const exact = sidebarThreadIds.find((candidate) => candidate.toLowerCase() === threadKey.toLowerCase());
   if (exact) return exact;
-  const matches = sidebarThreadIds.filter((candidate) => threadKeysEquivalent(threadKey, candidate));
+  const matches = [...new Set(sidebarThreadIds)].filter((candidate) => threadKeysEquivalent(threadKey, candidate));
   return matches.length === 1 ? matches[0] : undefined;
 }
 
@@ -79,7 +80,7 @@ export function resolveAgentDispatch(
   const threadKey = expectedThreadKey ?? requested?.threadKey ?? null;
   if (!threadKey) throw new Error("The selected Codex task has no stable thread identity.");
   const current = snapshot.slots.find((item) => item.threadKey === threadKey);
-  return current
+  return current && snapshot.agentSource !== "pinned"
     ? { kind: "native", slot: current.id, threadKey }
     : { kind: "direct", slot: requestedSlot, threadKey };
 }
@@ -236,13 +237,24 @@ const SNAPSHOT_EXPRESSION = `(async () => {
     }
     return undefined;
   };
-  const slots = found.slots.map((slot) => ({
+  let slots = found.slots.map((slot) => ({
     ...slot,
     activityAt: toEpoch(slot.activityAt) ?? toEpoch(slot.updatedAt) ?? toEpoch(slot.lastActivityAt) ??
       toEpoch(slot.thread?.updatedAt) ?? toEpoch(slot.task?.updatedAt)
   }));
 
 ${buildActiveCatalogDiscoveryExpression()}
+
+  const pinnedCacheKey = Symbol.for('codex-deck-live-pinned-slots');
+  const sidebarSlots = agentSource === 'pinned'
+    ? (${readPinnedSidebarSlots.toString()})(document, slots, pinnedSidebarThreadKeys)
+    : undefined;
+  if (sidebarSlots) globalThis[pinnedCacheKey] = sidebarSlots;
+  if (agentSource === 'pinned') {
+    // Cached selection is not proof that a completion was viewed. Ownership
+    // separately receives the current activeThreadKey from live DOM state.
+    slots = sidebarSlots ?? globalThis[pinnedCacheKey]?.map((slot) => ({ ...slot, selected: false })) ?? slots;
+  }
 
   let usage;
   for (const client of queryClients) {
@@ -327,9 +339,10 @@ ${buildActiveCatalogDiscoveryExpression()}
     : 'light';
   const activeThreadElement = document.querySelector('[data-app-action-sidebar-thread-id][data-app-action-sidebar-thread-active="true"]')
     ?? document.querySelector('[data-app-action-sidebar-thread-id][aria-current="page"]');
-  const activeThreadKey = document.querySelector('[data-above-composer-conversation-id]')
-    ?.getAttribute('data-above-composer-conversation-id')
-    ?? activeThreadElement?.getAttribute('data-app-action-sidebar-thread-id')
+  const activeThreadKey = activeThreadElement?.getAttribute('data-app-action-sidebar-thread-id')
+    ?? [...document.querySelectorAll('[data-above-composer-conversation-id]')]
+      .find((element) => element.getClientRects().length > 0)
+      ?.getAttribute('data-above-composer-conversation-id')
     ?? undefined;
   const activeThreadTitle = activeThreadElement
     ? (activeThreadElement.getAttribute('aria-label') ?? activeThreadElement.textContent ?? '').trim().slice(0, 240) || undefined
@@ -358,7 +371,8 @@ export function buildEnsureThreadActivatedExpression(threadKey: string): string 
         ?? document.querySelector('[data-app-action-sidebar-thread-id][aria-current="page"]')
           ?.getAttribute('data-app-action-sidebar-thread-id')
         ?? null;
-      const activeComposerThreadKey = () => document.querySelector('[data-above-composer-conversation-id]')
+      const activeComposerThreadKey = () => [...document.querySelectorAll('[data-above-composer-conversation-id]')]
+        .find((element) => element.getClientRects().length > 0)
         ?.getAttribute('data-above-composer-conversation-id')
         ?? null;
       const sidebarThreadKeys = () => [...document.querySelectorAll('[data-app-action-sidebar-thread-id]')]
@@ -367,7 +381,7 @@ export function buildEnsureThreadActivatedExpression(threadKey: string): string 
       const selectSidebarThreadKey = (candidate, sidebarCandidates = sidebarThreadKeys()) => {
         const exact = sidebarCandidates.find((sidebarCandidate) => sidebarCandidate.toLowerCase() === candidate.toLowerCase());
         if (exact) return exact;
-        const equivalent = sidebarCandidates.filter((sidebarCandidate) => matchesThreadKeys(sidebarCandidate, candidate));
+        const equivalent = [...new Set(sidebarCandidates)].filter((sidebarCandidate) => matchesThreadKeys(sidebarCandidate, candidate));
         return equivalent.length === 1 ? equivalent[0] : null;
       };
       const isActiveThread = () => {
@@ -447,7 +461,7 @@ export class CodexMicroRendererBridge {
       if (act === 0) return;
     } else {
       if (act === 0) return;
-      this.log(`Task ${plan.threadKey} is outside this host's six native Micro slots; dispatching its exact native thread identity.`);
+      this.log(`Selecting Codex task ${plan.threadKey} by its exact native thread identity.`);
       await this.dispatch("codex-micro-hid-event", {
         event: { key: `AG0${plan.slot}`, act: 1, slot: plan.slot, threadKey: plan.threadKey }
       }, "codex-micro-hid-event");

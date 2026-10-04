@@ -374,6 +374,7 @@ test("renderer thread comparisons accept bare IDs without conflating host-prefix
   assert.equal(selectSidebarThreadId(local, [threadId]), threadId);
   assert.equal(selectSidebarThreadId(remote, [local, remote]), remote);
   assert.equal(selectSidebarThreadId(threadId, [local]), local);
+  assert.equal(selectSidebarThreadId(threadId, [local, local]), local);
   assert.equal(selectSidebarThreadId(threadId, [local, remote]), undefined);
 });
 
@@ -381,10 +382,12 @@ async function evaluateThreadActivation(
   threadKey: string,
   sidebarThreadIds: string[],
   activeSidebarThreadId: string | null,
-  composerThreadId: string | null
+  composerThreadId: string | null,
+  composerVisible = true
 ): Promise<unknown> {
   const element = (id: string) => ({
     getAttribute: (name: string) => name === "data-app-action-sidebar-thread-id" || name === "data-above-composer-conversation-id" ? id : null,
+    getClientRects: () => composerVisible ? [{}] : [],
     matches: () => false,
     querySelector: () => null,
     closest: () => null,
@@ -405,7 +408,8 @@ async function evaluateThreadActivation(
         }
         return null;
       },
-      querySelectorAll: () => sidebarElements
+      querySelectorAll: (selector: string) => selector.includes("data-above-composer")
+        ? composerThreadId ? [element(composerThreadId)] : [] : sidebarElements
     },
     setTimeout: (callback: () => void, duration: number) => {
       now += duration;
@@ -423,7 +427,9 @@ test("thread activation evaluator preserves host identity across sidebar and com
   assert.equal(await evaluateThreadActivation(local, [local, remote], null, threadId), "failed");
   assert.equal(await evaluateThreadActivation(local, [local, remote], local, threadId), "active");
   assert.equal(await evaluateThreadActivation(threadId, [local], null, threadId), "active");
+  assert.equal(await evaluateThreadActivation(threadId, [local, local], local, threadId), "active");
   assert.equal(await evaluateThreadActivation(local, [], null, local), "active");
+  assert.equal(await evaluateThreadActivation(local, [], null, local, false), "missing");
 });
 
 test("native action 5 maps the combined layout slot to Codex push-to-talk", () => {
@@ -475,7 +481,7 @@ test("agent routing follows the stable thread identity when a cross-host slot is
   });
 });
 
-test("direct off-six dispatch sends the exact native thread key and release remains a no-op", async () => {
+test("direct off-six and pinned dispatch send exact thread keys and release remains a no-op", async () => {
   const bridge = new CodexMicroRendererBridge(() => {});
   const base = {
     slots: Array.from({ length: 6 }, (_, id) => ({
@@ -502,7 +508,14 @@ test("direct off-six dispatch sends the exact native thread key and release rema
   await bridge.sendAgent(5, 1, exact);
   await bridge.sendAgent(5, 0, exact);
 
-  assert.deepEqual(events, [{ event: { key: "AG05", act: 1, slot: 5, threadKey: exact } }]);
+  base.agentSource = "pinned";
+  const pinned = base.slots[2]!.threadKey!;
+  await bridge.sendAgent(2, 1, pinned);
+  await bridge.sendAgent(2, 0, pinned);
+  assert.deepEqual(events, [
+    { event: { key: "AG05", act: 1, slot: 5, threadKey: exact } },
+    { event: { key: "AG02", act: 1, slot: 2, threadKey: pinned } }
+  ]);
 });
 
 test("reasoning controls use the official native encoder rotation events", async () => {
@@ -570,4 +583,109 @@ test("assigned titleless threads use a new-chat label instead of Not assigned", 
   const source = await readFile(new URL("../src/controller.ts", import.meta.url), "utf8");
   assert.match(source, /agent\?\.threadKey\s*&&\s*health\.state\s*===\s*"ready"\s*\?\s*"New chat"/);
   assert.match(source, /:\s*"Not assigned"/);
+});
+
+test("renderer snapshot uses live pinned rows, caches collapsed pins and ignores hidden composers", async () => {
+  let expression = "";
+  const bridge = new CodexMicroRendererBridge(() => {});
+  const internal = bridge as unknown as {
+    ensureConnected: () => Promise<void>;
+    evaluate: (expression: string) => Promise<MicroSnapshot>;
+  };
+  internal.ensureConnected = async () => {};
+  internal.evaluate = async (value) => { expression = value; throw new Error("snapshot captured"); };
+  await assert.rejects(bridge.refresh(), /snapshot captured/);
+
+  const nativeSlots = Array.from({ length: 6 }, (_, id) => ({
+    id, threadKey: catalogKey(id), title: `Old pin ${id}`, status: "idle", selected: false, activityAt: 42
+  }));
+  const definitions = {
+    layout: { key: "codex-micro-layout", default: { version: 1, slots: {} } },
+    agentSource: { key: "codex-micro-agent-source", default: "pinned" }
+  };
+  const slotResolver = { resolve: () => "slots", createSubscriberAtom: () => null };
+  let semanticPinsEmpty = false;
+  const store = { get: (atom: unknown) => atom === "slots" ? nativeSlots
+    : semanticPinsEmpty && atom === "sidebar" ? { allSidebarThreadKeys: [], pinnedThreadKeys: [], unpinnedThreadKeys: [] }
+    : semanticPinsEmpty && atom === "readable" ? { threadKeys: [], threadStateKeys: [], navigationThreadKeys: [] }
+    : null };
+  const root = { __reactContainer$test: { memoizedProps: { value: new Map([["node", { store }]]) } } };
+  const row = (key: string, status: object) => ({
+    getAttribute: (name: string) => ({
+      "data-app-action-sidebar-thread-id": key,
+      "data-app-action-sidebar-thread-title": `Live ${key}`,
+      "data-app-action-sidebar-thread-active": key === active ? "true" : "false"
+    } as Record<string, string>)[name] ?? null,
+    __reactFiber$test: { return: { memoizedProps: { statusState: status } } }
+  });
+  let rows: ReturnType<typeof row>[] = [];
+  let active: string | null = null;
+  let composers = [
+    { getAttribute: () => catalogKey(90), getClientRects: () => [] },
+    { getAttribute: () => catalogKey(91), getClientRects: () => [{}] }
+  ];
+  const resources = [{ name: "app://-/assets/codex-micro-slot-signals-test.js" }];
+  const context = createContext({
+    Map, Set, Symbol, TextEncoder,
+    document: {
+      getElementById: () => root,
+      documentElement: { dataset: {}, className: "" },
+      body: { dataset: {}, className: "" },
+      querySelectorAll: (selector: string) => selector.includes("thread-pinned") ? rows
+        : selector.includes("data-above-composer") ? composers : [],
+      querySelector: (selector: string) => selector.includes('thread-active="true"') && active
+        ? { getAttribute: () => active } : selector.includes("data-above-composer") ? composers[0] : null
+    },
+    performance: { getEntriesByType: () => resources },
+    getComputedStyle: () => ({ colorScheme: "dark", backgroundColor: "rgb(0,0,0)" }),
+    loadModule: async () => ({ definitions, slotResolver,
+      allSidebarResolver: { resolve: () => "sidebar", createSubscriberAtom: () => null },
+      readableFamily: { resolve: () => ({ resolve: () => "readable" }) },
+      bus: {
+        handlers: new Map([["codex-micro-hid-event", new Set([() => {}])]]), dispatchHostMessage: () => {}
+      } })
+  });
+  const poll = async (): Promise<MicroSnapshot> => JSON.parse(JSON.stringify(
+    await runInContext(expression.replaceAll("import(", "loadModule("), context)
+  ));
+  // Older sidebar markup has no pinned rows: native slots still work.
+  let snapshot = await poll();
+  assert.deepEqual(snapshot.slots.map(slot => slot.threadKey), nativeSlots.map(slot => slot.threadKey));
+
+  const states = [
+    { type: "loading" }, { type: "error" }, { type: "approval" },
+    { type: "response" }, { type: "idle", unread: true }, { type: "idle" }
+  ];
+  rows = states.map((state, index) => row(catalogKey(5 - index), state));
+  rows.splice(1, 0, rows[0]!);
+  rows.push(row(catalogKey(7), { type: "loading" }));
+  active = catalogKey(5);
+  snapshot = await poll();
+  assert.deepEqual(snapshot.slots.map(slot => slot.threadKey), states.map((_, index) => catalogKey(5 - index)));
+  assert.deepEqual(snapshot.slots.map(slot => slot.status), ["working", "error", "awaiting-approval", "awaiting-response", "unread", "idle"]);
+  assert.equal(snapshot.slots[0]?.title, `Live ${catalogKey(5)}`);
+  assert.equal(snapshot.slots[0]?.activityAt, 42_000);
+  assert.equal(snapshot.activeThreadKey, active);
+
+  assert.equal(snapshot.slots[0]?.selected, true);
+  rows = [];
+  active = catalogKey(91);
+  const collapsed = await poll();
+  assert.equal(collapsed.activeThreadKey, active);
+  assert.deepEqual(collapsed.slots, snapshot.slots.map(slot => ({ ...slot, selected: false })));
+  definitions.agentSource.default = "recent";
+  assert.deepEqual((await poll()).slots.map(slot => slot.threadKey), nativeSlots.map(slot => slot.threadKey));
+  definitions.agentSource.default = "pinned";
+  rows = [row(catalogKey(8), { type: "loading" })];
+  assert.deepEqual((await poll()).slots.map(slot => slot.threadKey), [catalogKey(8), null, null, null, null, null]);
+  active = null;
+  composers = composers.slice(0, 1);
+  assert.equal((await poll()).activeThreadKey, undefined);
+  // Removing the final pin must clear the cached list even with no DOM rows.
+  rows = [];
+  semanticPinsEmpty = true;
+  resources.push({ name: "app://-/assets/app-initial-test.js" });
+  snapshot = await poll();
+  assert.deepEqual(snapshot.activeCatalog?.candidates, []);
+  assert.deepEqual(snapshot.slots.map(slot => slot.status), Array(6).fill("off"));
 });

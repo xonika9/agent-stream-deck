@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { buildRuntimeOverrideExpression, buildRuntimeVerificationExpression, selectRuntimeTarget } from "../launcher/runtime-override.js";
@@ -87,4 +88,34 @@ test("launcher verifies the settings gate and native Micro handlers", () => {
   assert.match(expression, /codex-micro-hid-event/);
   assert.match(expression, /codex-micro-joystick-event/);
   assert.match(expression, /nativeEventBus/);
+});
+
+test("launcher activates and verifies a native event bus exposed only by app-shared", async () => {
+  const events: unknown[] = [];
+  const bus = {
+    handlers: new Map([
+      ["codex-micro-device-state-changed", new Set([() => {}])],
+      ["codex-micro-hid-event", new Set([() => {}])],
+      ["codex-micro-joystick-event", new Set([() => {}])]
+    ]),
+    dispatchHostMessage: (message: unknown) => events.push(message)
+  };
+  let now = 0;
+  const context = {
+    Map, Set,
+    Date: { now: () => now += 1_000 },
+    setTimeout: (callback: () => void) => callback(),
+    __STATSIG__: { firstInstance: { checkGate: () => true } },
+    document: { querySelectorAll: () => [], querySelector: () => null },
+    performance: { getEntriesByType: () => [{ name: "app://-/assets/app-shared-fixture.js" }] },
+    loadModule: async () => ({ bus })
+  };
+  const activate = await runInNewContext(buildRuntimeOverrideExpression().replaceAll("import(", "loadModule("), context);
+  assert.equal(activate.ready, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(events)), [{
+    type: "codex-micro-device-state-changed",
+    state: { status: "connected", error: null, battery: { percentage: 100, isCharging: true } }
+  }]);
+  const verify = await runInNewContext(buildRuntimeVerificationExpression().replaceAll("import(", "loadModule("), context);
+  assert.equal(verify.ready, true);
 });

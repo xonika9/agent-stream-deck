@@ -56,6 +56,22 @@ The same plugin runs on Windows and macOS. It discovers the local loopback port 
 6. resolve standalone keycap actions from Codex's live Micro keycap registry and current official command runner;
 7. read Codex's renderer-owned `rate-limit-status` query and normalize its current 5-hour, weekly, and reset-credit state.
 
+On newer Codex builds, the native Micro pinned atom can retain an older list.
+Pinned mode reads the current sidebar rows in display order, including their
+live status, and dispatches their exact thread identities rather than relying
+on native slot order. The last observed pinned list is retained while rows are
+collapsed, with cached selection flags cleared to prevent falsely acknowledging
+a completed task after switching chats. A verified empty semantic pin list
+clears that cache after the final pin is removed. Older builds fall back to native slots. Other source modes retain
+native Micro slots, and full active-catalog discovery still uses the original
+native slots before the pinned display override. Active chat detection prefers
+the selected sidebar identity and only considers visible composers.
+The launcher also discovers the native event bus in `app-shared` chunks.
+
+This integration is adapted from crunchy234's
+[`ed6c97e`](https://github.com/crunchy234/codex-stream-deck/commit/ed6c97e4a608d72b5f897f9e5963c27ed363f08a),
+while preserving strict host identity matching in this fork.
+
 The bridge does not emulate a USB HID device and installs no driver.
 
 For the characterized macOS OpenCode setup, the plugin starts a separate
