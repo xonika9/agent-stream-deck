@@ -10,9 +10,6 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { CodexMicroRendererBridge } from "../../src/codex-micro-renderer-bridge.js";
 import { CodexRelayServer, validateRelayServerConfig, type RelayServerConfig } from "../../src/codex-relay-server.js";
-import {
-  configureLocalMobilePairing, LOCAL_MOBILE_CONFIG, LOCAL_PAIRING_QR
-} from "../../src/mobile-local-pairing.js";
 import { applyRuntimeOverride, verifyMicroRuntime } from "../runtime-override.js";
 import {
   createWatcherPolicyState,
@@ -31,7 +28,6 @@ const WATCHER_LOG_PATH = join(STATE_ROOT, "watcher.log");
 const WATCHER_STDERR_PATH = join(STATE_ROOT, "watcher.stderr.log");
 const WATCHER_LOCK_PATH = join(STATE_ROOT, "watcher.lock");
 const RELAY_SERVER_CONFIG_PATH = join(STATE_ROOT, "relay-server.json");
-const MOBILE_LOCAL_CONFIG_PATH = join(STATE_ROOT, LOCAL_MOBILE_CONFIG);
 const INSTALLED_RUNTIME_PATH = join(STATE_ROOT, "codex-deck-macos.mjs");
 const WATCHER_LAUNCHER_PATH = join(STATE_ROOT, "watcher-launch.sh");
 const LAUNCH_AGENT_PATH = join(homedir(), "Library", "LaunchAgents", `${AGENT_LABEL}.plist`);
@@ -380,12 +376,10 @@ async function runWatcher(): Promise<number> {
   }
   let released = false;
   let relayServer: CodexRelayServer | undefined;
-  let mobileLocalRelayServer: CodexRelayServer | undefined;
   let relayControl: CodexMicroRendererBridge | undefined;
   let relaySignature = "";
   const cleanup = async () => {
     await relayServer?.close().catch(() => {});
-    await mobileLocalRelayServer?.close().catch(() => {});
     relayControl?.close();
     if (!released) { released = true; await release(); }
   };
@@ -409,38 +403,22 @@ async function runWatcher(): Promise<number> {
         await atomicWriteJson(WATCHER_STATE_PATH, policy);
 
         const relayConfig = await readJson<RelayServerConfig>(RELAY_SERVER_CONFIG_PATH);
-        const mobileLocalConfig = await readJson<RelayServerConfig>(MOBILE_LOCAL_CONFIG_PATH);
-        const nextRelaySignature = JSON.stringify([
-          relayConfig?.enabled ? relayConfig : null,
-          mobileLocalConfig?.enabled ? mobileLocalConfig : null
-        ]);
+        const nextRelaySignature = JSON.stringify(relayConfig?.enabled ? relayConfig : null);
         if (nextRelaySignature !== relaySignature) {
           await relayServer?.close();
-          await mobileLocalRelayServer?.close();
           relayControl?.close();
           relayServer = undefined;
-          mobileLocalRelayServer = undefined;
           relayControl = undefined;
           relaySignature = "";
-          if (relayConfig?.enabled || mobileLocalConfig?.enabled) {
+          if (relayConfig?.enabled) {
             const identity = await hostState();
             relayControl = new CodexMicroRendererBridge(safeLog);
-            if (relayConfig?.enabled) {
-              relayServer = new CodexRelayServer(
-                relayConfig,
-                { ...identity, platform: "darwin", codexVersion: installation.version },
-                relayControl, safeLog
-              );
-              await relayServer.start();
-            }
-            if (mobileLocalConfig?.enabled) {
-              mobileLocalRelayServer = new CodexRelayServer(
-                mobileLocalConfig,
-                { ...identity, platform: "darwin", codexVersion: installation.version }, relayControl,
-                (message) => safeLog(`Nearby mobile relay: ${message}`)
-              );
-              await mobileLocalRelayServer.start();
-            }
+            relayServer = new CodexRelayServer(
+              relayConfig,
+              { ...identity, platform: "darwin", codexVersion: installation.version },
+              relayControl, safeLog
+            );
+            await relayServer.start();
           }
           relaySignature = nextRelaySignature;
         }
@@ -448,7 +426,6 @@ async function runWatcher(): Promise<number> {
           ...await hostState(), platform: "darwin" as const, codexVersion: installation.version
         };
         relayServer?.updateHost(relayHost);
-        mobileLocalRelayServer?.updateHost(relayHost);
 
         if (port != null) {
           const signature = `${main!.generation}:${port}`;
@@ -572,12 +549,12 @@ async function uninstallLaunchAgent(): Promise<void> {
   for (const path of [
     INSTALLED_RUNTIME_PATH, WATCHER_LAUNCHER_PATH, BRIDGE_STATE_PATH, WATCHER_STATE_PATH,
     WATCHER_LOG_PATH, `${WATCHER_LOG_PATH}.1`, `${WATCHER_LOG_PATH}.2`, `${WATCHER_LOG_PATH}.3`,
-    WATCHER_STDERR_PATH, MOBILE_LOCAL_CONFIG_PATH, join(STATE_ROOT, LOCAL_PAIRING_QR)
+    WATCHER_STDERR_PATH
   ]) {
     await rm(path, { force: true });
   }
   await rm(WATCHER_LOCK_PATH, { recursive: true, force: true });
-  console.log("Codex Deck LaunchAgent and Nearby credentials removed. host.json and the icons directory were preserved.");
+  console.log("Codex Deck LaunchAgent removed. host.json and the icons directory were preserved.");
 }
 
 async function dryRun(): Promise<void> {
@@ -586,7 +563,6 @@ async function dryRun(): Promise<void> {
   const port = await healthyDebugPort(main);
   const staleState = await readJson<{ port?: unknown }>(BRIDGE_STATE_PATH);
   const relayConfig = await readJson<RelayServerConfig>(RELAY_SERVER_CONFIG_PATH);
-  const mobileLocalConfig = await readJson<RelayServerConfig>(MOBILE_LOCAL_CONFIG_PATH);
   console.log(`Codex app: ${installation.appPath}`);
   console.log(`Bundle ID: ${installation.bundleId}`);
   console.log(`Version: ${installation.version} (${installation.buildVersion})`);
@@ -595,7 +571,6 @@ async function dryRun(): Promise<void> {
   console.log(`Reusable loopback bridge: ${port ?? "none"}`);
   console.log(`Bridge state file: ${staleState ? "present (not modified in dry-run)" : "absent"}`);
   console.log(`Multi-host relay: ${relayConfig?.enabled ? `configured for ${relayConfig.listenHost}:${relayConfig.port}` : "disabled"}`);
-  console.log(`Nearby iPhone node: ${mobileLocalConfig?.enabled ? `configured on private LAN port ${mobileLocalConfig.port}` : "disabled"}`);
   if (main && !port) console.log("Action: a real restart would be required; dry-run left Codex untouched.");
   else if (!main) console.log("Action: start Codex with a random loopback port.");
   else console.log("Action: reuse the current bridge and apply the runtime override.");
@@ -621,20 +596,6 @@ async function configureRelay(listenHost: string | undefined, portValue: string 
 async function disableRelay(): Promise<void> {
   await rm(RELAY_SERVER_CONFIG_PATH, { force: true });
   console.log("Mac relay disabled. The watcher will close the listener without restarting Codex.");
-}
-
-async function configureMobileLocal(portValue: string | undefined, rotate: boolean): Promise<void> {
-  const port = portValue == null ? 47_653 : Number.parseInt(portValue, 10);
-  const result = await configureLocalMobilePairing({ stateRoot: STATE_ROOT, port, rotate });
-  console.log(`Nearby iPhone node configured for ${result.hostName} on ${result.address}:${result.port}.`);
-  console.log("Scan the opened QR code with the iPhone Camera. The watcher detects this without restarting Codex.");
-  run("/usr/bin/open", [result.qrPath], { allowFailure: true });
-}
-
-async function disableMobileLocal(): Promise<void> {
-  await rm(MOBILE_LOCAL_CONFIG_PATH, { force: true });
-  await rm(join(STATE_ROOT, LOCAL_PAIRING_QR), { force: true });
-  console.log("Nearby iPhone node disabled. The watcher will stop advertising it without restarting Codex.");
 }
 
 async function startOnce(allowRestart: boolean): Promise<number> {
@@ -730,15 +691,10 @@ async function main(): Promise<number> {
   if (command === "uninstall") { await uninstallLaunchAgent(); return 0; }
   if (command === "relay-config") { await configureRelay(process.argv[3], process.argv[4]); return 0; }
   if (command === "relay-disable") { await disableRelay(); return 0; }
-  if (command === "mobile-local-config") {
-    await configureMobileLocal(process.argv.find((value, index) => index > 2 && /^\d+$/.test(value)), process.argv.includes("--rotate"));
-    return 0;
-  }
-  if (command === "mobile-local-disable") { await disableMobileLocal(); return 0; }
   if (command === "watch") return await runWatcher();
   if (command === "start") return await startOnce(process.argv.includes("--restart"));
   if (command === "--restart") return await startOnce(true);
-  throw new Error("Usage: start-codex-deck.sh [start [--restart]|dry-run|self-test|install|uninstall|watch|relay-config <127.0.0.1-or-tailscale-ip> [port]|relay-disable|mobile-local-config [port] [--rotate]|mobile-local-disable|print-launch-agent]");
+  throw new Error("Usage: start-codex-deck.sh [start [--restart]|dry-run|self-test|install|uninstall|watch|relay-config <127.0.0.1-or-tailscale-ip> [port]|relay-disable|print-launch-agent]");
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

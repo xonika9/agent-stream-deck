@@ -19,17 +19,6 @@ await build({
   minify: false
 });
 
-await build({
-  entryPoints: [resolve("launcher/mobile-pairing-cli.ts")],
-  outfile: resolve(output, "mobile-pairing.mjs"),
-  bundle: true,
-  platform: "node",
-  format: "esm",
-  target: "node24",
-  minify: false,
-  banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" }
-});
-
 // Copy the runtime package from an explicit allowlist. Cloud-sync conflict
 // copies (for example `index 3.js`) must never leak into release archives.
 const wsSource = resolve("node_modules/ws");
@@ -47,7 +36,7 @@ for (const filename of [
   await cp(resolve(wsSource, "lib", filename), resolve(wsOutput, "lib", filename));
 }
 
-for (const filename of ["Start Codex Deck.cmd", "Start-CodexDeck.ps1", "Watch-CodexDeck.ps1", "Configure-CodexDeckRelay.ps1", "Configure-CodexDeckMobile.ps1", "README.txt"]) {
+for (const filename of ["Start Codex Deck.cmd", "Start-CodexDeck.ps1", "Watch-CodexDeck.ps1", "Configure-CodexDeckRelay.ps1", "README.txt"]) {
   await cp(resolve("launcher", filename), resolve(output, filename));
 }
 await cp(resolve("docs"), resolve(output, "docs"), { recursive: true });

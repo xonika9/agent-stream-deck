@@ -2,29 +2,6 @@
 
 This mode runs Stream Deck and Codex on the same Windows PC. It needs no relay, SSH, Tailscale, Mac, or host-target key.
 
-## Optional iPhone Nearby pairing
-
-From the installed launcher directory:
-
-```powershell
-.\Configure-CodexDeckMobile.ps1 -Local
-```
-
-Reload only the Codex Deck Stream Deck plugin, then scan the opened QR code
-with the iPhone Camera. If Windows Firewall asks, allow Node.js on Private
-networks only. Nearby binds its pinned-TLS relay to one private LAN address;
-Bonjour never contains the token and Chrome DevTools remains on `127.0.0.1`.
-
-Rotate the pairing identity only when needed with `-Local -Rotate`. Disable it
-with:
-
-```powershell
-.\Configure-CodexDeckMobile.ps1 -Local -Disable
-```
-
-Tailscale remote access remains available as a separate profile; see
-[`IOS.md`](IOS.md).
-
 ## Install
 
 1. Install `com.xonika9.codex-deck.streamDeckPlugin` by opening it.

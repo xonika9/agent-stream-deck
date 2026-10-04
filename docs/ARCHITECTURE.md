@@ -189,28 +189,6 @@ operation. Payloads are capped at 64 KiB, authentication is required before a
 snapshot or command is accepted, and command results use request IDs with
 bounded timeouts.
 
-### Optional iPhone transports
-
-The iPhone consumes the same authenticated protocol through two independent
-transport profiles. Remote mode keeps the relay on loopback and uses private
-Tailscale Serve TLS. Nearby mode binds only the typed relay to one discovered
-RFC 1918 address; Chrome DevTools remains on `127.0.0.1`. Nearby creates a
-per-host P-256 certificate and random token, pins the certificate fingerprint
-in the iPhone profile, and stores the token in Keychain.
-
-Bonjour `_codexdeck._tcp` announces protocol version, stable `hostId`, display
-name, platform, private address, relay port, and certificate fingerprint. It
-never announces the token. The QR deep link carries the initial private
-endpoint, token, and fingerprint. Later Bonjour address changes are accepted
-only for the already-paired `hostId` with the same pinned fingerprint. Config
-and QR files are written atomically with user-only permissions and are excluded
-by the release-state audit.
-
-The nearby and Tailscale listeners are separate, so enabling local discovery
-does not replace or weaken remote access. No public relay is bundled: a
-reliable internet alternative would require operated identity, TURN/push, rate
-limiting, and abuse controls rather than exposing a desktop listener.
-
 An authenticated client may remain connected while the Mac app or its native
 Micro signals are unavailable. Snapshot failures are caught and rate-limited;
 they do not terminate the relay server or watcher. Normal snapshots resume
@@ -273,9 +251,7 @@ transports. OpenCode endpoints, SSH targets, credentials, messages, locations,
 and permission/form content remain inside the adapter and are not logged or
 rendered. A bounded, sanitized OpenCode task title may flow only into the
 same-process local Stream Deck renderer; it is excluded from logs and every
-relay. Optional iPhone Nearby pairing
-adds only the authenticated pinned-TLS relay on one explicit private LAN
-address; Chrome DevTools remains on loopback. Optional multi-host mode adds one
+relay. Optional multi-host mode adds one
 user-configured Mac listener reachable through SSH or inside the encrypted
 tailnet; titles, task IDs, states, a bounded catalog of recent local task UUIDs
 and modification times, ownership metadata, and typed commands pass between the

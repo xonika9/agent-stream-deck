@@ -1,19 +1,14 @@
 import assert from "node:assert/strict";
-import { X509Certificate } from "node:crypto";
 import { createServer } from "node:net";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import test from "node:test";
 import streamDeck from "@elgato/streamdeck";
 import WebSocket from "ws";
-import { generate } from "selfsigned";
 import { CodexRelayClient, RELAY_SNAPSHOT_STALE_MS, resolveRelayHealth } from "../src/codex-relay-client.js";
 import { DeckController } from "../src/controller.js";
 import { Agent1 } from "../src/actions.js";
-import { isAllowedRelayHost, isPrivateLanHost, privateLanAddresses } from "../src/relay-network.js";
+import { isAllowedRelayHost } from "../src/relay-network.js";
 import {
-  CodexRelayServer, encodeRelaySnapshotMessage, readRelayServerConfig, relayDiscoveryTxt,
+  CodexRelayServer, encodeRelaySnapshotMessage,
   relaySnapshotFailureShouldDegrade, validateRelayServerConfig
 } from "../src/codex-relay-server.js";
 import {
@@ -50,66 +45,6 @@ test("relay refuses wildcard exposure and short authentication tokens", () => {
   assert.equal(isAllowedRelayHost("8.8.8.8"), false);
 });
 
-test("nearby relay accepts only pinned TLS on a private address and never advertises its token", async () => {
-  const certificate = await generate([{ name: "commonName", value: "Codex Deck test" }], {
-    keyType: "ec", curve: "P-256", algorithm: "sha256"
-  });
-  const fingerprint = new X509Certificate(certificate.cert).fingerprint256
-    .replaceAll(":", "").toLowerCase();
-  const local = {
-    enabled: true,
-    listenHost: "auto",
-    port: 47_653,
-    token: "secret".repeat(8),
-    transport: "local" as const,
-    tls: {
-      certificate: certificate.cert,
-      privateKey: certificate.private,
-      fingerprintSha256: fingerprint
-    },
-    discovery: { enabled: true }
-  };
-  validateRelayServerConfig(local);
-  const txt = relayDiscoveryTxt(local, host, "192.168.1.25");
-  assert.equal(txt.hostId, host.hostId);
-  assert.equal(txt.address, "192.168.1.25");
-  assert.equal(txt.fingerprint, fingerprint);
-  assert.equal(JSON.stringify(txt).includes(local.token), false);
-  assert.equal("token" in txt, false);
-  assert.throws(
-    () => validateRelayServerConfig({ ...local, tls: undefined }), /requires pinned TLS/);
-  assert.throws(
-    () => validateRelayServerConfig({ ...local, listenHost: "203.0.113.8" }), /secure auto local mode/);
-  assert.equal(isPrivateLanHost("10.0.0.4"), true);
-  assert.equal(isPrivateLanHost("172.31.9.2"), true);
-  assert.equal(isPrivateLanHost("192.168.50.9"), true);
-  assert.equal(isPrivateLanHost("100.100.100.100"), false);
-  assert.equal(isPrivateLanHost("8.8.8.8"), false);
-  assert.deepEqual(privateLanAddresses({
-    en0: [
-      { address: "192.168.1.25", netmask: "255.255.255.0", family: "IPv4", mac: "aa", internal: false, cidr: "192.168.1.25/24" },
-      { address: "fe80::1", netmask: "ffff::", family: "IPv6", mac: "aa", internal: false, cidr: "fe80::1/64", scopeid: 1 }
-    ],
-    vpn: [{ address: "100.100.100.100", netmask: "255.192.0.0", family: "IPv4", mac: "bb", internal: false, cidr: "100.100.100.100/10" }]
-  }), ["192.168.1.25"]);
-});
-
-test("optional mobile relay config is absent-safe and validates before startup", async () => {
-  const root = await mkdtemp(join(tmpdir(), "codex-mobile-relay-"));
-  try {
-    const path = join(root, "mobile-relay-server.json");
-    assert.equal(await readRelayServerConfig(path), null);
-    await writeFile(path, JSON.stringify({ enabled: true, listenHost: "127.0.0.1", port: 47_652, token: "m".repeat(32) }));
-    assert.deepEqual(await readRelayServerConfig(path), {
-      enabled: true, listenHost: "127.0.0.1", port: 47_652, token: "m".repeat(32)
-    });
-    await writeFile(path, JSON.stringify({ enabled: true, listenHost: "0.0.0.0", port: 47_652, token: "m".repeat(32) }));
-    await assert.rejects(readRelayServerConfig(path), /loopback or a specific Tailscale address/);
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
 test("relay command parser permits only the narrow native command surface", () => {
   const threadKey = "00000000-0000-4000-8000-000000000005";
   assert.deepEqual(parseRelayCommand({ kind: "agent", slot: 5, threadKey, act: 1 }), { kind: "agent", slot: 5, threadKey, act: 1 });
@@ -131,7 +66,7 @@ test("relay snapshot parser bounds and validates host session catalogs", async (
   valid.snapshot.slots[0]!.contextUsedPercent = 56;
   assert.notEqual(parseRelayServerMessage(valid), null);
   valid.snapshot.activeThreadKey = "local:00000000-0000-4000-8000-000000000000";
-  valid.snapshot.activeThreadTitle = "Build the iPhone companion";
+  valid.snapshot.activeThreadTitle = "Build the desktop plugin";
   assert.notEqual(parseRelayServerMessage(valid), null);
   valid.snapshot.usage = {
     windows: [{ id: "weekly", kind: "weekly", usedPercent: 35, remainingPercent: 65, windowDurationMins: 10_080, resetsAt: 1_800_000_000_000 }],

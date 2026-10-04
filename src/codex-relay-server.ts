@@ -1,8 +1,5 @@
-import { timingSafeEqual, X509Certificate } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { createServer as createHttpsServer, type Server as HttpsServer } from "node:https";
-import Bonjour from "bonjour-service";
-import { isAllowedRelayHost, isPrivateLanHost, selectPrivateLanAddress } from "./relay-network.js";
+import { timingSafeEqual } from "node:crypto";
+import { isAllowedRelayHost } from "./relay-network.js";
 import { WebSocketServer, WebSocket } from "ws";
 import type { OfficialKeycapId } from "./keycaps.js";
 import type { CodexMicroRendererBridge } from "./codex-micro-renderer-bridge.js";
@@ -20,13 +17,6 @@ export type RelayServerConfig = {
   listenHost: string;
   port: number;
   token: string;
-  transport?: "local";
-  tls?: {
-    certificate: string;
-    privateKey: string;
-    fingerprintSha256: string;
-  };
-  discovery?: { enabled: boolean };
 };
 
 type RelayControl = Pick<CodexMicroRendererBridge,
@@ -34,10 +24,6 @@ type RelayControl = Pick<CodexMicroRendererBridge,
 
 export class CodexRelayServer {
   private server?: WebSocketServer;
-  private httpsServer?: HttpsServer;
-  private bonjour?: Bonjour;
-  private addressPoll?: NodeJS.Timeout;
-  private effectiveListenHost = "";
   private poll?: NodeJS.Timeout;
   private snapshotInFlight?: Promise<RelaySnapshotMessage>;
   private readonly authenticated = new Set<WebSocket>();
@@ -65,106 +51,38 @@ export class CodexRelayServer {
 
   async start(): Promise<void> {
     if (this.server) return;
-    const host = await this.resolveListenHost();
-    await this.startBound(host);
+    await this.startBound(this.config.listenHost);
     // Authentication publishes an immediate first snapshot. Starting the
     // periodic poll at its normal cadence avoids racing a duplicate snapshot
     // into a newly connected client.
     this.scheduleSnapshot();
-    if (this.config.transport === "local" && this.config.listenHost === "auto") {
-      this.addressPoll = setInterval(() => { void this.refreshLocalAddress(); }, 5_000);
-      this.addressPoll.unref();
-    }
   }
 
   async close(): Promise<void> {
     if (this.poll) clearTimeout(this.poll);
     this.poll = undefined;
-    if (this.addressPoll) clearInterval(this.addressPoll);
-    this.addressPoll = undefined;
     await this.closeBound();
-  }
-
-  private async resolveListenHost(): Promise<string> {
-    return this.config.transport === "local" && this.config.listenHost === "auto"
-      ? await selectPrivateLanAddress()
-      : this.config.listenHost;
-  }
-
-  private async refreshLocalAddress(): Promise<void> {
-    try {
-      const next = await this.resolveListenHost();
-      if (next === this.effectiveListenHost) return;
-      this.log(`Nearby address changed from ${this.effectiveListenHost} to ${next}; rebinding without restarting Codex.`);
-      await this.closeBound();
-      await this.startBound(next);
-    } catch (error) {
-      this.log(`Nearby address refresh failed: ${String(error)}`);
-    }
   }
 
   private async startBound(host: string): Promise<void> {
     const websocketOptions = { maxPayload: 64 * 1024, perMessageDeflate: false } as const;
-    let server: WebSocketServer;
-    if (this.config.tls) {
-      const httpsServer = createHttpsServer({
-        cert: this.config.tls.certificate,
-        key: this.config.tls.privateKey,
-        minVersion: "TLSv1.2"
-      });
-      this.httpsServer = httpsServer;
-      server = new WebSocketServer({ server: httpsServer, ...websocketOptions });
-      await new Promise<void>((resolve, reject) => {
-        httpsServer.once("error", reject);
-        httpsServer.listen(this.config.port, host, resolve);
-      });
-    } else {
-      server = new WebSocketServer({ host, port: this.config.port, ...websocketOptions });
-      await new Promise<void>((resolve, reject) => {
-        server.once("listening", resolve);
-        server.once("error", reject);
-      });
-    }
+    const server = new WebSocketServer({ host, port: this.config.port, ...websocketOptions });
+    await new Promise<void>((resolve, reject) => {
+      server.once("listening", resolve);
+      server.once("error", reject);
+    });
     this.server = server;
-    this.effectiveListenHost = host;
     server.on("connection", (socket) => this.handleConnection(socket));
     server.on("error", (error) => this.log(`Relay server error: ${String(error)}`));
-    this.startAdvertisement(host);
-    this.log(`Relay listening on ${host}:${this.config.port}${this.config.tls ? " with pinned TLS" : ""}; CDP remains loopback-only.`);
-  }
-
-  private startAdvertisement(host: string): void {
-    if (!this.config.discovery?.enabled || !this.config.tls) return;
-    const bonjour = new Bonjour({}, (error: unknown) => this.log(`Bonjour error: ${String(error)}`));
-    this.bonjour = bonjour;
-    const service = bonjour.publish({
-      name: `Codex Deck ${this.host.hostName}`,
-      type: "codexdeck",
-      protocol: "tcp",
-      port: this.config.port,
-      disableIPv6: true,
-      txt: relayDiscoveryTxt(this.config, this.host, host)
-    });
-    service.on("up", () => this.log(`Nearby discovery advertised for ${this.host.hostName}.`));
-    service.on("error", (error) => this.log(`Bonjour advertisement failed: ${String(error)}`));
+    this.log(`Relay listening on ${host}:${this.config.port}; CDP remains loopback-only.`);
   }
 
   private async closeBound(): Promise<void> {
-    const bonjour = this.bonjour;
-    this.bonjour = undefined;
-    if (bonjour) await new Promise<void>((resolve) => bonjour.unpublishAll(() => {
-      bonjour.destroy();
-      resolve();
-    }));
     const server = this.server;
     this.server = undefined;
     for (const socket of server?.clients ?? []) socket.terminate();
     this.authenticated.clear();
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
-    const httpsServer = this.httpsServer;
-    this.httpsServer = undefined;
-    if (httpsServer?.listening) await new Promise<void>((resolve) => httpsServer.close(() => resolve()));
-    this.effectiveListenHost = "";
   }
 
   private handleConnection(socket: WebSocket): void {
@@ -316,51 +234,11 @@ export function relaySnapshotFailureShouldDegrade(
 export function validateRelayServerConfig(config: RelayServerConfig): void {
   if (!config.enabled) throw new Error("Relay server config is disabled.");
   const host = config.listenHost.trim();
-  const localHost = config.transport === "local" && (host === "auto" || isPrivateLanHost(host));
-  if (!host || (!isAllowedRelayHost(host) && !localHost)) {
-    throw new Error("Relay listenHost must be loopback or a specific Tailscale address, unless secure auto local mode is enabled.");
+  if (!host || !isAllowedRelayHost(host)) {
+    throw new Error("Relay listenHost must be loopback or a specific Tailscale address.");
   }
   if (!Number.isInteger(config.port) || config.port < 1024 || config.port > 65_535) throw new Error("Relay port must be between 1024 and 65535.");
   if (typeof config.token !== "string" || Buffer.byteLength(config.token, "utf8") < 32) throw new Error("Relay token must contain at least 32 bytes.");
-  if (config.transport === "local") {
-    if (!config.tls?.certificate || !config.tls.privateKey || !config.discovery?.enabled) {
-      throw new Error("Local relay mode requires pinned TLS and Bonjour discovery.");
-    }
-    const actual = normalizeFingerprint(new X509Certificate(config.tls.certificate).fingerprint256);
-    if (actual !== normalizeFingerprint(config.tls.fingerprintSha256)) {
-      throw new Error("Local relay certificate fingerprint does not match its certificate.");
-    }
-  }
-}
-
-export async function readRelayServerConfig(path: string): Promise<RelayServerConfig | null> {
-  try {
-    const value = JSON.parse(await readFile(path, "utf8")) as RelayServerConfig;
-    if (!value.enabled) return null;
-    validateRelayServerConfig(value);
-    return value;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
-    throw error;
-  }
-}
-
-export function relayDiscoveryTxt(
-  config: RelayServerConfig, host: CodexHost, address: string
-): Record<string, string> {
-  if (config.transport !== "local" || !config.tls || !isPrivateLanHost(address)) {
-    throw new Error("Discovery metadata is available only for a secure private local relay.");
-  }
-  return {
-    protocol: String(RELAY_PROTOCOL_VERSION),
-    hostId: host.hostId,
-    hostName: host.hostName,
-    platform: host.platform,
-    address,
-    port: String(config.port),
-    secure: "1",
-    fingerprint: normalizeFingerprint(config.tls.fingerprintSha256)
-  };
 }
 
 async function executeRelayCommand(control: RelayControl, command: RelayCommand): Promise<void> {
@@ -383,8 +261,4 @@ function secureEqual(left: unknown, right: string): boolean {
 function safeJson(raw: string): unknown {
   try { return JSON.parse(raw); }
   catch { return null; }
-}
-
-function normalizeFingerprint(value: string): string {
-  return value.replaceAll(":", "").trim().toLowerCase();
 }

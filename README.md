@@ -30,9 +30,8 @@ The same Stream Deck plugin package works in all three modes. Install only the l
 | Windows only     | Windows              | Local Windows Codex              | [Windows setup](docs/WINDOWS.md)                                       |
 | Mac only         | macOS                | Local Mac Codex                  | [macOS setup](docs/MACOS.md)                                           |
 | Windows + Mac    | Windows              | Both apps; six agents are merged | [Multi-host setup](docs/MULTI_HOST.md)                                 |
-| iPhone companion | iOS 17+              | Private Mac and/or Windows nodes | [iPhone app](docs/IOS.md) · [Install from source](docs/IOS_INSTALL.md) |
 
-Desktop-only Windows and Mac modes need no relay, second computer, or host badges. Enabling the iPhone companion adds its authenticated pinned-TLS relay; multi-host desktop mode remains optional and can be disabled without changing the local bridge on either machine.
+Windows and Mac modes need no relay, second computer, or host badges. Multi-host desktop mode remains optional and can be disabled without changing the local bridge on either machine.
 
 ## Requirements
 
@@ -57,15 +56,6 @@ Other Stream Deck models may work, but the included layout and physical-device t
 4. In **Codex Settings > Codex Micro**, choose the agent source, action assignments, joystick actions, and encoder behavior.
 5. Build the two Stream Deck pages below.
 
-The iPhone companion is currently source-only: **a Mac with Xcode is required
-to build, sign, and install it**, even when the phone will control only a
-Windows Codex node. There is no App Store, TestFlight, or pre-signed IPA build
-yet. After installation, the Mac does not need to stay online unless it is one
-of the computers being controlled. Nearby pairing works on the same private
-Wi-Fi without Tailscale; add Tailscale for private control away from home. See
-the [beginner installation guide](docs/IOS_INSTALL.md) and the
-[local Wi-Fi test](docs/IOS_LOCAL_WIFI.md).
-
 In Windows + Mac mode, choose the same agent-source mode in both Codex apps when you want both native Pinned lists or both sets of Individual assignments to contribute. Pinned tasks are interleaved fairly. For Individual assignments, the Stream Deck computer wins when both apps assign different tasks to one button, while the other computer fills empty slots. Mirrored copies of the same task are shown only once. See [Multi-host behavior](docs/MULTI_HOST.md#agent-source-modes).
 
 > [!WARNING]
@@ -87,7 +77,6 @@ In Windows + Mac mode, choose the same agent-source mode in both Codex apps when
 - Optional local loading of official keycap SVGs; those protected files are never included in this repository or its releases.
 - Optional authenticated SSH/Tailscale relay for one Stream Deck controlling Windows and Mac Codex together.
 - Per-host health on the Windows/Mac target key, with last-known agent tiles visibly marked when native desktop signals are uncertain or the relay is offline.
-- Native SwiftUI iPhone companion with dual-host agents, usage, reset credits, and authenticated Micro controls over pinned-TLS Nearby Wi-Fi or private Tailscale HTTPS.
 
 ### Active queue
 
@@ -215,9 +204,9 @@ Nothing is published automatically. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Acknowledgements
 
-The idea to explore a phone-native Codex Micro companion was inspired in part
+The former phone-native Codex Micro companion was inspired in part
 by the public mobile concept shared by [Shikhar (@xikhar)](https://x.com/xikhar).
-Codex Deck Mobile is an independent implementation built on this project's own
+Codex Deck Mobile was an independent implementation built on this project's own
 authenticated bridge, native controls, and visual system; no source code or
 artwork from that concept is included.
 

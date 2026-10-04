@@ -2,27 +2,6 @@
 
 This mode runs Stream Deck and Codex on the same Mac. It needs no Windows PC, relay, SSH, Tailscale, or host-target key. The same plugin package used on Windows launches new tasks and agent links locally through macOS.
 
-## Optional iPhone Nearby pairing
-
-With the LaunchAgent installed, enable the local iPhone node without restarting
-Codex:
-
-```zsh
-./start-codex-deck.sh mobile-local-config
-```
-
-Scan the opened QR code with the iPhone Camera. The listener uses pinned TLS on
-one private LAN address; Bonjour never contains the token and Chrome DevTools
-remains on `127.0.0.1`. Rotate credentials only when needed with
-`mobile-local-config --rotate`, and disable discovery with:
-
-```zsh
-./start-codex-deck.sh mobile-local-disable
-```
-
-Tailscale remote access remains a separate optional profile; see
-[`IOS.md`](IOS.md).
-
 ## Install
 
 1. Install `com.xonika9.codex-deck.streamDeckPlugin` in Stream Deck for macOS.

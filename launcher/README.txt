@@ -35,17 +35,5 @@ line. The watcher keeps this dedicated SSH relay tunnel alive and
 does not reuse Codex desktop's remote-CLI SSH process. Restart the Stream Deck
 plugin, not Codex. Remove the relay with `-Disable`.
 
-Optional iPhone node on the same Wi-Fi: run
-`Configure-CodexDeckMobile.ps1 -Local`, reload only the Codex Deck Stream Deck
-plugin, and scan the opened QR code with the iPhone Camera. Nearby mode binds
-only to the selected private LAN address, uses pinned TLS, and advertises only
-non-secret Bonjour metadata. If Windows asks, allow Node.js on Private networks
-only. Disable it with `Configure-CodexDeckMobile.ps1 -Local -Disable`.
-
-For control away from home, keep the separate Tailscale path: run
-`Configure-CodexDeckMobile.ps1`, configure private Tailscale Serve as described
-in docs/IOS.md, and enter its wss:// URL and printed token in the app. Disable
-that listener with `Configure-CodexDeckMobile.ps1 -Disable`.
-
 This is an unofficial compatibility bridge and may need an update after a Codex
 desktop release.

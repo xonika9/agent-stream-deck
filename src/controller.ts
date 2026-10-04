@@ -8,7 +8,6 @@ import {
   type HostPlatform as ControlTarget
 } from "./control-target.js";
 import { CodexRelayClient, readRelayClientConfig } from "./codex-relay-client.js";
-import { CodexRelayServer, readRelayServerConfig } from "./codex-relay-server.js";
 import { CodexMicroRendererBridge, localBridgeFailureReason } from "./codex-micro-renderer-bridge.js";
 import { readCodexBarUsage } from "./codex-bar-usage.js";
 import { getOrCreateHostIdentity } from "./host-identity.js";
@@ -54,7 +53,6 @@ type DeckControllerDependencies = {
 };
 
 const USER_ICON_ROOT = join(codexDeckStateRoot(), "icons");
-const LOCAL_MOBILE_CONFIG = "mobile-local-relay-server.json";
 const RESET_HOLD_MS = 1_200;
 
 export class DeckController {
@@ -76,8 +74,6 @@ export class DeckController {
   private readonly emptyAgentPresses = new Set<number>();
   private readonly pressedControlTargets = new Map<string, string>();
   private relayClient?: CodexRelayClient;
-  private mobileRelayServer?: CodexRelayServer;
-  private localMobileRelayServer?: CodexRelayServer;
   private localHost?: CodexHost;
   private localSnapshot?: HostSnapshot;
   private codexBarUsage?: UsageSnapshot;
@@ -127,66 +123,6 @@ export class DeckController {
       );
       this.relayClient.start();
     }
-    try {
-      const [mobileRelayConfig, localMobileRelayConfig] = await Promise.all([
-        readRelayServerConfig(join(codexDeckStateRoot(), "mobile-relay-server.json")),
-        readRelayServerConfig(join(codexDeckStateRoot(), LOCAL_MOBILE_CONFIG))
-      ]);
-      if (mobileRelayConfig || localMobileRelayConfig) {
-        let mobileSnapshotDirty = false;
-        const runAndInvalidate = async (operation: () => Promise<void>): Promise<void> => {
-          await operation();
-          // The relay server publishes a fresh snapshot after acknowledging the
-          // command. Do not make the command result wait for a second full
-          // controller refresh: a renderer refresh can take several seconds
-          // and remote clients intentionally use a short command timeout.
-          mobileSnapshotDirty = true;
-        };
-        const mobileControl = {
-          refresh: async () => {
-            if (!mobileSnapshotDirty && this.localHealth.state === "ready" && this.localSnapshot && Date.now() - this.localSnapshot.observedAt < 1_800) {
-              return this.localSnapshot.snapshot;
-            }
-            await this.refresh();
-            if (this.localHealth.state !== "ready" || !this.localSnapshot) {
-              throw new Error("Codex Micro snapshot is temporarily unavailable.");
-            }
-            mobileSnapshotDirty = false;
-            return this.localSnapshot.snapshot;
-          },
-          sendAgent: (slot: number, act: 0 | 1, threadKey?: string) => runAndInvalidate(
-            () => this.microBridge.sendAgent(slot, act, threadKey)),
-          sendAction: (slot: MicroActionSlot, act: 0 | 1) => runAndInvalidate(
-            () => this.microBridge.sendAction(slot, act)),
-          sendJoystick: (direction: MicroDirection, distance: 0 | 1) => runAndInvalidate(
-            () => this.microBridge.sendJoystick(direction, distance)),
-          sendEncoder: (act: 0 | 1) => runAndInvalidate(() => this.microBridge.sendEncoder(act)),
-          adjustReasoning: (direction: ReasoningAdjustment) => runAndInvalidate(
-            () => this.microBridge.adjustReasoning(direction)),
-          runKeycap: (keycapId: OfficialKeycapId) => runAndInvalidate(
-            () => this.microBridge.runKeycap(keycapId)),
-          consumeRateLimitReset: () => runAndInvalidate(() => this.microBridge.consumeRateLimitReset())
-        };
-        if (mobileRelayConfig) {
-          this.mobileRelayServer = new CodexRelayServer(
-            mobileRelayConfig, this.localHost, mobileControl,
-            (message) => streamDeck.logger.info(`Mobile relay: ${message}`)
-          );
-          await this.mobileRelayServer.start();
-        }
-        if (localMobileRelayConfig) {
-          this.localMobileRelayServer = new CodexRelayServer(
-            localMobileRelayConfig, this.localHost, mobileControl,
-            (message) => streamDeck.logger.info(`Nearby mobile relay: ${message}`)
-          );
-          await this.localMobileRelayServer.start();
-        }
-      }
-    } catch (error) {
-      this.mobileRelayServer = undefined;
-      this.localMobileRelayServer = undefined;
-      streamDeck.logger.error(`Optional mobile relay was not started: ${String(error)}`);
-    }
     await this.refresh();
     this.scheduleRefresh();
     this.scheduleAnimation();
@@ -209,8 +145,6 @@ export class DeckController {
     if (this.poll) clearInterval(this.poll);
     if (this.animation) clearInterval(this.animation);
     this.relayClient?.close();
-    void this.mobileRelayServer?.close();
-    void this.localMobileRelayServer?.close();
     this.microBridge.close();
     const collector = this.openCodeCollector;
     this.openCodeCollector = undefined;
@@ -438,8 +372,6 @@ export class DeckController {
     try {
       const snapshot = await this.microBridge.refresh();
       this.localHost = await getOrCreateHostIdentity();
-      this.mobileRelayServer?.updateHost(this.localHost);
-      this.localMobileRelayServer?.updateHost(this.localHost);
       this.localSnapshot = { host: this.localHost, snapshot, observedAt: Date.now() };
       this.localHealth = { state: "ready", changedAt: Date.now() };
       this.lastError = "";

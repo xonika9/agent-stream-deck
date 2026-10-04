@@ -570,9 +570,6 @@ test("controller avoids overlapping polls and redundant image writes", async () 
   assert.match(source, /status === "thinking" \|\| status === "input"/);
   assert.match(source, /pressedAgents/);
   assert.match(source, /pressedControlTargets/);
-  assert.match(source, /mobileSnapshotDirty/);
-  assert.match(source, /runAndInvalidate/);
-  assert.doesNotMatch(source, /const runAndRefresh/);
   assert.doesNotMatch(source, /if \(act === 1\) await this\.refresh\(\)/);
   assert.match(targetSource, /control-target\.json/);
   assert.match(source, /targetPlatform === "darwin"/);

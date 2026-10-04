@@ -1,8 +1,0 @@
-// Public defaults build without signing. Run ../../scripts/configure-ios-signing.sh
-// before installing on a physical iPhone; its ignored Local.xcconfig overrides these.
-CODEX_DECK_BUNDLE_ID = com.example.CodexDeckMobile
-CODEX_DECK_WIDGET_BUNDLE_ID = $(CODEX_DECK_BUNDLE_ID).Widgets
-CODEX_DECK_TEST_BUNDLE_ID = $(CODEX_DECK_BUNDLE_ID).Tests
-CODEX_DECK_APP_GROUP = group.com.example.codexdeck
-
-#include? "Local.xcconfig"
