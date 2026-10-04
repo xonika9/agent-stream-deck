@@ -11,7 +11,7 @@
     "url": "https://github.com/xonika9/codex-stream-deck.git"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "scripts": {
     "build": "node scripts/build.mjs && node scripts/build-launcher.mjs",
@@ -27,14 +27,14 @@
     "release:prepare": "node scripts/prepare-release.mjs"
   },
   "dependencies": {
-    "@elgato/streamdeck": "2.1.0",
+    "@elgato/streamdeck": "3.0.1",
     "bonjour-service": "^1.4.3",
     "qrcode": "^1.5.4",
     "selfsigned": "^5.5.0",
     "ws": "^8.21.1"
   },
   "devDependencies": {
-    "@elgato/cli": "1.7.4",
+    "@elgato/cli": "1.10.1",
     "@types/node": "^24.0.0",
     "@types/qrcode": "^1.5.6",
     "@types/ws": "^8.18.1",

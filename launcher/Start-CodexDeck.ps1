@@ -157,9 +157,9 @@ function Get-HealthyDebugPort($Processes) {
 }
 
 $node = Get-Command node -ErrorAction SilentlyContinue
-if ($null -eq $node) { throw 'Node.js 20 or newer is required. Install it from https://nodejs.org/ and try again.' }
+if ($null -eq $node) { throw 'Node.js 24 or newer is required. Install it from https://nodejs.org/ and try again.' }
 $major = [int]((& $node.Source --version).TrimStart('v').Split('.')[0])
-if ($major -lt 20) { throw "Node.js 20 or newer is required. Found: $(& $node.Source --version)" }
+if ($major -lt 24) { throw "Node.js 24 or newer is required. Found: $(& $node.Source --version)" }
 
 $codex = Get-CodexInstallation
 $processes = Get-CodexProcesses $codex.Root

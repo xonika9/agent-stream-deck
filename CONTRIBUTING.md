@@ -2,6 +2,16 @@
 
 Thanks for helping improve Codex Deck.
 
+Use Node.js 24 or newer for development and launchers. The plugin uses SDK 3
+and requires Stream Deck 7.1 or newer.
+
+Mac is the primary platform; standalone Windows installation, startup, and
+existing actions remain supported. Mac retains `Codex`, `OpenCode`, and `Both`,
+with local OpenCode and saved Fedora SSH connections. Fedora supplies chats
+rather than running the Stream Deck plugin. The iPhone app and separate Codex
+relay are being retired in the planned maintenance units; preserve their current
+functions while upgrading dependencies. Other removals need a separate decision.
+
 ## Local Stream Deck development
 
 Build and link the development plugin once:
@@ -34,7 +44,7 @@ release/codex-deck-launcher-macos/start-codex-deck.sh install
 
 ## Before opening a pull request
 
-1. Preserve independent Windows-only, macOS-only, and optional multi-host operation. State clearly which paths received automated, live-app, and physical-device testing.
+1. Preserve the supported Mac and standalone Windows paths, Mac task-source modes, and OpenCode SSH connections. State clearly which paths received automated, live-app, and physical-device testing. Keep existing iPhone and Codex relay behavior until their planned removal.
 2. Do not commit OpenAI/Elgato proprietary assets, Codex installation files, databases, logs, rollout files, personal paths, or generated release bundles.
 3. Do not add hotkey or task-database fallbacks to the native bridge without a separate design discussion.
 4. Update compatibility notes when changing renderer integration behavior.

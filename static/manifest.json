@@ -9,13 +9,13 @@
   "CategoryIcon": "static/imgs/category-icon",
   "Icon": "static/imgs/plugin-icon",
   "CodePath": "bin/plugin.mjs",
-  "SDKVersion": 2,
-  "Software": { "MinimumVersion": "6.6" },
+  "SDKVersion": 3,
+  "Software": { "MinimumVersion": "7.1" },
   "OS": [
     { "Platform": "windows", "MinimumVersion": "10" },
     { "Platform": "mac", "MinimumVersion": "13" }
   ],
-  "Nodejs": { "Version": "20", "Debug": "enabled" },
+  "Nodejs": { "Version": "24", "Debug": "enabled" },
   "ApplicationsToMonitor": { "windows": ["ChatGPT.exe"], "mac": ["com.openai.codex"] },
   "Actions": [
     { "UUID": "com.xonika9.codex-deck.agent-1", "Name": "Agent 1", "Tooltip": "Open native Codex Micro agent slot 1.", "Icon": "static/imgs/category-icon", "PropertyInspectorPath": "static/property-inspector/agent.html", "Controllers": ["Keypad"], "States": [{ "Image": "static/imgs/key", "Title": "" }] },

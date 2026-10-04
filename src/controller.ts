@@ -38,10 +38,10 @@ export type FixedIconSource =
   | { kind: "local"; keycapId: string }
   | { kind: "builtin"; name: BuiltinIconName };
 
-type FixedIconRegistration = { action: KeyAction; source: FixedIconSource };
-type AgentRegistration = { action: KeyAction; slot: number };
-type MicroActionRegistration = { action: KeyAction; slot: MicroActionSlot };
-type UsageLimitRegistration = { action: KeyAction; mode: UsageLimitMode };
+type FixedIconRegistration = { action: KeyAction<{}>; source: FixedIconSource };
+type AgentRegistration = { action: KeyAction<{}>; slot: number };
+type MicroActionRegistration = { action: KeyAction<{}>; slot: MicroActionSlot };
+type UsageLimitRegistration = { action: KeyAction<{}>; mode: UsageLimitMode };
 type ActionIdentity = { id: string };
 export type AgentDisplaySettings = {
   showContextRings?: boolean;
@@ -65,10 +65,10 @@ export class DeckController {
   private readonly fixedActions = new Map<string, FixedIconRegistration>();
   private readonly keycapImages = new Map<string, Promise<string | null>>();
   private readonly lastImages = new Map<string, string>();
-  private readonly hostToggleActions = new Map<string, KeyAction>();
+  private readonly hostToggleActions = new Map<string, KeyAction<{}>>();
   private readonly usageLimitActions = new Map<string, UsageLimitRegistration>();
-  private readonly usageOverviewActions = new Map<string, KeyAction>();
-  private readonly rateLimitResetActions = new Map<string, KeyAction>();
+  private readonly usageOverviewActions = new Map<string, KeyAction<{}>>();
+  private readonly rateLimitResetActions = new Map<string, KeyAction<{}>>();
   private readonly resetHolds = new Map<string, number>();
   private readonly activityIndex = new HostActivityIndex();
   private readonly activeQueueRankIndex = new ActiveQueueRankIndex();
@@ -217,7 +217,7 @@ export class DeckController {
     void collector?.stop();
   }
 
-  registerAgent(slot: number, action: KeyAction): void {
+  registerAgent(slot: number, action: KeyAction<{}>): void {
     this.agents.set(action.id, { action, slot });
     void this.renderAgent({ action, slot });
   }
@@ -252,7 +252,7 @@ export class DeckController {
     }
   }
 
-  registerMicroAction(slot: MicroActionSlot, action: KeyAction): void {
+  registerMicroAction(slot: MicroActionSlot, action: KeyAction<{}>): void {
     this.microActions.set(action.id, { action, slot });
     void this.renderMicroAction({ action, slot });
   }
@@ -261,7 +261,7 @@ export class DeckController {
     this.unregister(action, this.microActions);
   }
 
-  registerFixedAction(id: string, action: KeyAction, source: FixedIconSource): void {
+  registerFixedAction(id: string, action: KeyAction<{}>, source: FixedIconSource): void {
     this.fixedActions.set(action.id, { action, source });
     void this.renderFixedAction({ action, source });
   }
@@ -270,7 +270,7 @@ export class DeckController {
     this.unregister(action, this.fixedActions);
   }
 
-  registerHostToggle(action: KeyAction): void {
+  registerHostToggle(action: KeyAction<{}>): void {
     this.hostToggleActions.set(action.id, action);
     void this.renderHostToggle(action);
   }
@@ -280,13 +280,13 @@ export class DeckController {
     this.lastImages.delete(action.id);
   }
 
-  registerUsageLimit(action: KeyAction, mode: UsageLimitMode): void {
+  registerUsageLimit(action: KeyAction<{}>, mode: UsageLimitMode): void {
     const registration = { action, mode };
     this.usageLimitActions.set(action.id, registration);
     this.renderUsageAction("Usage limit", action, () => this.renderUsageLimit(registration));
   }
 
-  updateUsageLimitMode(action: KeyAction, mode: UsageLimitMode): void {
+  updateUsageLimitMode(action: KeyAction<{}>, mode: UsageLimitMode): void {
     const registration = { action, mode };
     this.usageLimitActions.set(action.id, registration);
     this.renderUsageAction("Usage limit", action, () => this.renderUsageLimit(registration));
@@ -296,7 +296,7 @@ export class DeckController {
     this.unregister(action, this.usageLimitActions);
   }
 
-  registerUsageOverview(action: KeyAction): void {
+  registerUsageOverview(action: KeyAction<{}>): void {
     this.usageOverviewActions.set(action.id, action);
     this.renderUsageAction("Usage overview", action, () => this.renderUsageOverview(action));
   }
@@ -305,7 +305,7 @@ export class DeckController {
     this.unregister(action, this.usageOverviewActions);
   }
 
-  registerRateLimitReset(action: KeyAction): void {
+  registerRateLimitReset(action: KeyAction<{}>): void {
     this.rateLimitResetActions.set(action.id, action);
     this.renderUsageAction("Rate-limit reset", action, () => this.renderRateLimitReset(action));
   }
@@ -655,7 +655,7 @@ export class DeckController {
     if (image) await this.setImage(registration.action, image);
   }
 
-  private async renderHostToggle(action: KeyAction): Promise<void> {
+  private async renderHostToggle(action: KeyAction<{}>): Promise<void> {
     const label = this.targetPlatform === "darwin" ? "MAC" : "WIN";
     const theme = this.targetSnapshot()?.theme ?? "dark";
     await this.setImage(action, renderHostTargetKey(label, this.targetHealth().state, theme));
@@ -669,13 +669,13 @@ export class DeckController {
     await this.setImage(action, renderUsageLimitKey(window, requestedKind, usageTheme(source), source.health.state));
   }
 
-  private async renderUsageOverview(action: KeyAction): Promise<void> {
+  private async renderUsageOverview(action: KeyAction<{}>): Promise<void> {
     const source = this.accountUsageSource();
     const usage = source.usage ?? source.snapshot?.usage;
     await this.setImage(action, renderUsageOverviewKey(usage?.windows ?? [], usageTheme(source), source.health.state));
   }
 
-  private async renderRateLimitReset(action: KeyAction): Promise<void> {
+  private async renderRateLimitReset(action: KeyAction<{}>): Promise<void> {
     const source = this.accountUsageSource();
     const usage = source.usage ?? source.snapshot?.usage;
     const startedAt = this.resetHolds.get(action.id);
@@ -784,7 +784,7 @@ export class DeckController {
     return target;
   }
 
-  private async setImage(action: KeyAction, image: string): Promise<void> {
+  private async setImage(action: KeyAction<{}>, image: string): Promise<void> {
     if (this.lastImages.get(action.id) === image) return;
     await Promise.all([action.setImage(image), action.setTitle("")]);
     this.lastImages.set(action.id, image);
@@ -794,7 +794,7 @@ export class DeckController {
     return usesActiveQueue(this.taskSource, this.activeQueueEnabled);
   }
 
-  private renderUsageAction(label: string, action: KeyAction, render: () => Promise<void>): void {
+  private renderUsageAction(label: string, action: KeyAction<{}>, render: () => Promise<void>): void {
     void render()
       .then(() => streamDeck.logger.info(`${label} action rendered (${action.id}).`))
       .catch((error) => streamDeck.logger.error(`${label} action render failed (${action.id}): ${String(error)}`));

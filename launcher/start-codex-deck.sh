@@ -23,9 +23,9 @@ for node_candidate in "${node_candidates[@]}"; do
   [[ -x "$node_candidate" ]] || continue
   node_version=$("$node_candidate" --version 2>/dev/null) || continue
   node_major=${${node_version#v}%%.*}
-  [[ "$node_major" == <-> && "$node_major" -ge 20 ]] || continue
+  [[ "$node_major" == <-> && "$node_major" -ge 24 ]] || continue
   exec "$node_candidate" "$runtime" "${@:-start}"
 done
 
-print -u2 "Codex Deck: Node.js 20 or newer was not found in PATH, Homebrew, NVM, or the Codex app bundle."
+print -u2 "Codex Deck: Node.js 24 or newer was not found in PATH, Homebrew, NVM, or the Codex app bundle."
 exit 1

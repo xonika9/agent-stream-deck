@@ -40,7 +40,7 @@ test("LaunchAgent uses a dynamic Node resolver instead of pinning an NVM version
   const plist = buildLaunchAgentPlist("/tmp/Codex Deck/watcher-launch.sh");
   assert.match(launcher, /\.nvm\/versions\/node\/\*\/bin\/node/);
   assert.match(launcher, /Contents\/Resources\/cua_node\/bin\/node/);
-  assert.match(launcher, /Node\.js 20 or newer/);
+  assert.match(launcher, /Node\.js 24 or newer/);
   assert.match(plist, /<string>\/bin\/zsh<\/string>/);
   assert.match(plist, /watcher-launch\.sh/);
   assert.match(plist, /watcher\.stderr\.log/);

@@ -15,7 +15,7 @@ await build({
   bundle: false,
   platform: "node",
   format: "esm",
-  target: "node20",
+  target: "node24",
   minify: false
 });
 
@@ -25,7 +25,7 @@ await build({
   bundle: true,
   platform: "node",
   format: "esm",
-  target: "node20",
+  target: "node24",
   minify: false,
   banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" }
 });
@@ -62,7 +62,7 @@ await build({
   bundle: true,
   platform: "node",
   format: "esm",
-  target: "node20",
+  target: "node24",
   minify: false,
   banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" }
 });

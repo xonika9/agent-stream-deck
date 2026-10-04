@@ -496,11 +496,11 @@ for node_candidate in "\${candidates[@]}"; do
   [[ -x "$node_candidate" ]] || continue
   node_version=$("$node_candidate" --version 2>/dev/null) || continue
   node_major=\${\${node_version#v}%%.*}
-  [[ "$node_major" == <-> && "$node_major" -ge 20 ]] || continue
+  [[ "$node_major" == <-> && "$node_major" -ge 24 ]] || continue
   exec "$node_candidate" "$runtime" watch
 done
 
-print -r -- "$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ) [launcher] Node.js 20 or newer was not found; watcher did not start." >> ${shellQuote(WATCHER_LOG_PATH)}
+print -r -- "$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ) [launcher] Node.js 24 or newer was not found; watcher did not start." >> ${shellQuote(WATCHER_LOG_PATH)}
 exit 78
 `;
 }

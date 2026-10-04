@@ -283,15 +283,17 @@ export class HostToggle extends SingletonAction {
   }
 }
 
+type UsageLimitSettings = { mode?: string };
+
 @action({ UUID: "com.xonika9.codex-deck.usage-limit" })
-export class UsageLimit extends SingletonAction {
+export class UsageLimit extends SingletonAction<UsageLimitSettings> {
   constructor(private readonly controller: DeckController) { super(); }
 
-  override onWillAppear(ev: WillAppearEvent): void {
+  override onWillAppear(ev: WillAppearEvent<UsageLimitSettings>): void {
     if (ev.action.isKey()) this.controller.registerUsageLimit(ev.action, parseUsageLimitMode(ev.payload.settings.mode));
   }
 
-  override onDidReceiveSettings(ev: DidReceiveSettingsEvent): void {
+  override onDidReceiveSettings(ev: DidReceiveSettingsEvent<UsageLimitSettings>): void {
     if (ev.action.isKey()) this.controller.updateUsageLimitMode(ev.action, parseUsageLimitMode(ev.payload.settings.mode));
   }
 

@@ -21,7 +21,9 @@ if ($Local) {
     exit 0
   }
   $node = Get-Command node -ErrorAction SilentlyContinue
-  if ($null -eq $node) { throw 'Node.js 20 or newer is required for secure local pairing.' }
+  if ($null -eq $node) { throw 'Node.js 24 or newer is required for secure local pairing.' }
+  $major = [int]((& $node.Source --version).TrimStart('v').Split('.')[0])
+  if ($major -lt 24) { throw 'Node.js 24 or newer is required for secure local pairing.' }
   $helper = Join-Path $PSScriptRoot 'mobile-pairing.mjs'
   if (-not (Test-Path -LiteralPath $helper)) {
     $helper = Join-Path $PSScriptRoot '..\release\codex-deck-launcher\mobile-pairing.mjs'

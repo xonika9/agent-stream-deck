@@ -1,6 +1,6 @@
 CODEX DECK LAUNCHER
 
-1. Install Node.js 20 or newer.
+1. Install Node.js 24 or newer.
 2. Double-click "Start Codex Deck.cmd" instead of launching Codex normally.
 3. Keep that Codex session open while using the Stream Deck plugin.
 
