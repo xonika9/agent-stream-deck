@@ -109,12 +109,12 @@ type CatalogHarness = {
 const catalogKey = (index: number): string =>
   `local:10000000-0000-4000-8000-${index.toString(16).padStart(12, "0")}`;
 
-function createCatalogHarness(initialKeys: string[]): CatalogHarness {
+function createCatalogHarness(initialKeys: string[], sidebarShape: "legacy" | "split" = "legacy"): CatalogHarness {
   const descriptorCalls: string[] = [];
   const descriptors = new Map<string, unknown>();
   const state = {
     allSidebar: { allSidebarThreadKeys: [] as string[], pinnedThreadKeys: [] as string[], unpinnedThreadKeys: [] as string[] },
-    readable: { threadKeys: [] as string[], threadAttentionStateByKey: new Map(), threadRecencyAtByKey: new Map() }
+    readable: {} as Record<string, unknown>
   };
   const atoms = new Map<unknown, unknown>();
   const allSidebarResolver = { resolve: () => "all-sidebar", createSubscriberAtom: () => null };
@@ -127,7 +127,13 @@ function createCatalogHarness(initialKeys: string[]): CatalogHarness {
       return { resolve: () => `task:${key}` };
     }
   };
-  const validNamespace: Record<string, unknown> = { allSidebarResolver, readableFamily, taskFamily };
+  const lightweightFamily = {
+    resolve: (_node: unknown, _chain: unknown, key: string) => ({ resolve: () => `metadata:${key}` })
+  };
+  const validNamespace: Record<string, unknown> = {
+    ...(sidebarShape === "split" ? { lightweightFamily } : {}),
+    allSidebarResolver, readableFamily, taskFamily
+  };
   let namespace = validNamespace;
   let loaderCalls = 0;
   const context = createContext({
@@ -147,6 +153,10 @@ function createCatalogHarness(initialKeys: string[]): CatalogHarness {
       if (atom === "all-sidebar") return state.allSidebar;
       if (atom === "readable") return state.readable;
       if (typeof atom === "string" && atom.startsWith("task:")) return descriptors.get(atom.slice(5));
+      if (typeof atom === "string" && atom.startsWith("metadata:")) {
+        const key = atom.slice(9);
+        return descriptors.has(key) ? { kind: "local", key, conversationId: key.slice(-36) } : null;
+      }
       return atoms.get(atom);
     }
   }) as Context & Record<string | symbol, unknown>;
@@ -157,7 +167,9 @@ function createCatalogHarness(initialKeys: string[]): CatalogHarness {
       pinnedThreadKeys: keys.slice(0, 1),
       unpinnedThreadKeys: keys.slice(1)
     };
-    state.readable = {
+    state.readable = sidebarShape === "split" ? {
+      threadKeys: [...keys], threadStateKeys: [...keys], navigationThreadKeys: [...keys]
+    } : {
       threadKeys: [...keys],
       threadAttentionStateByKey: new Map(keys.map((key, index) => [key, index === 1 ? "waiting" : "idle"])),
       threadRecencyAtByKey: new Map(keys.map((key, index) => [key, 1_000 + index]))
@@ -201,6 +213,47 @@ test("active catalog discovery executes semantic normalization and preserves nat
   assert.deepEqual(Array.from(result.activeCatalog?.candidates ?? [], ({ threadKey }) => threadKey), [keys[1], keys[0], keys[2]]);
   assert.equal(result.activeCatalog?.candidates[0]?.status, "awaiting-response");
   assert.equal(result.activeCatalog?.candidates[1]?.status, "working");
+});
+
+test("split sidebar state keeps working chats beyond the six native slots with trusted identities", async () => {
+  const keys = Array.from({ length: 8 }, (_, index) => catalogKey(index));
+  const harness = createCatalogHarness(keys, "split");
+  for (const [index, key] of keys.entries()) {
+    harness.descriptors.set(key, {
+      kind: "local", key,
+      summary: {
+        conversationId: key.slice(-36), hostId: index === 6 ? "remote-host" : "local",
+        title: `Task ${index}`, recencyAt: 2_000 + index,
+        threadRuntimeStatus: { type: index === 0 || index === 6 ? "active" : "idle" },
+        hasUnreadTurn: index === 7
+      }
+    });
+  }
+  (harness.context.slots as Array<Record<string, unknown>>)[0] = {
+    id: 0, threadKey: keys[0], title: "Native task", status: "awaiting-approval", selected: true
+  };
+  for (let poll = 0; poll < 3; poll += 1) {
+    if (poll === 2) {
+      // Installing the new plugin must not inherit the old renderer's failure
+      // entry, even though the Codex app bundle itself has not changed.
+      harness.context[Symbol.for("codex-deck-active-catalog-resolvers")] = {
+        url: (harness.context.urls as string[])[0], failure: true, retryAt: 1_000_000
+      };
+    }
+    const result = await harness.poll() as { activeCatalog?: { complete: boolean; candidates: Array<Record<string, unknown>> } };
+    assert.equal(result.activeCatalog?.complete, true);
+    const candidates = result.activeCatalog!.candidates;
+    assert.equal(candidates.length, 8);
+    assert.deepEqual(Array.from(candidates.filter((item) => item.status !== "idle"), (item) => item.threadKey),
+      [keys[7], keys[6], keys[0]]);
+    const outsideNative = candidates.find((item) => item.threadKey === keys[6])!;
+    assert.equal(outsideNative.status, "working");
+    assert.equal(outsideNative.title, "Task 6");
+    assert.equal(outsideNative.conversationId, keys[6]!.slice(-36));
+    assert.equal(outsideNative.activityAt, 2_006);
+    assert.equal(outsideNative.nativeSlot, undefined);
+    assert.equal(candidates.find((item) => item.threadKey === keys[0])?.status, "awaiting-approval");
+  }
 });
 
 test("more than 256 exact keys fail closed before per-key descriptor resolution", async () => {

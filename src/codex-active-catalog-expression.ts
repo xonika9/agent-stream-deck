@@ -14,11 +14,12 @@ export function buildActiveCatalogDiscoveryExpression(
   // while per-thread races only suppress the catalog for the current poll.
   let activeCatalog;
   const activeCatalogResolverCacheKey = Symbol.for('codex-deck-active-catalog-resolvers');
+  const activeCatalogResolverFormat = 2;
   const appInitialUrl = urls.find((url) => url.includes('/assets/app-initial-'));
   if (appInitialUrl) {
     const loadActiveCatalogModule = ${moduleLoaderExpression};
     let resolverCache = globalThis[activeCatalogResolverCacheKey];
-    if (resolverCache?.url !== appInitialUrl) {
+    if (resolverCache?.url !== appInitialUrl || resolverCache?.format !== activeCatalogResolverFormat) {
       delete globalThis[activeCatalogResolverCacheKey];
       resolverCache = null;
     }
@@ -38,7 +39,10 @@ export function buildActiveCatalogDiscoveryExpression(
           Array.isArray(value.allSidebarThreadKeys) && Array.isArray(value.pinnedThreadKeys) &&
           Array.isArray(value.unpinnedThreadKeys);
         const isReadable = (value) => value && typeof value === 'object' &&
-          Array.isArray(value.threadKeys) && value.threadAttentionStateByKey && value.threadRecencyAtByKey;
+          Array.isArray(value.threadKeys) && (
+            (value.threadAttentionStateByKey && value.threadRecencyAtByKey) ||
+            (Array.isArray(value.threadStateKeys) && Array.isArray(value.navigationThreadKeys))
+          );
         const resolveDirect = (resolver) => found.node.store.get(
           resolver.resolve(found.node, found.chain));
         const resolveFamily = (family, key) => {
@@ -88,7 +92,7 @@ export function buildActiveCatalogDiscoveryExpression(
           if (!allSidebar || !readable || !allSidebarResolver || !readableFamily) {
             throw new Error('Semantic sidebar catalog resolvers were not found.');
           }
-          resolverCache = { url: appInitialUrl, allSidebarResolver, readableFamily, taskFamily: null };
+          resolverCache = { url: appInitialUrl, format: activeCatalogResolverFormat, allSidebarResolver, readableFamily, taskFamily: null };
           globalThis[activeCatalogResolverCacheKey] = resolverCache;
         }
 
@@ -115,7 +119,13 @@ export function buildActiveCatalogDiscoveryExpression(
         } else {
           const resolveTaskDescriptor = (family, key) => {
             const descriptor = resolveFamily(family, key);
-            return descriptor && (descriptor.kind === 'local' || descriptor.kind === 'remote') && descriptor.key === key
+            // A lightweight navigation descriptor also has kind/key, but no
+            // live state. Only the full task family can describe off-slot work.
+            const hasTaskState = descriptor?.kind === 'local'
+              ? descriptor.conversation || descriptor.thread?.conversation ||
+                'summary' in descriptor || descriptor.pendingWorktree || descriptor.pendingThreadStart
+              : descriptor?.kind === 'remote' && (descriptor.task || descriptor.remoteTask);
+            return descriptor && hasTaskState && descriptor.key === key
               ? descriptor
               : null;
           };
@@ -141,6 +151,7 @@ export function buildActiveCatalogDiscoveryExpression(
       } catch {
         globalThis[activeCatalogResolverCacheKey] = {
           url: appInitialUrl,
+          format: activeCatalogResolverFormat,
           failure: true,
           retryAt: Date.now() + ${ACTIVE_CATALOG_RETRY_DELAY_MS}
         };
@@ -186,17 +197,19 @@ export function buildActiveCatalogDiscoveryExpression(
             if (!descriptor) throw new Error('Task descriptor is temporarily unavailable.');
             const attention = getKeyed(readable.threadAttentionStateByKey, key);
             const attentionName = stateName(attention).toLowerCase();
-            const recency = toEpoch(getKeyed(readable.threadRecencyAtByKey, key));
+            let recency = toEpoch(getKeyed(readable.threadRecencyAtByKey, key));
             let title = null;
             let conversationId;
             let descriptorStatus;
             if (descriptor.kind === 'local') {
-              const conversation = descriptor.conversation ?? descriptor.thread?.conversation;
-              if (typeof conversation?.id === 'string' && bareUuid.test(conversation.id)) {
-                conversationId = conversation.id.toLowerCase();
+              const conversation = descriptor.conversation ?? descriptor.thread?.conversation ?? descriptor.summary;
+              const id = conversation?.id ?? conversation?.conversationId;
+              if (typeof id === 'string' && bareUuid.test(id)) {
+                conversationId = id.toLowerCase();
               }
               title = cleanTitle(conversation?.title) ?? cleanTitle(
-                descriptor.pendingWorktree?.label ?? conversation?.pendingWorktree?.label);
+                descriptor.pendingWorktree?.label ?? conversation?.pendingWorktree?.label ?? descriptor.pendingThreadStart?.title);
+              recency ??= toEpoch(conversation?.recencyAt) ?? toEpoch(conversation?.updatedAt) ?? toEpoch(descriptor.at);
               const runtimeStatus = conversation?.threadRuntimeStatus?.type;
               descriptorStatus = runtimeStatus === 'active'
                 ? 'working'

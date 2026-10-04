@@ -82,6 +82,15 @@ back per host to its six Micro slots; an authoritative empty catalog remains
 empty. `custom` keeps its six configured candidates instead of expanding to the
 full catalog; the projection may still compact relevant candidates within that set.
 
+The sidebar reader supports both the legacy attention/recency maps and the
+split sidebar structure characterized on macOS with Codex `26.930.31730`.
+For the split structure it reads full task summaries, including canonical
+conversation IDs, runtime status, unread state, titles, and recency. Lightweight
+navigation metadata is not a task-state source. Native Micro slots retain status
+priority, and a versioned resolver cache prevents an older plugin's discovery
+failure from surviving a plugin update. Windows and multi-host behavior retain
+the legacy path; this newer renderer shape has only been checked live on macOS.
+
 The global task-source selector runs before this projection. `Codex` preserves
 the saved Active queue preference; `OpenCode` and `Both` force the projection
 without overwriting that preference. OpenCode candidates use the same
