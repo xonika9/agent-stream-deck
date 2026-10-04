@@ -6,7 +6,7 @@ This mode runs Stream Deck and Codex on the same Windows PC. It needs no relay, 
 
 1. Install `com.xonika9.codex-deck.streamDeckPlugin` by opening it.
 2. Extract `codex-deck-launcher-windows-vX.Y.Z.zip` to a normal folder.
-3. Install Node.js 20 or newer if `node --version` is unavailable.
+3. Install Node.js 24 or newer if `node --version` is unavailable.
 4. Inspect the current state without changing Codex:
 
    ```powershell
@@ -24,11 +24,13 @@ Run once from the extracted launcher folder:
 .\Start-CodexDeck.ps1 -InstallStartup
 ```
 
-This installs a durable private launcher copy under `%LOCALAPPDATA%\CodexDeck\launcher` and creates one hidden sign-in watcher. The extracted ZIP can then be moved or deleted. The watcher dynamically follows Codex Store updates, prevents duplicate instances, removes stale port state, and keeps an optional SSH relay tunnel alive.
+This installs a durable private launcher copy under `%LOCALAPPDATA%\CodexDeck\launcher` and creates one hidden sign-in watcher. The extracted ZIP can then be moved or deleted. The watcher dynamically follows Codex Store updates, prevents duplicate instances, removes stale port state.
 
 Installing the watcher does **not** restart a normal Codex session that is already open. That generation remains untouched. After the next normal Codex close/reopen or an app update, the watcher may perform one recovery restart if the new generation launched without the bridge.
 
-To update the watcher, extract a newer Windows launcher and run `-InstallStartup` again. User icons, relay settings, host identity, and other state are not overwritten.
+To update the watcher, extract a newer Windows launcher and run `-InstallStartup` again. User icons, old private relay settings, host identity, and other state are not overwritten. The new watcher does not create relay tunnels, and the plugin ignores old remote selections. The existing host key keeps its UUID and shows local connection status. Building the repository does not replace a previously installed watcher; reinstall the matching launcher to update its copied runtime.
+
+The installer checks the bundle and Node.js 24 before stopping the existing watcher, then waits for the new watcher to confirm startup. Failure after stopping is reported as a partial update and does not resume the retired relay.
 
 ## Useful commands
 

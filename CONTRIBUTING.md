@@ -9,8 +9,7 @@ Mac is the primary platform; standalone Windows installation, startup, and
 existing actions remain supported. Mac retains `Codex`, `OpenCode`, and `Both`,
 with local OpenCode and saved Fedora SSH connections. Fedora supplies chats
 rather than running the Stream Deck plugin. The iPhone app and its infrastructure have been removed. The separate Codex
-relay is being retired in its planned maintenance unit; preserve its current
-functions until then. Other removals need a separate decision.
+relay has been removed; preserve old private settings and ignore remote selections. Other removals need a separate decision.
 
 ## Local Stream Deck development
 
@@ -44,7 +43,7 @@ release/codex-deck-launcher-macos/start-codex-deck.sh install
 
 ## Before opening a pull request
 
-1. Preserve the supported Mac and standalone Windows paths, Mac task-source modes, and OpenCode SSH connections. State clearly which paths received automated, live-app, and physical-device testing. Keep existing Codex relay behavior until its planned removal.
+1. Preserve the supported Mac and standalone Windows paths, Mac task-source modes, and OpenCode SSH connections. State clearly which paths received automated, live-app, and physical-device testing.
 2. Do not commit OpenAI/Elgato proprietary assets, Codex installation files, databases, logs, rollout files, personal paths, or generated release bundles.
 3. Do not add hotkey or task-database fallbacks to the native bridge without a separate design discussion.
 4. Update compatibility notes when changing renderer integration behavior.

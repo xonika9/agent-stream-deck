@@ -30,13 +30,8 @@ function Request-WatcherStop {
   Start-Sleep -Seconds 3
 }
 
-function Install-WatcherBundle {
-  $destinationRoot = Get-InstalledLauncherRoot
+function Get-WatcherBundle {
   $sourceRoot = [IO.Path]::GetFullPath($PSScriptRoot).TrimEnd('\')
-  if ($sourceRoot.Equals([IO.Path]::GetFullPath($destinationRoot).TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)) {
-    return $destinationRoot
-  }
-
   $runtimeSource = Join-Path $sourceRoot 'runtime-override.mjs'
   if (-not (Test-Path -LiteralPath $runtimeSource)) {
     $runtimeSource = Join-Path $sourceRoot '..\release\codex-deck-launcher\runtime-override.mjs'
@@ -46,22 +41,37 @@ function Install-WatcherBundle {
   foreach ($required in @(
     (Join-Path $sourceRoot 'Start-CodexDeck.ps1'),
     (Join-Path $sourceRoot 'Watch-CodexDeck.ps1'),
-    (Join-Path $sourceRoot 'Configure-CodexDeckRelay.ps1'),
     $runtimeSource,
-    $wsSource
+    (Join-Path $wsSource 'package.json'),
+    (Join-Path $wsSource 'wrapper.mjs')
   )) {
     if (-not (Test-Path -LiteralPath $required)) { throw "Required launcher component not found: $required" }
   }
+  $node = Get-Command node -ErrorAction Stop
+  $major = [int]((& $node.Source --version).TrimStart('v').Split('.')[0])
+  if ($major -lt 24) { throw 'Node.js 24 or newer is required; the installed watcher was not stopped.' }
+  & $node.Source --check $runtimeSource
+  if ($LASTEXITCODE -ne 0) { throw 'The launcher runtime is invalid; the installed watcher was not stopped.' }
+  $powerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+  & $powerShellPath -NoLogo -NoProfile -ExecutionPolicy Bypass -File (Join-Path $sourceRoot 'Watch-CodexDeck.ps1') -SelfTest | Out-Host
+  if ($LASTEXITCODE -ne 0) { throw 'The watcher self-test failed; the installed watcher was not stopped.' }
+  [pscustomobject]@{ SourceRoot = $sourceRoot; Runtime = $runtimeSource; Ws = $wsSource }
+}
 
+function Install-WatcherBundle($Bundle) {
+  $destinationRoot = Get-InstalledLauncherRoot
+  if ($Bundle.SourceRoot.Equals([IO.Path]::GetFullPath($destinationRoot).TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)) {
+    return $destinationRoot
+  }
   New-Item -ItemType Directory -Force -Path (Join-Path $destinationRoot 'node_modules') | Out-Null
-  foreach ($filename in @('Start-CodexDeck.ps1', 'Watch-CodexDeck.ps1', 'Configure-CodexDeckRelay.ps1', 'README.txt')) {
-    $source = Join-Path $sourceRoot $filename
+  foreach ($filename in @('Start-CodexDeck.ps1', 'Watch-CodexDeck.ps1', 'README.txt')) {
+    $source = Join-Path $Bundle.SourceRoot $filename
     if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination (Join-Path $destinationRoot $filename) -Force }
   }
-  Copy-Item -LiteralPath $runtimeSource -Destination (Join-Path $destinationRoot 'runtime-override.mjs') -Force
+  Copy-Item -LiteralPath $Bundle.Runtime -Destination (Join-Path $destinationRoot 'runtime-override.mjs') -Force
   $wsDestination = Join-Path $destinationRoot 'node_modules\ws'
   Remove-Item -LiteralPath $wsDestination -Recurse -Force -ErrorAction SilentlyContinue
-  Copy-Item -LiteralPath $wsSource -Destination $wsDestination -Recurse -Force
+  Copy-Item -LiteralPath $Bundle.Ws -Destination $wsDestination -Recurse -Force
   return $destinationRoot
 }
 
@@ -69,31 +79,47 @@ function Start-BridgeWatcher([string]$LauncherRoot = $PSScriptRoot) {
   $watcherPath = Join-Path $LauncherRoot 'Watch-CodexDeck.ps1'
   if (-not (Test-Path -LiteralPath $watcherPath)) { throw "Codex Deck watcher not found: $watcherPath" }
   $powerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-  Start-Process -FilePath $powerShellPath -WindowStyle Hidden -ArgumentList @(
+  $watcher = Start-Process -FilePath $powerShellPath -WindowStyle Hidden -PassThru -ArgumentList @(
     '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$watcherPath`""
   )
+  $logPath = Join-Path (Join-Path $env:LOCALAPPDATA 'CodexDeck') 'watcher.log'
+  $deadline = (Get-Date).AddSeconds(15)
+  do {
+    $watcher.Refresh()
+    if ($watcher.HasExited) { throw 'The new watcher exited before confirming startup.' }
+    [string]$log = if (Test-Path -LiteralPath $logPath) { Get-Content -LiteralPath $logPath -Raw } else { '' }
+    if ($log.Contains("Watcher started (pid=$($watcher.Id),")) { return }
+    Start-Sleep -Milliseconds 250
+  } while ((Get-Date) -lt $deadline)
+  throw 'The new watcher did not confirm startup.'
+
 }
 
 function Set-StartupShortcut {
+  $bundle = Get-WatcherBundle
   Request-WatcherStop
-  $launcherRoot = Install-WatcherBundle
-  $shortcutPath = Get-StartupShortcutPath
-  $watcherPath = Join-Path $launcherRoot 'Watch-CodexDeck.ps1'
-  if (-not (Test-Path -LiteralPath $watcherPath)) { throw "Codex Deck watcher not found: $watcherPath" }
-  $stopPath = Get-WatcherStopPath
-  Remove-Item -LiteralPath $stopPath -Force -ErrorAction SilentlyContinue
-  $shell = New-Object -ComObject WScript.Shell
-  $shortcut = $shell.CreateShortcut($shortcutPath)
-  $shortcut.TargetPath = (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe')
-  $shortcut.Arguments = "-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watcherPath`" -RecoverExistingSession"
-  $shortcut.WorkingDirectory = $launcherRoot
-  $shortcut.Description = 'Keep the Codex Deck bridge available while Codex is running'
-  $shortcut.IconLocation = "$env:SystemRoot\System32\shell32.dll,44"
-  $shortcut.Save()
-  Start-BridgeWatcher $launcherRoot
-  Write-Host "Startup shortcut installed: $shortcutPath"
-  Write-Host "Durable launcher installed: $launcherRoot"
-  Write-Host 'The background watcher is running. An existing normal Codex session was not restarted.'
+  try {
+    $launcherRoot = Install-WatcherBundle $bundle
+    $shortcutPath = Get-StartupShortcutPath
+    $watcherPath = Join-Path $launcherRoot 'Watch-CodexDeck.ps1'
+    if (-not (Test-Path -LiteralPath $watcherPath)) { throw "Codex Deck watcher not found: $watcherPath" }
+    $stopPath = Get-WatcherStopPath
+    Remove-Item -LiteralPath $stopPath -Force -ErrorAction SilentlyContinue
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($shortcutPath)
+    $shortcut.TargetPath = (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe')
+    $shortcut.Arguments = "-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watcherPath`" -RecoverExistingSession"
+    $shortcut.WorkingDirectory = $launcherRoot
+    $shortcut.Description = 'Keep the Codex Deck bridge available while Codex is running'
+    $shortcut.IconLocation = "$env:SystemRoot\System32\shell32.dll,44"
+    $shortcut.Save()
+    Start-BridgeWatcher $launcherRoot
+    Write-Host "Startup shortcut installed: $shortcutPath"
+    Write-Host "Durable launcher installed: $launcherRoot"
+    Write-Host 'The background watcher is running. An existing normal Codex session was not restarted.'
+  } catch {
+    throw "Watcher update partially failed after stopping the old watcher; old relay tunnels were not restarted. $($_.Exception.Message)"
+  }
 }
 
 if ($InstallStartup) {

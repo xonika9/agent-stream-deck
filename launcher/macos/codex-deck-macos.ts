@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import {
   chmod, copyFile, mkdir, mkdtemp, open, readFile, readdir, rename, rm, stat, writeFile
 } from "node:fs/promises";
@@ -8,8 +8,6 @@ import { createServer } from "node:net";
 import { homedir, hostname, platform, tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { CodexMicroRendererBridge } from "../../src/codex-micro-renderer-bridge.js";
-import { CodexRelayServer, validateRelayServerConfig, type RelayServerConfig } from "../../src/codex-relay-server.js";
 import { applyRuntimeOverride, verifyMicroRuntime } from "../runtime-override.js";
 import {
   createWatcherPolicyState,
@@ -27,7 +25,6 @@ const WATCHER_STATE_PATH = join(STATE_ROOT, "watcher-state.json");
 const WATCHER_LOG_PATH = join(STATE_ROOT, "watcher.log");
 const WATCHER_STDERR_PATH = join(STATE_ROOT, "watcher.stderr.log");
 const WATCHER_LOCK_PATH = join(STATE_ROOT, "watcher.lock");
-const RELAY_SERVER_CONFIG_PATH = join(STATE_ROOT, "relay-server.json");
 const INSTALLED_RUNTIME_PATH = join(STATE_ROOT, "codex-deck-macos.mjs");
 const WATCHER_LAUNCHER_PATH = join(STATE_ROOT, "watcher-launch.sh");
 const LAUNCH_AGENT_PATH = join(homedir(), "Library", "LaunchAgents", `${AGENT_LABEL}.plist`);
@@ -375,12 +372,7 @@ async function runWatcher(): Promise<number> {
     return 0;
   }
   let released = false;
-  let relayServer: CodexRelayServer | undefined;
-  let relayControl: CodexMicroRendererBridge | undefined;
-  let relaySignature = "";
   const cleanup = async () => {
-    await relayServer?.close().catch(() => {});
-    relayControl?.close();
     if (!released) { released = true; await release(); }
   };
   process.once("SIGTERM", () => { safeLog("Watcher received SIGTERM."); void cleanup().finally(() => process.exit(0)); });
@@ -401,31 +393,6 @@ async function runWatcher(): Promise<number> {
         });
         policy = decision.state;
         await atomicWriteJson(WATCHER_STATE_PATH, policy);
-
-        const relayConfig = await readJson<RelayServerConfig>(RELAY_SERVER_CONFIG_PATH);
-        const nextRelaySignature = JSON.stringify(relayConfig?.enabled ? relayConfig : null);
-        if (nextRelaySignature !== relaySignature) {
-          await relayServer?.close();
-          relayControl?.close();
-          relayServer = undefined;
-          relayControl = undefined;
-          relaySignature = "";
-          if (relayConfig?.enabled) {
-            const identity = await hostState();
-            relayControl = new CodexMicroRendererBridge(safeLog);
-            relayServer = new CodexRelayServer(
-              relayConfig,
-              { ...identity, platform: "darwin", codexVersion: installation.version },
-              relayControl, safeLog
-            );
-            await relayServer.start();
-          }
-          relaySignature = nextRelaySignature;
-        }
-        const relayHost = {
-          ...await hostState(), platform: "darwin" as const, codexVersion: installation.version
-        };
-        relayServer?.updateHost(relayHost);
 
         if (port != null) {
           const signature = `${main!.generation}:${port}`;
@@ -474,7 +441,7 @@ for node_candidate in "\${candidates[@]}"; do
   node_version=$("$node_candidate" --version 2>/dev/null) || continue
   node_major=\${\${node_version#v}%%.*}
   [[ "$node_major" == <-> && "$node_major" -ge 24 ]] || continue
-  exec "$node_candidate" "$runtime" watch
+  exec "$node_candidate" "$runtime" "\${1:-watch}"
 done
 
 print -r -- "$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ) [launcher] Node.js 24 or newer was not found; watcher did not start." >> ${shellQuote(WATCHER_LOG_PATH)}
@@ -530,17 +497,56 @@ async function installLaunchAgent(): Promise<void> {
   }
   await mkdir(STATE_ROOT, { recursive: true, mode: 0o700 });
   await mkdir(dirname(LAUNCH_AGENT_PATH), { recursive: true });
-  const temporaryRuntime = `${INSTALLED_RUNTIME_PATH}.${process.pid}.tmp`;
-  await copyFile(source, temporaryRuntime);
-  await chmod(temporaryRuntime, 0o700);
-  await rename(temporaryRuntime, INSTALLED_RUNTIME_PATH);
-  await atomicWrite(WATCHER_LAUNCHER_PATH, buildWatcherLaunchScript(), 0o700);
-  await atomicWrite(LAUNCH_AGENT_PATH, buildLaunchAgentPlist(), 0o644);
-  await hostState();
-  run("/bin/launchctl", ["bootout", `gui/${currentUserId()}`, LAUNCH_AGENT_PATH], { allowFailure: true });
-  run("/bin/launchctl", ["bootstrap", `gui/${currentUserId()}`, LAUNCH_AGENT_PATH]);
-  console.log(`LaunchAgent installed: ${LAUNCH_AGENT_PATH}`);
-  console.log("An already-running normal Codex session is recorded and left untouched.");
+  const temporaryRuntime = `${INSTALLED_RUNTIME_PATH}.${process.pid}.tmp.mjs`;
+  const temporaryLauncher = `${WATCHER_LAUNCHER_PATH}.${process.pid}.tmp`;
+  let oldWatcherStopped = false;
+  try {
+    await copyFile(source, temporaryRuntime);
+    await chmod(temporaryRuntime, 0o700);
+    await atomicWrite(temporaryLauncher, buildWatcherLaunchScript(temporaryRuntime), 0o700);
+    // Exercise the same Node resolver and bundled runtime used at sign-in before
+    // stopping the installed watcher. Self-test never touches Codex or its data.
+    run("/bin/zsh", [temporaryLauncher, "self-test"]);
+    const service = `gui/${currentUserId()}/${AGENT_LABEL}`;
+    const stopped = spawnSync("/bin/launchctl", ["bootout", service], { encoding: "utf8" });
+    if (stopped.status !== 0) {
+      const existing = spawnSync("/bin/launchctl", ["print", service], { encoding: "utf8" });
+      if (existing.status === 0) {
+        throw new Error("The installed watcher could not be stopped; its runtime was left unchanged.");
+      }
+    }
+    oldWatcherStopped = true;
+    await rename(temporaryRuntime, INSTALLED_RUNTIME_PATH);
+    await atomicWrite(WATCHER_LAUNCHER_PATH, buildWatcherLaunchScript(), 0o700);
+    await atomicWrite(LAUNCH_AGENT_PATH, buildLaunchAgentPlist(), 0o644);
+    await hostState();
+    run("/bin/launchctl", ["bootstrap", `gui/${currentUserId()}`, LAUNCH_AGENT_PATH]);
+    const deadline = Date.now() + 15_000;
+    let ready = false;
+    while (Date.now() < deadline) {
+      const status = run("/bin/launchctl", ["print", service], { allowFailure: true });
+      const pid = Number(status.match(/\bpid = (\d+)/)?.[1]);
+      const lockPid = Number((await readFile(join(WATCHER_LOCK_PATH, "pid"), "utf8").catch(() => "")).trim());
+      const logText = await readFile(WATCHER_LOG_PATH, "utf8").catch(() => "");
+      if (pid > 0 && pid === lockPid && /\bstate = running\b/.test(status) &&
+          logText.includes(`[${pid}] Watcher started.`)) {
+        ready = true;
+        break;
+      }
+      await delay(250);
+    }
+    if (!ready) throw new Error("The new watcher did not acquire its lock and confirm startup.");
+    console.log(`LaunchAgent installed and watcher running: ${LAUNCH_AGENT_PATH}`);
+    console.log("An already-running normal Codex session is recorded and left untouched.");
+  } catch (error) {
+    if (oldWatcherStopped) {
+      throw new Error(`Watcher update partially failed after stopping the old service; the old remote listener was not restored. ${String(error)}`);
+    }
+    throw error;
+  } finally {
+    await rm(temporaryRuntime, { force: true });
+    await rm(temporaryLauncher, { force: true });
+  }
 }
 
 async function uninstallLaunchAgent(): Promise<void> {
@@ -562,7 +568,6 @@ async function dryRun(): Promise<void> {
   const main = findMainProcess(installation);
   const port = await healthyDebugPort(main);
   const staleState = await readJson<{ port?: unknown }>(BRIDGE_STATE_PATH);
-  const relayConfig = await readJson<RelayServerConfig>(RELAY_SERVER_CONFIG_PATH);
   console.log(`Codex app: ${installation.appPath}`);
   console.log(`Bundle ID: ${installation.bundleId}`);
   console.log(`Version: ${installation.version} (${installation.buildVersion})`);
@@ -570,32 +575,9 @@ async function dryRun(): Promise<void> {
   console.log(`Main process: ${main ? `${main.pid} (${main.generation})` : "not running"}`);
   console.log(`Reusable loopback bridge: ${port ?? "none"}`);
   console.log(`Bridge state file: ${staleState ? "present (not modified in dry-run)" : "absent"}`);
-  console.log(`Multi-host relay: ${relayConfig?.enabled ? `configured for ${relayConfig.listenHost}:${relayConfig.port}` : "disabled"}`);
   if (main && !port) console.log("Action: a real restart would be required; dry-run left Codex untouched.");
   else if (!main) console.log("Action: start Codex with a random loopback port.");
   else console.log("Action: reuse the current bridge and apply the runtime override.");
-}
-
-async function configureRelay(listenHost: string | undefined, portValue: string | undefined): Promise<void> {
-  const port = portValue == null ? 47_651 : Number.parseInt(portValue, 10);
-  const config: RelayServerConfig = {
-    enabled: true,
-    listenHost: listenHost?.trim() ?? "",
-    port,
-    token: randomBytes(32).toString("base64url")
-  };
-  validateRelayServerConfig(config);
-  await mkdir(STATE_ROOT, { recursive: true, mode: 0o700 });
-  await atomicWriteJson(RELAY_SERVER_CONFIG_PATH, config);
-  console.log(`Mac relay configured on ${config.listenHost}:${config.port}.`);
-  console.log("Copy this file content to the Windows relay configurator; treat the token like a password:");
-  console.log(JSON.stringify({ enabled: true, url: `ws://${config.listenHost}:${config.port}`, token: config.token }, null, 2));
-  console.log("The running watcher detects this file automatically; Codex is not restarted.");
-}
-
-async function disableRelay(): Promise<void> {
-  await rm(RELAY_SERVER_CONFIG_PATH, { force: true });
-  console.log("Mac relay disabled. The watcher will close the listener without restarting Codex.");
 }
 
 async function startOnce(allowRestart: boolean): Promise<number> {
@@ -689,12 +671,10 @@ async function main(): Promise<number> {
   }
   if (command === "install") { await installLaunchAgent(); return 0; }
   if (command === "uninstall") { await uninstallLaunchAgent(); return 0; }
-  if (command === "relay-config") { await configureRelay(process.argv[3], process.argv[4]); return 0; }
-  if (command === "relay-disable") { await disableRelay(); return 0; }
   if (command === "watch") return await runWatcher();
   if (command === "start") return await startOnce(process.argv.includes("--restart"));
   if (command === "--restart") return await startOnce(true);
-  throw new Error("Usage: start-codex-deck.sh [start [--restart]|dry-run|self-test|install|uninstall|watch|relay-config <127.0.0.1-or-tailscale-ip> [port]|relay-disable|print-launch-agent]");
+  throw new Error("Usage: start-codex-deck.sh [start [--restart]|dry-run|self-test|install|uninstall|watch|print-launch-agent]");
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -47,7 +47,7 @@ export type AgentDispatchPlan =
 const THREAD_ID_SUFFIX = /(?:^|:)([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 const BARE_THREAD_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Compare renderer IDs without changing the task key sent to Codex or a relay peer. */
+/** Compare renderer IDs without changing the task key sent to Codex. */
 export function canonicalThreadId(threadKey: string): string {
   return threadKey.match(THREAD_ID_SUFFIX)?.[1]?.toLowerCase() ?? threadKey;
 }

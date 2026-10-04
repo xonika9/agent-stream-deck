@@ -7,7 +7,7 @@ export type TaskSource = "Codex" | "OpenCode" | "Both";
 
 export type HostHealth = {
   state: HostHealthState;
-  reason?: "awaiting-snapshot" | "native-signals-unavailable" | "snapshot-stale" | "relay-disconnected" | "local-bridge-unavailable" | "codex-not-running";
+  reason?: "awaiting-snapshot" | "native-signals-unavailable" | "snapshot-stale" | "local-bridge-unavailable" | "codex-not-running";
   changedAt: number;
 };
 

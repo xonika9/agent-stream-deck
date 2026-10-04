@@ -28,12 +28,11 @@ recovery restart when Codex launches without its required loopback port.
 Remove the watcher with `Start-CodexDeck.ps1 -UninstallStartup`. Diagnostics
 are written to `%LOCALAPPDATA%\CodexDeck\watcher.log`.
 
-Optional Mac pairing: after configuring the relay on the Mac, run
-`Configure-CodexDeckRelay.ps1 -MacAddress 127.0.0.1 -SshHost <Mac SSH alias>`.
-Paste the token into the hidden prompt instead of placing it on the command
-line. The watcher keeps this dedicated SSH relay tunnel alive and
-does not reuse Codex desktop's remote-CLI SSH process. Restart the Stream Deck
-plugin, not Codex. Remove the relay with `-Disable`.
+Codex works locally. The previous Mac relay pairing and tunnel commands have
+been removed. Old private connection files are preserved and ignored. Existing
+host-toggle profile keys keep their identity and display the local connection.
+Run -InstallStartup from the matching new launcher to replace an older copied
+watcher; building the repository alone does not update the installed service.
 
 This is an unofficial compatibility bridge and may need an update after a Codex
 desktop release.

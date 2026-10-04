@@ -6,7 +6,7 @@ This mode runs Stream Deck and Codex on the same Mac. It needs no Windows PC, re
 
 1. Install `com.xonika9.codex-deck.streamDeckPlugin` in Stream Deck for macOS.
 2. Extract `codex-deck-launcher-macos-vX.Y.Z.zip`. The official release ZIP is created on macOS so its executable bits are preserved.
-3. Install Node.js 20 or newer if `node --version` is unavailable.
+3. Install Node.js 24 or newer if `node --version` is unavailable.
 4. From Terminal in the extracted launcher directory, run:
 
    ```zsh
@@ -16,7 +16,7 @@ This mode runs Stream Deck and Codex on the same Mac. It needs no Windows PC, re
    ```
 
    **Start Codex Deck.command** is the double-clickable equivalent of `start`.
-5. Open **Codex Settings > Codex Micro**, configure the native slots, and add the actions from the [recommended layout](../README.md#recommended-15-key-layout). Leave the Windows/Mac target position empty or replace it with another action.
+5. Open **Codex Settings > Codex Micro**, configure the native slots, and add the actions from the [recommended layout](../README.md#recommended-15-key-layout). The existing host key shows the local connection status.
 
 If an archive tool removed executable permissions, restore only the two launcher files:
 
@@ -32,7 +32,9 @@ chmod +x start-codex-deck.sh "Start Codex Deck.command"
 
 `install` copies the watcher runtime into Application Support and installs a per-user LaunchAgent. It does not restart a normal Codex session already open during first installation and never launches Codex while the app is closed. After you open Codex normally, a later unbridged process must remain stable before it may receive one graceful recovery restart. A global cooldown blocks further automatic recovery across replacement process IDs, preventing restart loops after crashes, power loss, or incomplete app startup.
 
-Update by extracting the new launcher and running `install` again. The stable host identity, optional relay configuration, and user-owned icons are preserved.
+Update by extracting the new launcher and running `install` again. The stable host identity, old private relay configuration, and user-owned icons are preserved.
+
+The installer checks the bundle and Node.js 24 before stopping the existing watcher, then waits for the new watcher to confirm startup. Failure after stopping is reported as a partial update and does not resume the retired relay.
 
 ## Commands
 
@@ -74,9 +76,11 @@ launchctl print "gui/$(id -u)/com.simeo.codex-deck.watcher"
 plutil -lint "$HOME/Library/LaunchAgents/com.simeo.codex-deck.watcher.plist"
 ```
 
-## Optional multi-host mode
+## Existing profiles and remote settings
 
-Only configure `relay-config` when one Windows-connected Stream Deck should also control this Mac. The relay is disabled in Mac-only mode. See [Windows + Mac multi-host relay](MULTI_HOST.md).
+The `host-toggle` action keeps its UUID and shows the local connection state. Pressing it redraws the status; it does not select another computer. Old Codex relay settings and tokens are ignored and their private files are preserved. Saved OpenCode SSH connections, including Fedora, remain available through the **OpenCode** and **Both** sources.
+
+The watcher runtime is copied outside the repository. Rebuild and run `install` from the new launcher to replace the old watcher; building alone does not stop an installed legacy listener. Keep the established `com.simeo.codex-deck.watcher` service label.
 
 ## Uninstall
 
@@ -84,4 +88,4 @@ Only configure `relay-config` when one Windows-connected Stream Deck should also
 ./start-codex-deck.sh uninstall
 ```
 
-This unloads the LaunchAgent and removes its runtime, bridge state, policy state, lock, and logs. It deliberately preserves `host.json`, optional relay configuration, and `icons/`. No Codex application data is removed and Codex is not restarted.
+This unloads the LaunchAgent and removes its runtime, bridge state, policy state, lock, and logs. It deliberately preserves `host.json`, old private relay configuration, and `icons/`. No Codex application data is removed and Codex is not restarted.

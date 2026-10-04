@@ -36,7 +36,7 @@ for (const filename of [
   await cp(resolve(wsSource, "lib", filename), resolve(wsOutput, "lib", filename));
 }
 
-for (const filename of ["Start Codex Deck.cmd", "Start-CodexDeck.ps1", "Watch-CodexDeck.ps1", "Configure-CodexDeckRelay.ps1", "README.txt"]) {
+for (const filename of ["Start Codex Deck.cmd", "Start-CodexDeck.ps1", "Watch-CodexDeck.ps1", "README.txt"]) {
   await cp(resolve("launcher", filename), resolve(output, filename));
 }
 await cp(resolve("docs"), resolve(output, "docs"), { recursive: true });

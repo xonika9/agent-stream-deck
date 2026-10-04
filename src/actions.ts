@@ -16,7 +16,7 @@ abstract class AgentAction extends SingletonAction {
   }
 
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
-    try { await this.controller.sendAgent(this.slot, 1); }
+    try { await this.controller.sendAgent(this.slot, 1, ev.action); }
     catch (error) {
       streamDeck.logger.error(`Agent key ${this.slot + 1} failed: ${String(error)}`);
       await ev.action.showAlert();
@@ -24,7 +24,7 @@ abstract class AgentAction extends SingletonAction {
   }
 
   override async onKeyUp(ev: KeyUpEvent): Promise<void> {
-    try { await this.controller.sendAgent(this.slot, 0); }
+    try { await this.controller.sendAgent(this.slot, 0, ev.action); }
     catch (error) {
       streamDeck.logger.error(`Agent key ${this.slot + 1} failed: ${String(error)}`);
       await ev.action.showAlert();

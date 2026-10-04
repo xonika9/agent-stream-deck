@@ -2,9 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { renderRateLimitResetKey, renderUsageLimitKey, renderUsageOverviewKey } from "../src/render.js";
-import { parseRelayCommand } from "../src/relay-protocol.js";
 import type { MicroSnapshot, UsageSnapshot, UsageWindow } from "../src/types.js";
-import { composeMacUsage, parseUsageLimitMode, selectAccountUsageSource, selectUsageWindow, usageTheme, usageWindowKind } from "../src/usage.js";
+import { composeMacUsage, parseUsageLimitMode, selectUsageWindow, usageTheme, usageWindowKind } from "../src/usage.js";
 
 const fiveHour: UsageWindow = {
   id: "five-hour", kind: "five-hour", usedPercent: 26, remainingPercent: 74,
@@ -32,39 +31,6 @@ test("usage selection prefers 5-hour but falls back to weekly", () => {
   assert.equal(usageWindowKind(10_080), "weekly");
   assert.equal(parseUsageLimitMode("weekly"), "weekly");
   assert.equal(parseUsageLimitMode("unexpected"), "auto");
-});
-
-test("account usage stays local when the function-key target switches hosts", () => {
-  const localSnapshot = { slots: [], layout: { slots: {} }, agentSource: "priority", lightingAutoOff: false, theme: "dark", usage: usage([weekly]) } as unknown as MicroSnapshot;
-  const remoteSnapshot = { slots: [], layout: { slots: {} }, agentSource: "priority", lightingAutoOff: false, theme: "dark" } as unknown as MicroSnapshot;
-  const source = selectAccountUsageSource(
-    { hostId: "windows", health: { state: "ready", changedAt: 1 }, snapshot: localSnapshot },
-    { hostId: "mac", health: { state: "ready", changedAt: 1 }, snapshot: remoteSnapshot }
-  );
-  assert.equal(source.hostId, "windows");
-  assert.equal(source.snapshot?.usage?.windows[0], weekly);
-});
-
-test("account usage falls back to the remote host only when local usage is unavailable", () => {
-  const localSnapshot = { slots: [], layout: { slots: {} }, agentSource: "priority", lightingAutoOff: false, theme: "dark" } as unknown as MicroSnapshot;
-  const remoteSnapshot = { ...localSnapshot, usage: usage([fiveHour]) } as MicroSnapshot;
-  const source = selectAccountUsageSource(
-    { hostId: "windows", health: { state: "ready", changedAt: 1 }, snapshot: localSnapshot },
-    { hostId: "mac", health: { state: "ready", changedAt: 1 }, snapshot: remoteSnapshot }
-  );
-  assert.equal(source.hostId, "mac");
-});
-
-test("account usage accepts fresh macOS quota without a Codex snapshot", () => {
-  const localUsage = usage([weekly]);
-  const source = selectAccountUsageSource({
-    hostId: "mac",
-    health: { state: "ready", changedAt: localUsage.observedAt },
-    usage: localUsage,
-    theme: "dark"
-  });
-  assert.equal(source.usage, localUsage);
-  assert.equal(source.snapshot, undefined);
 });
 
 test("usage rendering falls back to light without overriding an available theme", () => {
@@ -159,10 +125,4 @@ test("usage actions and property inspector are packaged without official keycap 
   assert.match(bridge, /safePost\('\/wham\/rate-limit-reset-credits\/consume'/);
   assert.match(bridge, /applicable_available_count/);
   assert.doesNotMatch(bridge, /profile_image_url/);
-});
-
-test("relay accepts only the typed reset command", () => {
-  assert.deepEqual(parseRelayCommand({ kind: "rate-limit-reset" }), { kind: "rate-limit-reset" });
-  assert.equal(parseRelayCommand({ kind: "rate-limit-reset", arbitrary: "ignored" })?.kind, "rate-limit-reset");
-  assert.equal(parseRelayCommand({ kind: "rate-limit-reset-now" }), null);
 });

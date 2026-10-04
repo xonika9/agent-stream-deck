@@ -25,7 +25,14 @@ test("bundled ESM actions retain SDK decoration and native press/release behavio
     target: "node24",
     banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" }
   });
-  const actions = await import(pathToFileURL(outfile).href) as { Fast: typeof Fast };
+  // A bundled SDK instance owns its own cwd-based logger. Keep its rotation
+  // separate from SDK instances loaded by other test processes.
+  const previousDirectory = process.cwd();
+  let actions: { Fast: typeof Fast };
+  try {
+    process.chdir(directory);
+    actions = await import(pathToFileURL(outfile).href) as { Fast: typeof Fast };
+  } finally { process.chdir(previousDirectory); }
   const inputs: Array<[string, number]> = [];
   const controller = {
     sendMicroAction: async (slot: string, act: number) => { inputs.push([slot, act]); }

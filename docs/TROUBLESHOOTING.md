@@ -73,9 +73,9 @@ The native handler was unavailable or the action is not valid in the current com
 
 ## Agent assignments are unexpected
 
-Codex Deck does not choose the six native tasks. Open **Codex Settings > Codex Micro > Agent keys** and select pinned, recently updated, priority, or custom assignments. For combined Pinned or Individual assignments, select the same mode in both Codex apps. Pinned tasks are interleaved between hosts; in Individual mode the Stream Deck computer wins a conflicting slot and the remote host fills empty slots. Both lists are de-duplicated, and mirrored tasks route to the host owning the exact local rollout filename.
+Codex Deck does not choose the six native tasks. Open **Codex Settings > Codex Micro > Agent keys** and select pinned, recently updated, priority, or custom assignments.
 
-If **Active queue** is enabled, the plugin uses Codex's complete native pinned + unpinned sidebar catalog when available. It hides idle/off tasks, compacts the rest to at most six display positions, and can open an exact task outside the current six Micro slots through the native event handler. If optional catalog discovery fails, that host falls back to its six Micro slots. `custom` stays limited to its configured six candidates, which the queue may still compact. Disable the queue to inspect or use the exact native single-host or combined multi-host positions again.
+If **Active queue** is enabled, the plugin uses Codex's complete native pinned + unpinned sidebar catalog when available. It hides idle/off tasks, compacts the rest to at most six display positions, and can open an exact task outside the current six Micro slots through the native event handler. If optional catalog discovery fails, that host falls back to its six Micro slots. `custom` stays limited to its configured six candidates, which the queue may still compact. Disable the queue to inspect or use the exact native local positions again.
 
 ## Active queue is black or misses a working task
 
@@ -84,7 +84,7 @@ If **Active queue** is enabled, the plugin uses Codex's complete native pinned +
 - An all-black Agent row can be healthy when the catalog contains no relevant non-idle tasks. Black empty positions are no-op, not a bridge failure.
 - Make sure the profile contains logical **Agent 1** through **Agent N** contiguously and in order. Queue positions close up from Agent 1.
 - Idle chats are intentionally unavailable while Active queue is enabled. Turn it off when you need their original assignments.
-- `CONNECT`, `DEGRADED`, or `OFFLINE` tiles are diagnostics and remain visible instead of becoming black. Follow the bridge or relay checks in this guide for those states.
+- `CONNECT`, `DEGRADED`, or `OFFLINE` tiles are diagnostics and remain visible instead of becoming black. Follow the local bridge checks in this guide for those states.
 
 ## Working Agent keys changed order unexpectedly
 
@@ -92,8 +92,7 @@ If **Active queue** is enabled, the plugin uses Codex's complete native pinned +
 - A queue epoch is process-local. Disabling and re-enabling **Active queue**, or restarting the plugin, starts a new epoch and may reseed tasks whose start event is unknown.
 - Starts can be unknown with an older sender, after a cold start, or when the event is outside the bounded 512 KiB session tail. First seeing a task already working gives it a stable fallback position; it is not treated as newly started. Known starts rank ahead of unknown starts, and an observed idle/completion-to-working transition may move an unknown task within its tier.
 - Temporarily disappeared tasks retain their queue-local rank for 24 hours. A longer absence is treated as a fresh unknown observation.
-- In multi-host mode, update both hosts before diagnosing mixed-version order. Relay protocol v1 remains compatible, but an older sender omits the optional start pair and therefore uses the unknown-start fallback. Mirror activity cannot reorder a task; only a higher start revision from the exact rollout owner can do so.
-- Ordering inspects only the structural event type, timestamp, and byte offset. It does not read the user-message text or send that text through the relay.
+- Ordering inspects only the structural event type, timestamp, and byte offset. It does not read the user-message text or send that text.
 
 ## Local command icon does not appear
 
@@ -106,24 +105,11 @@ If **Active queue** is enabled, the plugin uses Codex's complete native pinned +
 
 Restart Stream Deck. Elgato notes that plugins can fail to appear when the Stream Deck app is still running with elevated state after an install or update.
 
-## Mac relay is offline
+## Local connection key says DEGRADED
 
-- First confirm both local bridges work independently.
-- SSH mode: confirm the Windows watcher is installed and the SSH alias works outside Codex's remote-CLI connection.
-- Inspect `%LOCALAPPDATA%\CodexDeck\watcher.log` for the dedicated relay tunnel state.
-- On macOS, inspect both `watcher.log` and `watcher.stderr.log` under `~/Library/Application Support/CodexDeck/`.
-- Confirm the Windows relay URL is `ws://127.0.0.1:<port>` for SSH, or an explicit Tailscale address.
-- Restart only the Stream Deck plugin/app after configuration. Do not restart Codex.
-- Run `Configure-CodexDeckRelay.ps1 -Disable` to return cleanly to Windows-only mode.
+The existing `host-toggle` key now shows the local Codex connection only. Pressing it redraws its status and does not change the target. `DEGRADED` means that the local native Micro state cannot currently be confirmed, for example during startup or after a renderer compatibility change. Wait briefly, then inspect the local watcher logs. Last-known agent colors are uncertain until the connection returns to `READY`.
 
-## Target key says DEGRADED
-
-`DEGRADED` is different from `OFFLINE`: the relay may still be authenticated, but Codex Deck cannot currently prove that the host's native Micro state is fresh. This can happen while Codex is starting, after an app update changes undocumented renderer internals, or when native signals stop while the process remains connected.
-
-- Orange warnings on agent tiles mean their task and status are last-known, not confirmed live.
-- Wait briefly for startup recovery, then inspect the affected host's watcher logs if the state remains degraded.
-- Do not trust a stale `working`, `done`, or approval color until the host returns to `READY`.
-- A red warning and `OFFLINE` indicate transport loss instead; use the relay checks above.
+Old remote selections and pairing files are ignored without deleting their private contents. An old copied watcher can still run until it is replaced: install the matching new platform launcher to update it. Saved OpenCode SSH connections are independent and remain supported.
 
 ## What to include in a bug report
 

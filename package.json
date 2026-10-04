@@ -3,7 +3,7 @@
   "version": "1.0.1",
   "private": false,
   "type": "module",
-  "description": "Unofficial Codex Micro bridge for Stream Deck on Windows and macOS, with optional multi-host relay",
+  "description": "Unofficial Codex Micro bridge for Stream Deck on Windows and macOS",
   "license": "MIT",
   "author": "xonika9",
   "repository": {
@@ -18,7 +18,6 @@
     "dev": "node scripts/dev-plugin.mjs",
     "docs:preview": "tsx scripts/generate-doc-preview.ts",
     "qa:local-icons": "tsx scripts/generate-local-icon-qa.ts",
-    "smoke:relay": "tsx scripts/relay-smoke.ts",
     "audit:release": "node scripts/audit-release.mjs",
     "check": "tsc --noEmit",
     "test": "tsx --test test/*.test.ts",

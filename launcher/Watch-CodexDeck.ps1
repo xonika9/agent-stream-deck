@@ -12,8 +12,6 @@ $launcherPath = Join-Path $PSScriptRoot 'Start-CodexDeck.ps1'
 $powerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 $stateRoot = Join-Path $env:LOCALAPPDATA 'CodexDeck'
 $statePath = Join-Path $stateRoot 'codex-micro-bridge.json'
-$relayConfigPath = Join-Path $stateRoot 'relay-client.json'
-$relayTunnelPidPath = Join-Path $stateRoot 'relay-tunnel.pid'
 $stopPath = Join-Path $stateRoot 'watcher.stop'
 $logPath = Join-Path $stateRoot 'watcher.log'
 $mutexName = 'Local\CodexDeckBridgeWatcher'
@@ -29,16 +27,6 @@ function Test-RecoveryAllowed(
   $RecoverExisting -or $SawStopped -or $HadHealthy -or $generationChanged
 }
 
-function Test-RelayTunnelCommand([string]$CommandLine, [string]$SshHost, [int]$LocalPort, [int]$RemotePort) {
-  if ([string]::IsNullOrWhiteSpace($CommandLine) -or [string]::IsNullOrWhiteSpace($SshHost)) { return $false }
-  $forward = "127.0.0.1:${LocalPort}:127.0.0.1:${RemotePort}"
-  $hostPattern = [Regex]::Escape($SshHost)
-  $forwardPattern = [Regex]::Escape($forward)
-  $CommandLine -match '(?i)(?:^|\s)-N(?:\s|$)' -and
-    $CommandLine -match "(?i)(?:^|\s)-L(?:\s+|=)$forwardPattern(?:\s|$)" -and
-    $CommandLine -match "(?i)(?:^|\s)$hostPattern\s*$"
-}
-
 if ($SelfTest) {
   $cases = @(
     @{ Name = 'initial existing session remains untouched'; Expected = $false; Actual = Test-RecoveryAllowed 'v1:100' '' $false $false $false },
@@ -46,10 +34,7 @@ if ($SelfTest) {
     @{ Name = 'rapid main-process replacement recovers'; Expected = $true; Actual = Test-RecoveryAllowed 'v1:101' 'v1:100' $false $false $false },
     @{ Name = 'observed stopped interval recovers'; Expected = $true; Actual = Test-RecoveryAllowed 'v1:101' '' $false $true $false },
     @{ Name = 'previous healthy bridge recovers'; Expected = $true; Actual = Test-RecoveryAllowed 'v2:200' 'v1:100' $false $false $true },
-    @{ Name = 'login recovery handles startup race'; Expected = $true; Actual = Test-RecoveryAllowed 'v1:100' '' $true $false $false },
-    @{ Name = 'managed relay tunnel is recognized'; Expected = $true; Actual = Test-RelayTunnelCommand 'ssh.exe -N -T -L 127.0.0.1:47651:127.0.0.1:47651 example-mac' 'example-mac' 47651 47651 },
-    @{ Name = 'Codex remote CLI SSH is not adopted'; Expected = $false; Actual = Test-RelayTunnelCommand 'ssh -T example-mac "codex app-server proxy"' 'example-mac' 47651 47651 },
-    @{ Name = 'different forwarded port is not adopted'; Expected = $false; Actual = Test-RelayTunnelCommand 'ssh.exe -N -T -L 127.0.0.1:40000:127.0.0.1:40000 example-mac' 'example-mac' 47651 47651 }
+    @{ Name = 'login recovery handles startup race'; Expected = $true; Actual = Test-RecoveryAllowed 'v1:100' '' $true $false $false }
   )
   $failures = @($cases | Where-Object { $_.Actual -ne $_.Expected })
   if ($failures.Count -gt 0) { throw "Watcher self-test failed: $($failures.Name -join ', ')" }
@@ -69,77 +54,6 @@ function Write-WatcherLog([string]$Message) {
   $line = "[$([DateTimeOffset]::Now.ToString('o'))] $Message"
   Add-Content -LiteralPath $logPath -Value $line -Encoding UTF8
   Write-Host $line
-}
-
-function Get-RelayTunnelConfig {
-  if (-not (Test-Path -LiteralPath $relayConfigPath)) { return $null }
-  $config = Get-Content -LiteralPath $relayConfigPath -Raw | ConvertFrom-Json
-  if ($config.enabled -ne $true -or [string]::IsNullOrWhiteSpace([string]$config.sshHost)) { return $null }
-  if ([string]$config.sshHost -notmatch '^[A-Za-z0-9._-]+$') { throw 'Relay sshHost is invalid.' }
-  if ([string]$config.url -notmatch '^ws://127\.0\.0\.1:(\d+)$') { throw 'Managed SSH relay URL must use 127.0.0.1 with an explicit port.' }
-  $urlPort = [int]$Matches[1]
-  $localPort = if ($null -ne $config.localPort) { [int]$config.localPort } else { $urlPort }
-  $remotePort = if ($null -ne $config.remotePort) { [int]$config.remotePort } else { $localPort }
-  if ($localPort -lt 1024 -or $localPort -gt 65535 -or $remotePort -lt 1024 -or $remotePort -gt 65535) {
-    throw 'Relay tunnel ports must be between 1024 and 65535.'
-  }
-  if ($localPort -ne $urlPort) { throw 'Relay localPort must match the loopback URL port.' }
-  [pscustomobject]@{ SshHost = [string]$config.sshHost; LocalPort = $localPort; RemotePort = $remotePort }
-}
-
-function Get-RelayTunnelProcess($Config) {
-  @(Get-CimInstance Win32_Process -Filter "Name='ssh.exe'" -ErrorAction SilentlyContinue | Where-Object {
-    Test-RelayTunnelCommand ([string]$_.CommandLine) $Config.SshHost $Config.LocalPort $Config.RemotePort
-  } | Sort-Object ProcessId | Select-Object -First 1)[0]
-}
-
-function Test-LocalTcpPort([int]$Port) {
-  $client = [Net.Sockets.TcpClient]::new()
-  try {
-    $connect = $client.ConnectAsync('127.0.0.1', $Port)
-    $connect.Wait(250) -and $client.Connected
-  }
-  catch { $false }
-  finally { $client.Dispose() }
-}
-
-function Save-RelayTunnelPid([int]$ProcessId) {
-  [IO.File]::WriteAllText($relayTunnelPidPath, "$ProcessId`n", [Text.UTF8Encoding]::new($false))
-}
-
-function Stop-OwnedRelayTunnel {
-  if (-not (Test-Path -LiteralPath $relayTunnelPidPath)) { return 'disabled' }
-  try {
-    $processId = [int](Get-Content -LiteralPath $relayTunnelPidPath -Raw).Trim()
-    $process = Get-CimInstance Win32_Process -Filter "ProcessId=$processId" -ErrorAction SilentlyContinue
-    if ($null -ne $process -and $process.Name -ieq 'ssh.exe' -and [string]$process.CommandLine -match '(?i)(?:^|\s)-N(?:\s|$)' -and [string]$process.CommandLine -match '(?i)(?:^|\s)-L(?:\s|$)') {
-      Stop-Process -Id $processId -ErrorAction SilentlyContinue
-    }
-  }
-  finally { Remove-Item -LiteralPath $relayTunnelPidPath -Force -ErrorAction SilentlyContinue }
-  'disabled'
-}
-
-function Ensure-RelayTunnel {
-  $config = Get-RelayTunnelConfig
-  if ($null -eq $config) { return Stop-OwnedRelayTunnel }
-
-  $existing = Get-RelayTunnelProcess $config
-  if ($null -ne $existing) {
-    Save-RelayTunnelPid ([int]$existing.ProcessId)
-    return "connected:$($existing.ProcessId)"
-  }
-
-  if (Test-LocalTcpPort $config.LocalPort) { return "port-in-use:$($config.LocalPort)" }
-  $sshPath = (Get-Command ssh.exe -ErrorAction Stop).Source
-  $arguments = @(
-    '-N', '-T', '-o', 'BatchMode=yes', '-o', 'ExitOnForwardFailure=yes',
-    '-o', 'ServerAliveInterval=30', '-o', 'ServerAliveCountMax=3',
-    '-L', "127.0.0.1:$($config.LocalPort):127.0.0.1:$($config.RemotePort)", $config.SshHost
-  )
-  $process = Start-Process -FilePath $sshPath -ArgumentList $arguments -WindowStyle Hidden -PassThru
-  Save-RelayTunnelPid $process.Id
-  "starting:$($process.Id)"
 }
 
 function Get-CodexInstallation {
@@ -233,10 +147,9 @@ $hadHealthyBridge = $false
 $handledGeneration = ''
 $lastHealthyGeneration = ''
 $lastState = ''
-$lastRelayState = ''
 
 try {
-  Write-WatcherLog "Watcher started (recoverExisting=$($RecoverExistingSession.IsPresent))."
+  Write-WatcherLog "Watcher started (pid=$PID, recoverExisting=$($RecoverExistingSession.IsPresent))."
   while ($true) {
     if (Test-Path -LiteralPath $stopPath) {
       Write-WatcherLog 'Watcher stop requested.'
@@ -244,15 +157,6 @@ try {
     }
 
     try {
-      $relayState = Ensure-RelayTunnel
-      if ($relayState -ne $lastRelayState) {
-        if ($relayState -like 'connected:*') { Write-WatcherLog "Mac app relay tunnel connected (SSH PID $($relayState.Split(':')[1]))." }
-        elseif ($relayState -like 'starting:*') { Write-WatcherLog "Starting the separate Mac app relay tunnel (SSH PID $($relayState.Split(':')[1]))." }
-        elseif ($relayState -like 'port-in-use:*') { Write-WatcherLog "Relay loopback port $($relayState.Split(':')[1]) is occupied by an unmanaged process; no second tunnel was started." }
-        elseif ($relayState -eq 'disabled') { Write-WatcherLog 'Managed Mac app relay tunnel is disabled.' }
-        $lastRelayState = $relayState
-      }
-
       $codex = Get-CodexInstallation
       $processes = if ($null -eq $codex) { @() } else { Get-CodexProcesses $codex.Root }
 

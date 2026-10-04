@@ -23,21 +23,20 @@ This repository is a fork and continuation of [dazer1234/codex-stream-deck](http
 
 ## Choose your setup
 
-The same Stream Deck plugin package works in all three modes. Install only the launcher and configuration needed for your setup.
+The same Stream Deck plugin package works on both platforms. Install only the launcher and configuration needed for your setup.
 
 | Setup            | Stream Deck software | Codex controlled                 | Guide                                                                  |
 | ---------------- | -------------------- | -------------------------------- | ---------------------------------------------------------------------- |
 | Windows only     | Windows              | Local Windows Codex              | [Windows setup](docs/WINDOWS.md)                                       |
 | Mac only         | macOS                | Local Mac Codex                  | [macOS setup](docs/MACOS.md)                                           |
-| Windows + Mac    | Windows              | Both apps; six agents are merged | [Multi-host setup](docs/MULTI_HOST.md)                                 |
 
-Windows and Mac modes need no relay, second computer, or host badges. Multi-host desktop mode remains optional and can be disabled without changing the local bridge on either machine.
+Codex runs locally on each platform. Mac also supports local OpenCode and saved Fedora SSH connections through the **OpenCode** and **Both** task sources. Separate Codex relay operation has been removed.
 
 ## Requirements
 
 - Codex desktop on the computer being controlled.
-- Elgato Stream Deck 6.6 or newer on the computer connected to the Stream Deck.
-- Node.js 20 or newer for the platform launcher.
+- Elgato Stream Deck 7.1 or newer on the computer connected to the Stream Deck.
+- Node.js 24 or newer for the platform launcher.
 - Windows 10+ or macOS 13+.
 - Tested hardware: standard 15-key Stream Deck MK.2.
 
@@ -52,14 +51,13 @@ Other Stream Deck models may work, but the included layout and physical-device t
 2. Download only the launcher for that computer:
    - Windows: `codex-deck-launcher-windows-vX.Y.Z.zip`
    - macOS: `codex-deck-launcher-macos-vX.Y.Z.zip`
-3. Follow [Windows](docs/WINDOWS.md), [macOS](docs/MACOS.md), or [Windows + Mac](docs/MULTI_HOST.md).
+3. Follow [Windows](docs/WINDOWS.md) or [macOS](docs/MACOS.md).
 4. In **Codex Settings > Codex Micro**, choose the agent source, action assignments, joystick actions, and encoder behavior.
 5. Build the two Stream Deck pages below.
 
-In Windows + Mac mode, choose the same agent-source mode in both Codex apps when you want both native Pinned lists or both sets of Individual assignments to contribute. Pinned tasks are interleaved fairly. For Individual assignments, the Stream Deck computer wins when both apps assign different tasks to one button, while the other computer fills empty slots. Mirrored copies of the same task are shown only once. See [Multi-host behavior](docs/MULTI_HOST.md#agent-source-modes).
 
 > [!WARNING]
-> The xonika9 fork uses the new plugin UUID `com.xonika9.codex-deck`. Stream Deck treats it as a different plugin from upstream `com.simeo.codex-deck`: existing actions, per-action settings, and global plugin settings are not migrated automatically. Save or export your profiles, install only one variant at a time, rebuild both pages with the new actions, and then remove the old plugin. Local Codex Deck host, relay, and icon data remain in the existing platform data directory; the macOS watcher intentionally keeps its established `com.simeo.codex-deck.watcher` service label.
+> The xonika9 fork uses the new plugin UUID `com.xonika9.codex-deck`. Stream Deck treats it as a different plugin from upstream `com.simeo.codex-deck`: existing actions, per-action settings, and global plugin settings are not migrated automatically. Save or export your profiles, install only one variant at a time, rebuild both pages with the new actions, and then remove the old plugin. Local Codex Deck host, legacy private relay, and icon data remain in the existing platform data directory; the macOS watcher intentionally keeps its established `com.simeo.codex-deck.watcher` service label.
 
 ## Features
 
@@ -75,20 +73,19 @@ In Windows + Mac mode, choose the same agent-source mode in both Codex apps when
 - A local `codex://threads/new` action for a new task.
 - Standalone actions for all official single-size keycaps, resolved from the installed Codex build at runtime.
 - Optional local loading of official keycap SVGs; those protected files are never included in this repository or its releases.
-- Optional authenticated SSH/Tailscale relay for one Stream Deck controlling Windows and Mac Codex together.
-- Per-host health on the Windows/Mac target key, with last-known agent tiles visibly marked when native desktop signals are uncertain or the relay is offline.
+- Local connection status on the existing host key; pressing it redraws the local status without selecting another computer.
 
 ### Active queue
 
 Enable **Active queue** in any Agent action's property inspector to compact relevant tasks into the first Agent keys. The setting applies globally to Agent 1–6 on that computer and defaults to off. It draws from Codex's native pinned and unpinned sidebar catalog: attention and error tasks come first, completion/unread tasks keep their existing FIFO ordering when activity times are available, and working tasks are ordered by the latest user message that started work. Opening or selecting a task, changing its title, background reasoning or tool work, assistant output, renderer activity, and ordinary refreshes do not reorder working keys. A later user message moves a continuously working task forward.
 
-Codex Deck derives that working-order signal only from the type, timestamp, and byte offset of a structural `event_msg` whose `payload.type` is `user_message`; it does not read or relay the message text. If that record is unavailable—for example from an older sender, after a cold start, or outside the bounded 512 KiB session tail—the task receives a stable queue-local fallback instead of a fabricated start time. Known starts sort ahead of unknown starts. The fallback lasts only for the current enabled queue epoch: disabling and re-enabling Active queue or restarting the plugin starts a new epoch, while temporarily disappeared entries are retained for 24 hours. Idle and off tasks are hidden, the remaining positions close up without gaps, and the displayed queue remains capped at six.
+Codex Deck derives that working-order signal only from the type, timestamp, and byte offset of a structural `event_msg` whose `payload.type` is `user_message`; it does not read the message text. If that record is unavailable—for example after a cold start, or outside the bounded 512 KiB session tail—the task receives a stable queue-local fallback instead of a fabricated start time. Known starts sort ahead of unknown starts. The fallback lasts only for the current enabled queue epoch: disabling and re-enabling Active queue or restarting the plugin starts a new epoch, while temporarily disappeared entries are retained for 24 hours. Idle and off tasks are hidden, the remaining positions close up without gaps, and the displayed queue remains capped at six.
 
 If the renderer's full catalog is temporarily unavailable or incompatible, Active queue fails closed to the existing six native Micro slots without taking the normal snapshot offline. A healthy black position is unassigned and does nothing when pressed. Connecting, degraded, and offline diagnostics remain visible.
 
-On a profile with N Agent buttons, place logical **Agent 1** through **Agent N** next to each other in order. Idle chats cannot be opened from those buttons while the queue is enabled. Pinned and unpinned tasks participate in the full native catalog; **custom** deliberately keeps only its six configured candidates, and the queue may still compact the relevant ones. Disable Active queue to restore the exact existing single-host or multi-host agent-source layout.
+On a profile with N Agent buttons, place logical **Agent 1** through **Agent N** next to each other in order. Idle chats cannot be opened from those buttons while the queue is enabled. Pinned and unpinned tasks participate in the full native catalog; **custom** deliberately keeps only its six configured candidates, and the queue may still compact the relevant ones. Disable Active queue to restore the exact existing local agent-source layout.
 
-Selecting **OpenCode** or **Both** forces Active queue while preserving the saved Codex-only preference. The characterized OpenCode path covers OpenCode Desktop on macOS, validated against `2.0.5` and `2.0.10`: its managed local service and saved non-interactive SSH connections. Later versions remain available when their protected registration, authenticated identity through `/api/info` or legacy `/api/status`, and bounded API response shapes still match; incompatible capabilities fail closed per connection. A bounded, sanitized task title is shown only by the local Stream Deck renderer, with a stable `OpenCode N` alias as its fallback; titles never enter logs or relays. Locations, messages, connection targets, and credentials are neither rendered nor logged. Successful completions and failed tasks remain visible for up to five minutes after their terminal event unless OpenCode reports them viewed or their Stream Deck key is pressed first. Older terminal history is not backfilled. Pressing an OpenCode key also brings OpenCode Desktop forward, removes that exact result locally, and best-effort publishes the same terminal revision through OpenCode's official session-view route; unsupported versions retain the local fallback. A later result from the same chat appears again. WSL and saved HTTP connections are not part of this first integration.
+Selecting **OpenCode** or **Both** forces Active queue while preserving the saved Codex-only preference. The characterized OpenCode path covers OpenCode Desktop on macOS, validated against `2.0.5` and `2.0.10`: its managed local service and saved non-interactive SSH connections. Later versions remain available when their protected registration, authenticated identity through `/api/info` or legacy `/api/status`, and bounded API response shapes still match; incompatible capabilities fail closed per connection. A bounded, sanitized task title is shown only by the local Stream Deck renderer, with a stable `OpenCode N` alias as its fallback; titles never enter logs. Locations, messages, connection targets, and credentials are neither rendered nor logged. Successful completions and failed tasks remain visible for up to five minutes after their terminal event unless OpenCode reports them viewed or their Stream Deck key is pressed first. Older terminal history is not backfilled. Pressing an OpenCode key also brings OpenCode Desktop forward, removes that exact result locally, and best-effort publishes the same terminal revision through OpenCode's official session-view route; unsupported versions retain the local fallback. A later result from the same chat appears again. WSL and saved HTTP connections are not part of this first integration.
 
 ## Recommended 15-key layout
 
@@ -107,12 +104,12 @@ The action names describe the default Codex Micro setup. The keys always follow 
 
 ### Page 2 — navigation and reasoning
 
-| Windows / Mac Target + Health² | Empty                | Joystick Up / Plan         | Reasoning Down           | Reasoning Up            |
+| Local Codex Connection² | Empty                | Joystick Up / Plan         | Reasoning Down           | Reasoning Up            |
 | ------------------------------ | -------------------- | -------------------------- | ------------------------ | ----------------------- |
 | Empty                          | Joystick Left / Back | Stream Deck: Previous Page | Joystick Right / Forward | Reasoning Encoder Click |
 | Stream Deck: Switch Profile³   | Empty                | Joystick Down / Sidebar    | Empty                    | New Task                |
 
-²Use the target key only in Windows + Mac mode. In a single-computer setup, leave it empty or replace it with another keycap action. ³Configure Stream Deck's built-in **Switch Profile** action to return to your own standard profile; no user-specific profile ID is distributed.
+²The existing host key shows the local Codex connection state. Old profiles keep its UUID; saved remote selection is ignored without modifying old private files. ³Configure Stream Deck's built-in **Switch Profile** action to return to your own standard profile; no user-specific profile ID is distributed.
 
 The page-navigation and profile-switch keys are built-in Stream Deck actions. All other named controls come from Codex Deck. Every official Codex Micro keycap is also exposed as a standalone action, so extra pages can be customized without changing the six synchronized Micro action slots.
 
@@ -124,7 +121,7 @@ Add **Usage Limit** for the existing circular display of consumed quota. Its num
 
 **Rate Limit Reset** shows the number of credits Codex currently reports. The count remains centered inside the reset arrow and the action is dimmed only when no credit is available. Consuming a credit requires holding the key for 1.2 seconds; a short tap does nothing, and Codex's current applicability check still has to pass. This action uses Codex's current native usage client and is therefore subject to the same undocumented compatibility boundary as the Micro bridge.
 
-Usage and reset credits are account-scoped. In Windows + Mac mode these three keys therefore do not follow the Windows/Mac function-key target: they prefer the healthy local account snapshot and fall back to the paired host only when local usage data is unavailable.
+Usage and reset credits come from the local account source. macOS reads quota windows from CodexBar and overlays reset counters from the attached Codex bridge; Windows uses the local renderer query.
 
 ## Official keycap SVGs are not included
 
@@ -159,13 +156,12 @@ No virtual HID driver is installed and no Codex application file is patched. See
 
 ## Security and privacy
 
-- The Codex debug endpoint remains loopback-only and is never the multi-host relay endpoint.
+- The Codex debug endpoint remains loopback-only and must never be exposed or forwarded.
 - CDP is privileged: another untrusted process running as the same local user could try to access it.
 - Codex Deck has no telemetry, cloud service, or update service.
 - Codex Deck reads exact local rollout filenames for ownership and a bounded recent tail for structural status tags plus numeric `token_count` fields. It does not parse or relay prompts, responses, project names, or other conversation content.
 - OpenCode monitoring is off in the default Codex mode. When selected, the characterized macOS collector reads only user-owned service/SSH registration data and bounded API projections; it never opens OpenCode SQLite, starts WSL, or publishes task content.
 - Optional SVGs stay in the user-local icons directory and are never uploaded.
-- Multi-host mode accepts only authenticated, typed Codex Deck commands over SSH or Tailscale; wildcard and arbitrary public-IP listeners are rejected.
 - Private relay tokens, local host state, logs, and personal paths are excluded by the release audit.
 
 Do not use the launcher while running untrusted local software. See [SECURITY.md](SECURITY.md).

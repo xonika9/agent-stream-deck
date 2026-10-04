@@ -40,13 +40,6 @@ export function clampPercent(value: number): number {
   return Math.min(100, Math.max(0, value));
 }
 
-export function selectAccountUsageSource(local: AccountUsageSource, remote?: AccountUsageSource): AccountUsageSource {
-  const candidates = [local, remote].filter((candidate): candidate is AccountUsageSource => candidate != null);
-  return candidates.find((candidate) => candidate.health.state === "ready" && (candidate.usage ?? candidate.snapshot?.usage) != null)
-    ?? candidates.find((candidate) => (candidate.usage ?? candidate.snapshot?.usage) != null)
-    ?? local;
-}
-
 export function usageTheme(source: AccountUsageSource): ThemeMode {
   return source.theme ?? source.snapshot?.theme ?? "light";
 }

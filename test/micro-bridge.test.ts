@@ -560,19 +560,13 @@ test("standalone keycaps resolve Codex's live registry instead of hardcoding com
 });
 
 test("controller avoids overlapping polls and redundant image writes", async () => {
-  const [source, targetSource] = await Promise.all([
-    readFile(new URL("../src/controller.ts", import.meta.url), "utf8"),
-    readFile(new URL("../src/control-target.ts", import.meta.url), "utf8")
-  ]);
+  const source = await readFile(new URL("../src/controller.ts", import.meta.url), "utf8");
   assert.match(source, /lastImages/);
   assert.match(source, /this\.lastImages\.get\(action\.id\) === image/);
   assert.match(source, /scheduleRefresh/);
   assert.match(source, /status === "thinking" \|\| status === "input"/);
   assert.match(source, /pressedAgents/);
-  assert.match(source, /pressedControlTargets/);
   assert.doesNotMatch(source, /if \(act === 1\) await this\.refresh\(\)/);
-  assert.match(targetSource, /control-target\.json/);
-  assert.match(source, /targetPlatform === "darwin"/);
   assert.doesNotMatch(source, /setInterval\(/);
 });
 

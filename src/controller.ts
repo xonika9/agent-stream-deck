@@ -3,16 +3,11 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { codexDeckStateRoot } from "./codex-deck-paths.js";
 import { ActiveQueueRankIndex, projectActiveQueue } from "./active-queue.js";
-import {
-  isRemoteControlRequest, readControlTarget, resolveStartupControlTarget, writeControlTarget,
-  type HostPlatform as ControlTarget
-} from "./control-target.js";
-import { CodexRelayClient, readRelayClientConfig } from "./codex-relay-client.js";
 import { CodexMicroRendererBridge, localBridgeFailureReason } from "./codex-micro-renderer-bridge.js";
 import { readCodexBarUsage } from "./codex-bar-usage.js";
 import { getOrCreateHostIdentity } from "./host-identity.js";
 import type { OfficialKeycapId } from "./keycaps.js";
-import { HostActivityIndex, type HostSnapshot, type RelayCommand } from "./relay-protocol.js";
+import { LocalActivityIndex, type HostSnapshot } from "./codex-local-state.js";
 import {
   renderAgentBlackKey, renderAgentKey, renderBuiltinKeycap, renderFallbackKeycap, renderHostTargetKey, renderImportedKeycap,
   renderRateLimitResetKey, renderUsageLimitKey, renderUsageOverviewKey, type BuiltinIconName
@@ -31,7 +26,7 @@ import type {
   CodexHost, HostHealth, MicroActionSlot, MicroDirection, MicroSnapshot, ReasoningAdjustment,
   RoutedAgentSlot, TaskSource, UsageLimitMode, UsageSnapshot, UsageWindowKind
 } from "./types.js";
-import { composeMacUsage, selectAccountUsageSource, selectUsageWindow, usageTheme, type AccountUsageSource } from "./usage.js";
+import { composeMacUsage, selectUsageWindow, usageTheme, type AccountUsageSource } from "./usage.js";
 
 export type FixedIconSource =
   | { kind: "local"; keycapId: string }
@@ -68,12 +63,10 @@ export class DeckController {
   private readonly usageOverviewActions = new Map<string, KeyAction<{}>>();
   private readonly rateLimitResetActions = new Map<string, KeyAction<{}>>();
   private readonly resetHolds = new Map<string, number>();
-  private readonly activityIndex = new HostActivityIndex();
+  private readonly activityIndex = new LocalActivityIndex();
   private readonly activeQueueRankIndex = new ActiveQueueRankIndex();
-  private readonly pressedAgents = new Map<number, RoutedAgentSlot>();
-  private readonly emptyAgentPresses = new Set<number>();
-  private readonly pressedControlTargets = new Map<string, string>();
-  private relayClient?: CodexRelayClient;
+  private readonly pressedAgents = new Map<string, RoutedAgentSlot>();
+  private readonly emptyAgentPresses = new Set<string>();
   private localHost?: CodexHost;
   private localSnapshot?: HostSnapshot;
   private codexBarUsage?: UsageSnapshot;
@@ -82,8 +75,6 @@ export class DeckController {
   private openCodeCollector?: OpenCodeCollector;
   private openCodeDemandGeneration = 0;
   private routedSlots: RoutedAgentSlot[] = [];
-  private targetHostId?: string;
-  private targetPlatform: ControlTarget = "win32";
   private localHealth: HostHealth = { state: "connecting", reason: "awaiting-snapshot", changedAt: Date.now() };
   private poll?: NodeJS.Timeout;
   private animation?: NodeJS.Timeout;
@@ -94,7 +85,6 @@ export class DeckController {
   private lastAssignmentSignature = "";
   private lastStatusSignature = "";
   private lastLayoutSignature = "";
-  private lastAgentSourceSignature = "";
   private lastHostHealthSignature = "";
   private showContextRings = true;
   private activeQueueEnabled = false;
@@ -108,21 +98,7 @@ export class DeckController {
     this.stopped = false;
     await this.loadAgentDisplaySettings();
     this.localHost = await getOrCreateHostIdentity();
-    const persistedTarget = await readControlTarget(undefined, this.localHost.platform);
-    const relayConfig = await readRelayClientConfig();
-    this.targetPlatform = resolveStartupControlTarget(
-      persistedTarget, this.localHost.platform, relayConfig != null);
-    if (this.targetPlatform !== persistedTarget) await writeControlTarget(this.targetPlatform);
-    if (this.targetPlatform === this.localHost.platform) this.targetHostId = this.localHost.hostId;
     await this.syncOpenCodeCollectorDemand();
-    if (relayConfig) {
-      this.relayClient = new CodexRelayClient(
-        relayConfig,
-        () => { void this.refreshDisplay(); },
-        (message) => streamDeck.logger.info(message)
-      );
-      this.relayClient.start();
-    }
     await this.refresh();
     this.scheduleRefresh();
     this.scheduleAnimation();
@@ -144,7 +120,6 @@ export class DeckController {
     this.openCodeDemandGeneration++;
     if (this.poll) clearInterval(this.poll);
     if (this.animation) clearInterval(this.animation);
-    this.relayClient?.close();
     this.microBridge.close();
     const collector = this.openCodeCollector;
     this.openCodeCollector = undefined;
@@ -157,6 +132,8 @@ export class DeckController {
   }
 
   unregisterAgent(action: ActionIdentity): void {
+    this.pressedAgents.delete(action.id);
+    this.emptyAgentPresses.delete(action.id);
     this.unregister(action, this.agents);
   }
 
@@ -265,43 +242,33 @@ export class DeckController {
     const usage = source.usage ?? source.snapshot?.usage;
     if ((usage?.resetCreditsAvailable ?? 0) <= 0) throw new Error("No rate-limit reset credit is available.");
     if (usage?.resetCreditsApplicable === 0) throw new Error("No rate-limit reset credit is currently applicable.");
-    await this.sendToHost(source.hostId, { kind: "rate-limit-reset" }, () => this.microBridge.consumeRateLimitReset());
+    await this.microBridge.consumeRateLimitReset();
     await this.refresh();
     return true;
   }
 
   async toggleTargetHost(): Promise<void> {
-    const remote = this.relayClient?.currentHost();
-    if (!this.localHost) throw new Error("The local Codex host is not ready.");
-    if (this.targetPlatform === this.localHost.platform) {
-      if (!remote) throw new Error("No remote Codex host is connected.");
-      this.targetPlatform = remote.platform;
-      this.targetHostId = remote.hostId;
-    } else {
-      this.targetPlatform = this.localHost.platform;
-      this.targetHostId = this.localHost.hostId;
-    }
-    await writeControlTarget(this.targetPlatform);
     await this.renderAll();
   }
 
-  async sendAgent(slot: number, act: 0 | 1): Promise<void> {
-    if (act === 0 && this.emptyAgentPresses.delete(slot)) {
-      this.pressedAgents.delete(slot);
+  async sendAgent(slot: number, act: 0 | 1, action: ActionIdentity): Promise<void> {
+    if (act === 0 && this.emptyAgentPresses.delete(action.id)) {
+      this.pressedAgents.delete(action.id);
       return;
     }
-    const assignment = act === 0 ? this.pressedAgents.get(slot) : this.routedSlots[slot];
+    const assignment = act === 0 ? this.pressedAgents.get(action.id) : this.routedSlots[slot];
     if (act === 1 && this.effectiveActiveQueueEnabled() && !assignment) {
-      this.pressedAgents.delete(slot);
-      this.emptyAgentPresses.add(slot);
+      this.pressedAgents.delete(action.id);
+      this.emptyAgentPresses.add(action.id);
       return;
     }
-    if (act === 1) this.emptyAgentPresses.delete(slot);
+    if (act === 1) this.emptyAgentPresses.delete(action.id);
+    if (act === 0 && !assignment) return;
     if (this.effectiveActiveQueueEnabled() && !assignment) return;
     if (!assignment) throw new Error(`No Codex task is assigned to global agent slot ${slot + 1}.`);
     if (assignment.taskSource === "opencode") {
-      if (act === 1) this.pressedAgents.set(slot, assignment);
-      else this.pressedAgents.delete(slot);
+      if (act === 1) this.pressedAgents.set(action.id, assignment);
+      else this.pressedAgents.delete(action.id);
       if (act === 1) {
         await this.foregroundOpenCodeAction();
         const separator = assignment.threadKey?.indexOf("\0") ?? -1;
@@ -319,44 +286,35 @@ export class DeckController {
       }
       return;
     }
-    if (act === 1) this.pressedAgents.set(slot, assignment);
-    else this.pressedAgents.delete(slot);
+    if (act === 1) this.pressedAgents.set(action.id, assignment);
+    else this.pressedAgents.delete(action.id);
     if (!assignment.threadKey) throw new Error("The selected Codex task has no stable thread identity.");
-    if (assignment.host.hostId === this.localHost?.hostId) {
-      await this.microBridge.sendAgent(assignment.sourceSlot, act, assignment.threadKey);
-    } else await this.sendRemote(
-      { kind: "agent", slot: assignment.sourceSlot, threadKey: assignment.threadKey, act },
-      assignment.host.hostId
-    );
+    await this.microBridge.sendAgent(assignment.sourceSlot, act, assignment.threadKey);
     if (act === 0) void this.refresh();
   }
 
   async sendMicroAction(slot: MicroActionSlot, act: 0 | 1): Promise<void> {
-    const target = this.pressTarget(`action:${slot}`, act);
-    await this.sendToHost(target, { kind: "action", slot, act }, () => this.microBridge.sendAction(slot, act));
+    await this.microBridge.sendAction(slot, act);
   }
 
   async sendJoystick(direction: MicroDirection, distance: 0 | 1): Promise<void> {
-    const target = this.pressTarget(`joystick:${direction}`, distance);
-    await this.sendToHost(target, { kind: "joystick", direction, distance }, () => this.microBridge.sendJoystick(direction, distance));
+    await this.microBridge.sendJoystick(direction, distance);
   }
 
   async sendEncoder(act: 0 | 1): Promise<void> {
-    const target = this.pressTarget("encoder", act);
-    await this.sendToHost(target, { kind: "encoder", act }, () => this.microBridge.sendEncoder(act));
+    await this.microBridge.sendEncoder(act);
   }
 
   async adjustReasoning(direction: ReasoningAdjustment): Promise<void> {
-    await this.sendToTarget({ kind: "reasoning", direction }, () => this.microBridge.adjustReasoning(direction));
+    await this.microBridge.adjustReasoning(direction);
   }
 
   async runKeycap(keycapId: OfficialKeycapId): Promise<void> {
-    await this.sendToTarget({ kind: "keycap", keycapId }, () => this.microBridge.runKeycap(keycapId));
+    await this.microBridge.runKeycap(keycapId);
   }
 
   async createTask(): Promise<void> {
-    if (this.isRemoteTarget()) await this.sendRemote({ kind: "keycap", keycapId: "NEW" });
-    else await openCodexThread("new");
+    await openCodexThread("new");
   }
 
   private async refresh(): Promise<void> {
@@ -466,36 +424,20 @@ export class DeckController {
 
   private async refreshDisplay(): Promise<void> {
     this.refreshOpenCodeSnapshot();
-    const remoteSnapshot = this.relayClient?.currentSnapshot();
-    if (this.localHost && this.targetPlatform !== this.localHost.platform && remoteSnapshot) this.targetHostId = remoteSnapshot.host.hostId;
-    else if (this.localHost && this.targetPlatform === this.localHost.platform) this.targetHostId = this.localHost.hostId;
-    const inputs = [this.localSnapshot, remoteSnapshot].filter((value): value is HostSnapshot => value != null);
-    const remoteHealth: HostHealth = this.relayClient?.currentHealth() ?? {
-      state: "offline",
-      reason: "relay-disconnected",
-      changedAt: Date.now()
-    };
-    const healthSignature = `local=${this.localHealth.state}:${this.localHealth.reason ?? ""},remote=${remoteHealth.state}:${remoteHealth.reason ?? ""}`;
+    const inputs = this.localSnapshot ? [this.localSnapshot] : [];
+    const healthSignature = `${this.localHealth.state}:${this.localHealth.reason ?? ""}`;
     if (healthSignature !== this.lastHostHealthSignature) {
       this.lastHostHealthSignature = healthSignature;
-      streamDeck.logger.info(`Codex host health: ${healthSignature}`);
-    }
-    const agentSources = inputs.map((input) => `${input.host.platform}=${input.snapshot.agentSource}`);
-    const agentSourceSignature = agentSources.join(",");
-    if (agentSourceSignature !== this.lastAgentSourceSignature) {
-      this.lastAgentSourceSignature = agentSourceSignature;
-      if (new Set(inputs.map((input) => input.snapshot.agentSource)).size > 1) {
-        streamDeck.logger.warn(`Codex agent sources differ (${agentSources.join(" ")}). The Windows controller mode determines the combined list; Pinned and Individual assignments merge only hosts using that mode.`);
-      }
+      streamDeck.logger.info(`Local Codex health: ${healthSignature}`);
     }
     const now = Date.now();
     const activeQueueEnabled = this.effectiveActiveQueueEnabled();
     const queueInputs = activeQueueEnabled && this.localHealth.reason === "codex-not-running"
-      ? inputs.filter((input) => input.host.hostId !== this.localHost?.hostId)
+      ? []
       : inputs;
     const codexSlots = activeQueueEnabled
-      ? this.activityIndex.mergeActiveCatalog(queueInputs, now, this.localHost?.hostId)
-      : this.activityIndex.merge(inputs, now, this.localHost?.hostId);
+      ? this.activityIndex.mergeActiveCatalog(queueInputs[0], now)
+      : this.activityIndex.merge(this.localSnapshot, now);
     const merged = selectTaskCandidates(this.taskSource, codexSlots, this.openCodeSlots);
     this.routedSlots = activeQueueEnabled
       ? projectActiveQueue(merged, queueInputs, this.activeQueueRankIndex, now)
@@ -514,7 +456,7 @@ export class DeckController {
     }
 
     const target = this.targetSnapshot();
-    const layout = JSON.stringify({ target: this.targetHostId, theme: target?.theme, slots: target?.layout.slots });
+    const layout = JSON.stringify({ theme: target?.theme, slots: target?.layout.slots });
     if (layout !== this.lastLayoutSignature) {
       this.lastLayoutSignature = layout;
       this.keycapImages.clear();
@@ -538,9 +480,8 @@ export class DeckController {
   private async renderAgent({ action, slot }: AgentRegistration): Promise<void> {
     const agent = this.routedSlots[slot];
     const health = agent?.taskSource === "opencode" ? this.openCodeHealth
-      : agent ? this.healthForHost(agent.host) : this.selectedTaskHealth();
-    const isLocalAgent = agent ? agent.host.hostId === this.localHost?.hostId : !this.isRemoteTarget();
-    const codexStopped = slot < 4 && isLocalAgent && health.state === "degraded" && health.reason === "codex-not-running";
+      : agent ? this.localHealth : this.selectedTaskHealth();
+    const codexStopped = slot < 4 && health.state === "degraded" && health.reason === "codex-not-running";
     const healthyQueueGap = this.effectiveActiveQueueEnabled() && !agent && health.state === "ready";
     if (codexStopped || healthyQueueGap) {
       await this.setImage(action, renderAgentBlackKey());
@@ -552,8 +493,7 @@ export class DeckController {
     const title = agent?.title ?? (agent?.threadKey && health.state === "ready" ? "New chat" : unavailableTitle);
     const status = agent ? visualStatusFromMicro(agent.status) : "empty";
     const theme = this.targetSnapshot()?.theme ?? this.localSnapshot?.snapshot.theme ?? "light";
-    const hostBadge = agent?.taskSource === "opencode" ? "O"
-      : agent && this.relayClient ? (agent.host.platform === "darwin" ? "M" : "W") : undefined;
+    const hostBadge = agent?.taskSource === "opencode" ? "O" : undefined;
     await this.setImage(action, renderAgentKey(
       slot, title, status, agent?.selected ?? false, this.animationFrame, theme, hostBadge,
       health.state, agent?.contextUsedPercent, this.showContextRings && agent?.taskSource !== "opencode"));
@@ -588,7 +528,7 @@ export class DeckController {
   }
 
   private async renderHostToggle(action: KeyAction<{}>): Promise<void> {
-    const label = this.targetPlatform === "darwin" ? "MAC" : "WIN";
+    const label = (this.localHost?.platform ?? process.platform) === "darwin" ? "MAC" : "WIN";
     const theme = this.targetSnapshot()?.theme ?? "dark";
     await this.setImage(action, renderHostTargetKey(label, this.targetHealth().state, theme));
   }
@@ -628,14 +568,7 @@ export class DeckController {
   }
 
   private targetHealth(): HostHealth {
-    if (!this.localHost || this.targetPlatform === this.localHost.platform) return this.localHealth;
-    return this.relayClient?.currentHealth() ?? { state: "offline", reason: "relay-disconnected", changedAt: Date.now() };
-  }
-
-  private healthForHost(host: CodexHost): HostHealth {
-    if (host.hostId === this.localHost?.hostId) return this.localHealth;
-    if (host.hostId === this.relayClient?.currentHost()?.hostId) return this.relayClient!.currentHealth();
-    return { state: "offline", reason: "relay-disconnected", changedAt: Date.now() };
+    return this.localHealth;
   }
 
   private selectedTaskHealth(): HostHealth {
@@ -649,8 +582,6 @@ export class DeckController {
   }
 
   private targetSnapshot(): MicroSnapshot | undefined {
-    const remote = this.relayClient?.currentSnapshot();
-    if (this.localHost && this.targetPlatform !== this.localHost.platform) return remote?.snapshot;
     return this.localSnapshot?.snapshot;
   }
 
@@ -674,46 +605,7 @@ export class DeckController {
       usage: localUsage,
       theme: this.localSnapshot?.snapshot.theme
     };
-    const remoteSnapshot = this.relayClient?.currentSnapshot();
-    const remote: AccountUsageSource | undefined = remoteSnapshot ? {
-      health: this.relayClient?.currentHealth() ?? { state: "offline", reason: "relay-disconnected", changedAt: Date.now() },
-      hostId: remoteSnapshot.host.hostId,
-      snapshot: remoteSnapshot.snapshot,
-      usage: remoteSnapshot.snapshot.usage,
-      theme: remoteSnapshot.snapshot.theme
-    } : undefined;
-    return this.localHost?.platform === "darwin" ? local : selectAccountUsageSource(local, remote);
-  }
-
-  private isRemoteTarget(): boolean {
-    return this.localHost != null && this.targetPlatform !== this.localHost.platform;
-  }
-
-  private async sendRemote(command: RelayCommand, expectedHostId?: string): Promise<void> {
-    if (!this.relayClient) throw new Error("Remote Codex relay is not configured.");
-    await this.relayClient.send(command, expectedHostId);
-  }
-
-  private async sendToTarget(command: RelayCommand, local: () => Promise<void>): Promise<void> {
-    await this.sendToHost(this.targetHostId, command, local);
-  }
-
-  private async sendToHost(hostId: string | undefined, command: RelayCommand, local: () => Promise<void>): Promise<void> {
-    const localHostId = this.localHost?.hostId;
-    const remoteRequested = isRemoteControlRequest(this.targetPlatform, this.localHost?.platform ?? "win32", hostId, localHostId);
-    if (remoteRequested) await this.sendRemote(command);
-    else await local();
-  }
-
-  private pressTarget(key: string, pressed: 0 | 1): string | undefined {
-    if (pressed === 1) {
-      const target = this.targetHostId;
-      if (target) this.pressedControlTargets.set(key, target);
-      return target;
-    }
-    const target = this.pressedControlTargets.get(key) ?? this.targetHostId;
-    this.pressedControlTargets.delete(key);
-    return target;
+    return local;
   }
 
   private async setImage(action: KeyAction<{}>, image: string): Promise<void> {

@@ -11,8 +11,8 @@
 ## Project invariants
 
 - Develop primarily for Mac and preserve standalone Windows installation, startup, and existing actions. Keep Mac task-source modes `Codex`, `OpenCode`, and `Both`, including local OpenCode and saved Fedora SSH connections. Fedora is a chat source, not a Stream Deck plugin platform.
-- The iPhone application and its infrastructure have been removed. The separate multi-host Codex relay is retiring in its planned implementation unit. Do not remove other functions without a separate decision.
-- Keep the Codex Chrome DevTools endpoint bound to loopback. Do not expose, forward, or rebind it to a network interface; preserve the authenticated, identity-checked OpenCode SSH path documented in `SECURITY.md`. Existing relay security restrictions continue to apply until its removal.
+- The iPhone application and its infrastructure have been removed. The separate multi-host Codex relay has been removed; old private settings remain preserved and ignored. Do not remove other functions without a separate decision.
+- Keep the Codex Chrome DevTools endpoint bound to loopback. Do not expose, forward, or rebind it to a network interface; preserve the authenticated, identity-checked OpenCode SSH path documented in `SECURITY.md`.
 - Do not add hotkey or task-database fallbacks to the native bridge without a separate design decision.
 - Do not commit or distribute proprietary OpenAI or Elgato assets, Codex installation files, databases, logs, rollout files, pairing tokens, personal paths, private runtime state, or generated release bundles.
 - Update compatibility notes when renderer integration behavior changes.

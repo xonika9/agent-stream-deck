@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ActiveQueueRankIndex, projectActiveQueue } from "../src/active-queue.js";
-import { HostActivityIndex, type HostSnapshot } from "../src/relay-protocol.js";
+import { LocalActivityIndex, type HostSnapshot } from "../src/codex-local-state.js";
 import type { CodexHost, MicroSnapshot, RoutedAgentSlot } from "../src/types.js";
 
 const mac: CodexHost = {
@@ -78,7 +78,7 @@ test("active queue remains an explicit projection and does not mutate native rou
   input.snapshot.slots[0]!.status = "idle";
   input.snapshot.slots[1]!.status = "working";
   input.snapshot.slots[4]!.status = "working";
-  const merged = new HostActivityIndex().merge([input]);
+  const merged = new LocalActivityIndex().merge(input);
 
   const projected = projectActiveQueue(merged, [input]);
 
@@ -198,7 +198,7 @@ test("full active catalog assigns projected transport slots to tasks outside the
     ]
   };
 
-  const merged = new HostActivityIndex().mergeActiveCatalog([input]);
+  const merged = new LocalActivityIndex().mergeActiveCatalog(input);
   const projected = projectActiveQueue(merged, [input]);
 
   assert.deepEqual(projected.map((slot) => slot.threadKey), [thread(82), thread(81)]);
@@ -215,7 +215,7 @@ test("full active catalog preserves native transport slots after queue reorderin
     ]
   };
 
-  const merged = new HostActivityIndex().mergeActiveCatalog([input]);
+  const merged = new LocalActivityIndex().mergeActiveCatalog(input);
   const projected = projectActiveQueue(merged, [input]);
 
   assert.deepEqual(projected.map((slot) => slot.threadKey), [thread(84), thread(83)]);
@@ -225,11 +225,11 @@ test("full active catalog preserves native transport slots after queue reorderin
 test("full active catalog distinguishes unavailable fallback from authoritative empty", () => {
   const fallback = snapshot(mac);
   fallback.snapshot.slots[0]!.status = "working";
-  assert.equal(new HostActivityIndex().mergeActiveCatalog([fallback]).length, 6);
+  assert.equal(new LocalActivityIndex().mergeActiveCatalog(fallback).length, 6);
 
   const empty = snapshot(mac);
   empty.snapshot.activeCatalog = { complete: true, candidates: [] };
-  assert.deepEqual(new HostActivityIndex().mergeActiveCatalog([empty]), []);
+  assert.deepEqual(new LocalActivityIndex().mergeActiveCatalog(empty), []);
 });
 
 test("full active catalog keeps temporary keys separate without trusted conversation ids", () => {
@@ -242,44 +242,25 @@ test("full active catalog keeps temporary keys separate without trusted conversa
       { threadKey: `remote:client-new-thread:${suffix}`, title: "B", status: "working", selected: false, catalogIndex: 1 }
     ]
   };
-  assert.equal(new HostActivityIndex().mergeActiveCatalog([input]).length, 2);
+  assert.equal(new LocalActivityIndex().mergeActiveCatalog(input).length, 2);
 });
 
-test("full active catalog de-duplicates by trusted conversation id and routes the owner's exact key", () => {
+test("full active catalog de-duplicates local descriptors by trusted identity and keeps the owner's exact key", () => {
   const conversationId = thread(92);
   const local = snapshot(mac);
-  const remote = snapshot(windows);
   local.snapshot.activeCatalog = { complete: true, candidates: [{
     threadKey: `remote:${conversationId}`, conversationId, title: "Mirror", status: "idle",
     selected: false, catalogIndex: 4
-  }] };
-  remote.snapshot.activeCatalog = { complete: true, candidates: [{
+  }, {
     threadKey: `local:${conversationId}`, conversationId, title: "Owner", status: "working",
     selected: false, activityAt: 500, catalogIndex: 1, ownedByHost: true
   }] };
-  remote.snapshot.hostSessions = [{ threadId: conversationId, activityAt: 500, status: "working" }];
-
-  const merged = new HostActivityIndex().mergeActiveCatalog([local, remote], 1_000, mac.hostId);
+  local.snapshot.hostSessions = [{ threadId: conversationId, activityAt: 500, status: "working" }];
+  const merged = new LocalActivityIndex().mergeActiveCatalog(local, 1_000);
   assert.equal(merged.length, 1);
-  assert.equal(merged[0]!.host.hostId, windows.hostId);
+  assert.equal(merged[0]!.host.hostId, mac.hostId);
   assert.equal(merged[0]!.threadKey, `local:${conversationId}`);
   assert.equal(merged[0]!.status, "working");
-});
-
-test("full catalog never copies a candidate key onto a session owner that lacks it", () => {
-  const conversationId = thread(93);
-  const local = snapshot(mac);
-  const remote = snapshot(windows);
-  local.snapshot.activeCatalog = { complete: true, candidates: [{
-    threadKey: `remote:${conversationId}`, conversationId, title: "Only dispatchable key",
-    status: "working", selected: false, catalogIndex: 0
-  }] };
-  remote.snapshot.activeCatalog = { complete: true, candidates: [] };
-  remote.snapshot.hostSessions = [{ threadId: conversationId, activityAt: 500, status: "working" }];
-
-  const [merged] = new HostActivityIndex().mergeActiveCatalog([local, remote], 1_000, mac.hostId);
-  assert.equal(merged!.host.hostId, mac.hostId);
-  assert.equal(merged!.threadKey, `remote:${conversationId}`);
 });
 
 test("custom source keeps the fixed native six instead of pooling the full catalog", () => {
@@ -290,7 +271,7 @@ test("custom source keeps the fixed native six instead of pooling the full catal
     selected: false, catalogIndex: 10
   }] };
   assert.deepEqual(
-    new HostActivityIndex().mergeActiveCatalog([input]).map((slot) => slot.threadKey),
+    new LocalActivityIndex().mergeActiveCatalog(input).map((slot) => slot.threadKey),
     input.snapshot.slots.map((slot) => slot.threadKey)
   );
 });
@@ -311,10 +292,10 @@ test("custom source active queue advances only on a higher trusted native work r
   Object.assign(input.snapshot.slots[2]!, {
     status: "working", activityAt: 100, ownedByHost: true, workStartedAt: 100, workStartRevision: 1
   });
-  const activityIndex = new HostActivityIndex();
+  const activityIndex = new LocalActivityIndex();
   const rankIndex = new ActiveQueueRankIndex();
   const project = (now: number) => projectActiveQueue(
-    activityIndex.mergeActiveCatalog([input], now, mac.hostId), [input], rankIndex, now);
+    activityIndex.mergeActiveCatalog(input, now), [input], rankIndex, now);
 
   assert.deepEqual(project(1_000).map((slot) => slot.sourceSlot), [0, 1, 2]);
   Object.assign(input.snapshot.slots[2]!, {
@@ -332,7 +313,7 @@ test("custom source derives only stable conversation identities from native thre
   input.snapshot.slots[1]!.threadKey = `local:${thread(98)}`;
   input.snapshot.slots[2]!.threadKey = `local:client-new-thread:${suffix}`;
 
-  const merged = new HostActivityIndex().mergeActiveCatalog([input]);
+  const merged = new LocalActivityIndex().mergeActiveCatalog(input);
 
   assert.equal(merged[0]!.conversationId, thread(1));
   assert.equal(merged[1]!.conversationId, thread(98));
