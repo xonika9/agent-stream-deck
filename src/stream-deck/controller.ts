@@ -55,7 +55,6 @@ export type AgentDisplaySettings = {
 type DeckControllerDependencies = { codex: CodexSource; openCode: OpenCodeSource };
 
 const USER_ICON_ROOT = join(codexDeckStateRoot(), "icons");
-const RESET_HOLD_MS = 1_200;
 
 export class DeckController {
   private readonly agents = new Map<string, AgentRegistration>();
@@ -67,7 +66,6 @@ export class DeckController {
   private readonly usageLimitActions = new Map<string, UsageLimitRegistration>();
   private readonly usageOverviewActions = new Map<string, KeyAction<{}>>();
   private readonly rateLimitResetActions = new Map<string, KeyAction<{}>>();
-  private readonly resetHolds = new Map<string, number>();
   private readonly activityIndex = new LocalActivityIndex();
   private readonly activeQueueRankIndex = new ActiveQueueRankIndex();
   private readonly agentButtons = new Map<string, AgentButton>();
@@ -224,29 +222,7 @@ export class DeckController {
   }
 
   unregisterRateLimitReset(action: ActionIdentity): void {
-    this.resetHolds.delete(action.id);
     this.unregister(action, this.rateLimitResetActions);
-  }
-
-  beginRateLimitReset(action: ActionIdentity): void {
-    this.resetHolds.set(action.id, Date.now());
-    const registered = this.rateLimitResetActions.get(action.id);
-    if (registered) void this.renderRateLimitReset(registered);
-  }
-
-  async finishRateLimitReset(action: ActionIdentity): Promise<boolean> {
-    const startedAt = this.resetHolds.get(action.id);
-    this.resetHolds.delete(action.id);
-    const registered = this.rateLimitResetActions.get(action.id);
-    if (registered) await this.renderRateLimitReset(registered);
-    if (startedAt == null || Date.now() - startedAt < RESET_HOLD_MS) return false;
-    const source = this.accountUsageSource();
-    const usage = source.usage;
-    if ((usage?.resetCreditsAvailable ?? 0) <= 0) throw new Error("No rate-limit reset credit is available.");
-    if (usage?.resetCreditsApplicable === 0) throw new Error("No rate-limit reset credit is currently applicable.");
-    await this.codex.microBridge.consumeRateLimitReset();
-    await this.refresh();
-    return true;
   }
 
   async toggleTargetHost(): Promise<void> {
@@ -521,20 +497,9 @@ export class DeckController {
   private async renderRateLimitReset(action: KeyAction<{}>): Promise<void> {
     const source = this.accountUsageSource();
     const usage = source.usage;
-    const startedAt = this.resetHolds.get(action.id);
-    const progress = startedAt == null ? 0 : Math.min(1, (Date.now() - startedAt) / RESET_HOLD_MS);
     await this.setImage(
       action,
-      renderRateLimitResetKey(usage?.resetCreditsAvailable ?? null, progress, usageTheme(source), source.health.state),
-    );
-  }
-
-  private async renderResetHolds(): Promise<void> {
-    await Promise.all(
-      [...this.resetHolds.keys()].map(async (id) => {
-        const action = this.rateLimitResetActions.get(id);
-        if (action) await this.renderRateLimitReset(action);
-      }),
+      renderRateLimitResetKey(usage?.resetCreditsAvailable ?? null, usageTheme(source), source.health.state),
     );
   }
 
@@ -602,7 +567,7 @@ export class DeckController {
     this.animation = setTimeout(async () => {
       this.animationFrame = (this.animationFrame + 1) % 12;
       try {
-        await Promise.all([this.renderAnimatedAgents(), this.renderResetHolds()]);
+        await this.renderAnimatedAgents();
       } finally {
         this.scheduleAnimation();
       }

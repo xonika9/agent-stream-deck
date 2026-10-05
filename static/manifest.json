@@ -208,8 +208,8 @@
     },
     {
       "UUID": "com.xonika9.codex-deck.rate-limit-reset",
-      "Name": "Rate Limit Reset",
-      "Tooltip": "Shows available reset credits. Hold for 1.2 seconds to consume one when applicable.",
+      "Name": "Reset Credits (Read Only)",
+      "Tooltip": "Shows available reset credits only. Pressing or holding never spends a credit.",
       "Icon": "static/imgs/category-icon",
       "Controllers": ["Keypad"],
       "States": [{ "Image": "static/imgs/key", "Title": "" }]

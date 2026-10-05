@@ -618,17 +618,4 @@ export class RateLimitReset extends SingletonAction {
   override onWillDisappear(ev: WillDisappearEvent): void {
     this.controller.unregisterRateLimitReset(ev.action);
   }
-
-  override onKeyDown(ev: KeyDownEvent): void {
-    this.controller.beginRateLimitReset(ev.action);
-  }
-
-  override async onKeyUp(ev: KeyUpEvent): Promise<void> {
-    try {
-      if ((await this.controller.finishRateLimitReset(ev.action)) && ev.action.isKey()) await ev.action.showOk();
-    } catch (error) {
-      streamDeck.logger.error(`Rate-limit reset failed: ${String(error)}`);
-      await ev.action.showAlert();
-    }
-  }
 }

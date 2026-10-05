@@ -1,0 +1,61 @@
+{
+  "baselineHead": "1b9dd4bbda8d27693499af26470f8e7164826b3e",
+  "authority": "Explicit user product amendment: remove paid reset to prevent accidental spending",
+  "changes": [
+    "Removed press/release handlers, hold tracking and progress",
+    "Removed native bridge credit consumption implementation and endpoint",
+    "Preserved legacy UUID as read-only counter",
+    "Usage limit remains read-only; window selection is in settings"
+  ],
+  "regression": {
+    "beforeFix": "failed with consumed=1, expected=0 using substituted handler; no real credits spent",
+    "afterFix": "pass, including short/long/disappearing and registered key cases"
+  },
+  "validation": {
+    "commands": [
+      "npm run lint",
+      "npm run check:boundaries",
+      "npm run check",
+      "npm test",
+      "npm run validate",
+      "npm run pack",
+      "npm run release:prepare",
+      "npm run audit:release",
+      "git diff --check"
+    ],
+    "results": "all pass",
+    "tests": {
+      "total": 209,
+      "pass": 207,
+      "fail": 0,
+      "skip": 2,
+      "skipReason": "Windows native environment unavailable"
+    },
+    "lint": "one pre-existing informational useTemplate diagnostic; no warnings/errors",
+    "packagedPluginCreditConsumptionEndpointAbsent": true
+  },
+  "review": {
+    "independentReadOnlyReviewer": "reset_safety_review",
+    "substantiveFindings": 0,
+    "minorFinding": "re-register button before long-hold cases",
+    "minorFindingApplied": true
+  },
+  "liveMac": {
+    "officialCliRestart": "pass",
+    "newPluginProcessObserved": true,
+    "nativeInterface": "Both, cards and quota visible; new read-only action label visible",
+    "watcherRestart": "not performed; watcher source unchanged"
+  },
+  "physical": "user confirmed opening current Codex chat and empty-slot no-op before safety update; hold/queue churn not verified",
+  "artifactHashes": {
+    "codex-deck-launcher-macos-v1.0.1.zip": "149760a9836d1ef9fc342fc2cdb982593c2d05e19bc4fef641bee7b7d29bc22f",
+    "codex-deck-launcher-windows-v1.0.1.zip": "b20d6f53c73f45e7d3b2ef6d702c1a03606cb63bd1a25af63177bd2a691cdfbb",
+    "com.xonika9.codex-deck.streamDeckPlugin": "e7bb1320d9c6a62a06b2af645779f4fb529bdff743c5637b8c553af104e62ab0"
+  },
+  "remainingAcceptance": [
+    "active OpenCode tasks/completion/ack/revisions",
+    "Fedora loss/recovery",
+    "physical hold and queue change",
+    "native Windows"
+  ]
+}

@@ -114,13 +114,13 @@ test("overview renders independent 5-hour and weekly progress bars", () => {
   assert.match(weeklyOnly, /data-usage-window="WK"[\s\S]*>88%<\/text>/);
 });
 
-test("reset key keeps the count in the fixed circle center and exposes hold progress", () => {
-  const svg = decode(renderRateLimitResetKey(2, 0.5, "dark"));
+test("legacy reset counter shows credits without offering a hold action", () => {
+  const svg = decode(renderRateLimitResetKey(2, "dark"));
   assert.match(svg, /data-reset-credits="2" x="72" y="78" text-anchor="middle"/);
-  assert.match(svg, /data-reset-hold="50"/);
+  assert.doesNotMatch(svg, /data-reset-hold|HOLD/);
   assert.doesNotMatch(svg, /cx="106" cy="40"/);
 
-  const available = decode(renderRateLimitResetKey(1, 0, "dark", "ready"));
+  const available = decode(renderRateLimitResetKey(1, "dark", "ready"));
   assert.match(available, /data-reset-credits="1"/);
   assert.match(available, /stop-opacity="\.13"/);
 });
@@ -142,8 +142,7 @@ test("usage actions and property inspector are packaged without official keycap 
   assert.match(inspector, /value="auto"/);
   assert.match(inspector, /value="five-hour"/);
   assert.match(inspector, /value="weekly"/);
-  assert.match(bridge, /safeGet\('\/wham\/rate-limit-reset-credits'\)/);
-  assert.match(bridge, /safePost\('\/wham\/rate-limit-reset-credits\/consume'/);
+  assert.doesNotMatch(bridge, /rate-limit-reset-credits\/consume/);
   assert.match(bridge, /applicable_available_count/);
   assert.doesNotMatch(bridge, /profile_image_url/);
 });

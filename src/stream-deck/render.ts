@@ -346,7 +346,6 @@ export function renderUsageOverviewKey(
 
 export function renderRateLimitResetKey(
   available: number | null,
-  holdProgress = 0,
   theme: ThemeMode = "dark",
   health: HostHealthState = "ready",
 ): string {
@@ -355,8 +354,6 @@ export function renderRateLimitResetKey(
   const enabled = count != null && count > 0 && health === "ready";
   const glyph = enabled ? (theme === "dark" ? "#F2F2EE" : "#24292D") : SIGNAL_COLORS[theme].empty;
   const countColor = enabled ? SIGNAL_COLORS[theme].thinking : SIGNAL_COLORS[theme].empty;
-  const progress = clampPercent(holdProgress * 100);
-  const progressDash = (2 * Math.PI * 51 * progress) / 100;
   const healthColor = usageSignal(null, health, theme);
   return toDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
     <defs>
@@ -370,7 +367,6 @@ export function renderRateLimitResetKey(
       <path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>
     </g>
     <text data-reset-credits="${count ?? "unknown"}" x="72" y="78" text-anchor="middle" fill="${countColor}" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="23" font-weight="700">${count == null ? "—" : count > 99 ? "99+" : count}</text>
-    ${progress > 0 ? `<circle data-reset-hold="${progress.toFixed(0)}" cx="72" cy="69" r="51" fill="none" stroke="${SIGNAL_COLORS[theme].thinking}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${progressDash.toFixed(2)} ${(2 * Math.PI * 51).toFixed(2)}" transform="rotate(-90 72 69)"/><text x="72" y="128" text-anchor="middle" fill="${SIGNAL_COLORS[theme].thinking}" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="10" font-weight="700" letter-spacing="1">HOLD</text>` : ""}
     ${health !== "ready" ? `<circle cx="122" cy="22" r="5" fill="${healthColor}"/>` : ""}
   </svg>`);
 }

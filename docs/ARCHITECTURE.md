@@ -168,7 +168,7 @@ Local snapshot activity, exact task identity, and timestamps live in `src/agents
 
 Usage data remains local and account-scoped. On macOS, quota windows come from the newest valid CodexBar `widget-snapshot.json` Codex entry and expire after five minutes; this path does not start or attach Codex Desktop and does not fall back to renderer quota from another host. Reset-credit counters may still be overlaid from an already-attached local Codex bridge. Windows retains the local renderer-owned usage query. Window identity is derived from duration rather than primary/secondary ordering. A missing 5-hour window is unavailable, and Automatic mode falls back to weekly. Usage controls display and fill the consumed percentage while retaining warning colors derived from remaining capacity. Without a renderer theme, usage controls use the same light fallback as OpenCode Agent keys.
 
-Reset consumption is the only mutating usage operation. It calls Codex's current native reset-credit client only after the Stream Deck key has been held for 1.2 seconds. The bridge verifies both availability and applicability, selects an available plan-supported credit, uses a unique redemption request ID, and then refreshes the renderer query. No credential, raw endpoint access, or arbitrary request surface is exposed by the plugin.
+Usage controls are read-only. The legacy reset-credit action UUID remains registered so existing profiles keep their counter, but it has no key handlers or credit-consumption bridge method. Neither a press nor a hold can spend a credit. This supersedes the former 1.2-second hold behavior by explicit maintainer decision.
 
 ### Local connection status
 

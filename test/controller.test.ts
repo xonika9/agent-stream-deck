@@ -930,7 +930,7 @@ test("reasoning holds isolate button contexts and discard late generations", asy
   assert.equal(calls.length, 5);
 });
 
-test("reset handlers consume only an applicable credited long hold and cancel disappearing buttons", async (context) => {
+test("legacy reset key never spends credits on short, long, or disappearing presses", async (context) => {
   context.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
   const controller = createController();
   const internal = controller as unknown as { refresh: () => Promise<void> };
@@ -940,9 +940,11 @@ test("reset handlers consume only an applicable credited long hold and cancel di
   let consumed = 0,
     alerts = 0,
     confirmed = 0;
-  sources(controller).codex.microBridge.consumeRateLimitReset = async () => {
-    consumed++;
-  };
+  Object.assign(sources(controller).codex.microBridge, {
+    consumeRateLimitReset: async () => {
+      consumed++;
+    },
+  });
   internal.refresh = async () => {};
   const action = new RateLimitReset(controller);
   const event = {
@@ -960,15 +962,16 @@ test("reset handlers consume only an applicable credited long hold and cancel di
     },
   };
   action.onWillAppear(event as never);
-  action.onKeyDown(event as never);
+  action.onKeyDown?.(event as never);
   context.mock.timers.tick(1_199);
-  await action.onKeyUp(event as never);
+  await action.onKeyUp?.(event as never);
   assert.equal(consumed, 0);
-  action.onKeyDown(event as never);
+  action.onKeyDown?.(event as never);
   context.mock.timers.tick(1_200);
   action.onWillDisappear(event as never);
-  await action.onKeyUp(event as never);
+  await action.onKeyUp?.(event as never);
   assert.equal(consumed, 0);
+  action.onWillAppear(event as never);
   for (const [available, applicable] of [
     [0, 1],
     [1, 0],
@@ -976,13 +979,13 @@ test("reset handlers consume only an applicable credited long hold and cancel di
   ] as const) {
     usage.resetCreditsAvailable = available;
     usage.resetCreditsApplicable = applicable;
-    action.onKeyDown(event as never);
+    action.onKeyDown?.(event as never);
     context.mock.timers.tick(1_200);
-    await action.onKeyUp(event as never);
+    await action.onKeyUp?.(event as never);
   }
-  assert.equal(alerts, 2);
-  assert.equal(consumed, 1, "only the substituted native action executes; no real credits are spent");
-  assert.equal(confirmed, 1);
+  assert.equal(consumed, 0, "presses must never spend reset credits");
+  assert.equal(alerts, 0);
+  assert.equal(confirmed, 0);
 });
 
 test("an empty Agent press queued behind a prior pair captures its no-op before settings change", async () => {

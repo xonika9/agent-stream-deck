@@ -69,7 +69,7 @@ Other Stream Deck models may work, but the included layout and physical-device t
 - Native joystick up, right, down, left, and encoder click.
 - Dedicated reasoning-effort up/down buttons with press-and-hold repeat.
 - Live usage controls: a configurable circular 5-hour/weekly limit key and a two-window overview.
-- A centered reset-credit counter with a deliberate 1.2-second hold before an applicable credit can be consumed.
+- A read-only reset-credit counter; pressing or holding never consumes credits.
 - A local `codex://threads/new` action for a new task.
 - Standalone actions for all official single-size keycaps, resolved from the installed Codex build at runtime.
 - Optional local loading of official keycap SVGs; those protected files are never included in this repository or its releases.
@@ -119,7 +119,7 @@ The page-navigation and profile-switch keys are built-in Stream Deck actions. Al
 
 Add **Usage Limit** for the existing circular display of consumed quota. Its number and fill show the percentage used. The Stream Deck property inspector can pin the key to **5 hours** or **Weekly**, while **Automatic** prefers 5 hours and falls back to weekly whenever the shorter window is unavailable. **Usage Overview** shows both windows as separate used-percentage bars; a missing window stays visible as unavailable instead of being mistaken for zero capacity. On macOS, quota windows come from a fresh CodexBar widget snapshot and remain available while Codex Desktop is closed. Windows retains its existing Codex Desktop usage source.
 
-**Rate Limit Reset** shows the number of credits Codex currently reports. The count remains centered inside the reset arrow and the action is dimmed only when no credit is available. Consuming a credit requires holding the key for 1.2 seconds; a short tap does nothing, and Codex's current applicability check still has to pass. This action uses Codex's current native usage client and is therefore subject to the same undocumented compatibility boundary as the Micro bridge.
+**Reset Credits (Read Only)** shows the number of credits Codex currently reports. The legacy action UUID is preserved for existing profiles. Pressing or holding the key does nothing; the plugin cannot consume reset credits. Usage-limit keys also have no press action: choose the displayed window in their settings, or leave Auto to use an available window.
 
 Usage and reset credits come from the local account source. macOS reads quota windows from CodexBar and overlays reset counters from the attached Codex bridge; Windows uses the local renderer query.
 

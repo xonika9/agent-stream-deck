@@ -1,0 +1,109 @@
+{
+  "recordedAt": "2026-10-05T06:13:34.294054+00:00",
+  "implementationHead": "1b9dd4bbda8d27693499af26470f8e7164826b3e",
+  "authority": "User authorized updating installed Mac plugin/watcher after profile backup and starting Fedora OpenCode; Windows unavailable",
+  "environment": {
+    "macOS": "26.6.1 arm64",
+    "codexVersion": "26.930.31730",
+    "codexBuild": "12947",
+    "streamDeckVersion": "7.6.0",
+    "streamDeckBuild": "23012",
+    "fedoraOpenCodeVersion": "2.0.21",
+    "detectedDevice": "Stream Deck MK.2"
+  },
+  "backup": {
+    "completed": true,
+    "bytes": 10842021,
+    "location": "private per-user Application Support maintenance backups",
+    "privateDataNotPublished": true
+  },
+  "plugin": {
+    "originalInstallation": "developer symlink to project dist",
+    "packageFilesCompared": 11,
+    "matchesExceptPackagingManifestDebugFlag": true,
+    "cliRestart": "pass",
+    "newProcessObserved": true,
+    "manifestSDK": 3,
+    "profilesCompared": 73,
+    "profilesByteIdenticalAfterRestart": true
+  },
+  "watcher": {
+    "selfTest": "pass",
+    "firstInstall": "partial failure: bootstrap exit5 Input/output error after old service stop",
+    "secondInstall": "pass",
+    "registeredServiceRunning": true,
+    "lockAndServicePidAgree": true,
+    "freshTokenReceipt": true,
+    "installedRuntimeMatchesArchive": true,
+    "hostAndOpenCodeIdentityPreserved": true,
+    "codexRestartedByThisUpdate": false,
+    "firstFailureCause": "not established; possible transient launchd teardown, not asserted as fact"
+  },
+  "codexRuntime": {
+    "startReusesExistingLoopbackBridge": "pass",
+    "overrideReady": true,
+    "verificationReady": true,
+    "nativeDeviceEventDispatched": true,
+    "hidHandlers": 1,
+    "joystickHandlers": 1,
+    "loopbackListenersOnly": true
+  },
+  "fedora": {
+    "savedSSHAuthenticated": true,
+    "serviceAlreadyRunning": true,
+    "restartNotPerformed": true,
+    "authenticatedAPIInfo": "pass",
+    "activeTasks": 0,
+    "rootPageCount": 100,
+    "moreRootPages": true,
+    "collectorHealth": "capacity-exceeded",
+    "collectorTaskCount": 0,
+    "oldTerminalHistoryNotBackfilled": true
+  },
+  "physical": {
+    "usbDeviceDetected": true,
+    "model": "Stream Deck MK.2",
+    "actualPressHoldValidation": "partial: two physical presses confirmed by user; holds and queue churn not yet verified",
+    "userObserved": {
+      "currentCodexCardPress": "pass: user confirmed correct chat opened",
+      "emptyAgentSlotPress": "pass: user confirmed no action",
+      "quotaPress": "display switch expectation withdrawn; usage-limit action has no key handler"
+    }
+  },
+  "blocker": {
+    "kind": "resolved",
+    "manualUnlock": "user confirmed; native Stream Deck interface accessible"
+  },
+  "windows": "unavailable; no native validation",
+  "remaining": [
+    "OpenCode active task/open/completion/acknowledgement/revision behavior",
+    "Fedora disconnect/recovery",
+    "physical presses/hold/empty slot/queue change/quotas without spending",
+    "native Windows acceptance"
+  ],
+  "interface": {
+    "actualNativeAppObserved": true,
+    "sourceModes": {
+      "OpenCode": "selected; agent slots empty; no active OpenCode tasks",
+      "Codex": "selected; actual Codex card rendered",
+      "Both": "restored; actual Codex card rendered"
+    },
+    "originalSourcePreferenceRestored": "Both",
+    "contextRingRemainedEnabled": true,
+    "localConnectionIndicator": "green",
+    "quotaCard": "visible; no reset action performed",
+    "privateScreenshotsNotPublished": true
+  },
+  "localOpenCode": {
+    "desktopVersion": "2.0.22",
+    "appLaunched": true,
+    "productionCollectorConnectionsAfterLaunch": 2,
+    "bothConnectionHealth": "capacity-exceeded",
+    "activeCards": 0,
+    "completionAndAcknowledgement": "not verified without active tasks"
+  },
+  "productAmendment": {
+    "authority": "user explicitly requested removal of paid reset to prevent accidental spending",
+    "behavior": "legacy reset action becomes read-only; no credit consumption on any press/hold"
+  }
+}
