@@ -1,0 +1,614 @@
+{
+  "status": "complete",
+  "unit": "U5",
+  "run_id": "u5-20261005-010937-c0be3bc5",
+  "head_sha": "9b7d80cc978757e6cd5c695e62c9a164993cf515",
+  "base": "06678bb",
+  "branch": "main",
+  "completed_at": "2026-10-05T03:54:30.824655+00:00",
+  "scope": {
+    "kind": "all retained src/launcher/scripts/test",
+    "counts": {
+      "src": 24,
+      "launcher": 9,
+      "scripts": 11,
+      "test": 23
+    },
+    "files": [
+      "launcher/README.txt",
+      "launcher/Start Codex Deck.cmd",
+      "launcher/Start Codex Deck.command",
+      "launcher/Start-CodexDeck.ps1",
+      "launcher/Watch-CodexDeck.ps1",
+      "launcher/macos/codex-deck-macos.ts",
+      "launcher/macos/watcher-policy.ts",
+      "launcher/runtime-override.ts",
+      "launcher/start-codex-deck.sh",
+      "scripts/audit-release.mjs",
+      "scripts/build-launcher.mjs",
+      "scripts/build.mjs",
+      "scripts/dev-plugin.mjs",
+      "scripts/generate-doc-preview.ts",
+      "scripts/generate-local-icon-qa.ts",
+      "scripts/generate-plugin-icons.mjs",
+      "scripts/package-macos-release.sh",
+      "scripts/package-windows-release.ps1",
+      "scripts/prepare-release.mjs",
+      "scripts/prepare-release.ps1",
+      "src/actions.ts",
+      "src/active-queue.ts",
+      "src/codex-active-catalog-expression.ts",
+      "src/codex-bar-usage.ts",
+      "src/codex-deck-paths.ts",
+      "src/codex-local-state.ts",
+      "src/codex-micro-renderer-bridge.ts",
+      "src/codex-open.ts",
+      "src/codex-sidebar.ts",
+      "src/controller.ts",
+      "src/host-identity.ts",
+      "src/keycaps.ts",
+      "src/opencode-open.ts",
+      "src/opencode-secret.ts",
+      "src/opencode/collector.ts",
+      "src/opencode/index.ts",
+      "src/opencode/secure-files.ts",
+      "src/plugin.ts",
+      "src/render.ts",
+      "src/session-ownership.ts",
+      "src/status.ts",
+      "src/task-source.ts",
+      "src/types.ts",
+      "src/usage.ts",
+      "test/active-queue.test.ts",
+      "test/agent-settings.test.ts",
+      "test/codex-bar-usage.test.ts",
+      "test/codex-local-state.test.ts",
+      "test/codex-open.test.ts",
+      "test/controller.test.ts",
+      "test/dependency-runtime.test.ts",
+      "test/dev-plugin-watcher.test.ts",
+      "test/launcher.test.ts",
+      "test/macos-launcher.test.ts",
+      "test/macos-watcher.test.ts",
+      "test/micro-bridge.test.ts",
+      "test/opencode-collector.test.ts",
+      "test/opencode-open.test.ts",
+      "test/opencode-secret.test.ts",
+      "test/opencode-secure-files.test.ts",
+      "test/release-audit.test.ts",
+      "test/release-docs.test.ts",
+      "test/render-theme.test.ts",
+      "test/session-ownership.test.ts",
+      "test/status.test.ts",
+      "test/task-source.test.ts",
+      "test/usage.test.ts"
+    ]
+  },
+  "ce_code_review": {
+    "depth": "full",
+    "verdict": "Ready with fixes",
+    "selected_reviewers": [
+      "correctness",
+      "project-standards",
+      "testing",
+      "maintainability",
+      "security",
+      "reliability",
+      "api-contract",
+      "adversarial"
+    ],
+    "actual_collected_count": 8,
+    "raw_candidate_count": 19,
+    "primary_findings": [
+      {
+        "#": 1,
+        "title": "Проверка запуска принимает проглоченное исключение за успех",
+        "severity": "P1",
+        "file": "test/controller.test.ts",
+        "line": 568,
+        "confidence": 100,
+        "pre_existing": false,
+        "validation_status": "confirmed",
+        "validation_reason": "На 9b7d80c новый test/controller.test.ts:554–568 при обычном запуске дочернего сценария проверяет отсутствующий в src/render.ts:175–196 атрибут, после чего обработчик SDK 3.0.1 в plugin/logging/index.js:27 оставляет код 0 и родитель принимает незавершённый сценарий; проверенные startup-proof.json и журнал подтверждают AFTER_START/BEFORE_ASSERT без COMPLETE, а независимая проба на Node v24.16.0 воспроизводит AssertionError с кодом 0.",
+        "suggested_fix": "В дочернем сценарии явно перехватывать сбой всей асинхронной проверки и устанавливать process.exitCode = 1; проверять существующие MAC/WIN текст и data-host-health вместо вымышленного атрибута. Выводить уникальный маркер только после всех проверок и требовать его в родительском тесте для каждого сохраненного выбора. Проверить отрицательный контроль: намеренно неверное ожидание внутри дочернего сценария должно провалить родительский тест, после чего правильный сценарий должен пройти.",
+        "reviewers": [
+          "testing"
+        ],
+        "independent_reviewers": [
+          "testing"
+        ],
+        "first_evidence": "test/controller.test.ts:568 --       assert.equal(result.status, 0, result.stderr || result.stdout);",
+        "provenance": [],
+        "behavior_evidence": [
+          "test/controller.test.ts:555-558 -- Agent1 onKeyDown/onKeyUp and the sends assertion occur after the failing host-image assertion; they were not reached in the preserved reproduction."
+        ]
+      }
+    ],
+    "pre_existing_findings": [
+      {
+        "audit_id": "E1",
+        "title": "Закрытие CDP оставляет запуск и наблюдатель зависшими",
+        "severity": "P1",
+        "file": "launcher/runtime-override.ts",
+        "line": 181,
+        "confidence": 100,
+        "pre_existing": true,
+        "suggested_fix": "Добавить конечные таймеры подключения и каждого CDP-запроса, обработчики close/error с отклонением всех pending, ограничить fetch и чтение JSON через AbortSignal.timeout с оставшимся бюджетом. Закрывать или terminate сокет при любом выходе, включая ошибку connect; использовать уже существующий шаблон pending/timer/disconnect из src/codex-micro-renderer-bridge.ts. Проверить молчащий ответ, закрытие сокета и незавершённый HTTP-ответ без запуска приложений.",
+        "reviewers": [
+          "correctness",
+          "reliability"
+        ],
+        "independent_reviewers": [
+          "correctness",
+          "reliability"
+        ],
+        "first_evidence": "launcher/runtime-override.ts:181 --     const promise = new Promise((resolve, reject) => this.pending.set(id, { resolve, reject }));",
+        "provenance": [
+          "provenance: b39feb8 Dazer 2026-07-17 - Initial public release of Codex Deck",
+          "provenance: b39feb8 Dazer 2026-07-17 - Initial public release of Codex Deck; git blame launcher/runtime-override.ts:181"
+        ],
+        "behavior_evidence": [
+          "Изолированная проверка точного класса CdpClient, преобразованного esbuild в памяти, с EventEmitter вместо WebSocket: после close запрос остался pending, pendingCount=1. Сеть, серверы и приложения не запускались.",
+          "Изолированное воспроизведение: esbuild write:false, подставленный WebSocket закрывается после send, HTTP возвращает фиктивную страницу; verifyMicroRuntime(1,20) остаётся pending спустя 108 мс. Сокеты, приложения и службы не запускались."
+        ]
+      },
+      {
+        "audit_id": "E2",
+        "title": "Оболочка Mac прерывается до подтверждения перезапуска Codex",
+        "severity": "P2",
+        "file": "launcher/Start Codex Deck.command",
+        "line": 6,
+        "confidence": 100,
+        "pre_existing": true,
+        "suggested_fix": "Заменить все чтения и записи status в оболочке на отдельную launcher_status. В ограниченной модели оболочки подставить start-codex-deck.sh и проверить коды 0 и 2, отказ от перезапуска и согласие; приложения и службы не запускать.",
+        "reviewers": [
+          "project-standards"
+        ],
+        "independent_reviewers": [
+          "project-standards"
+        ],
+        "first_evidence": "launcher/Start Codex Deck.command:6 -- status=$?",
+        "provenance": [
+          "provenance: 8b376093 dazer1234 2026-07-18 - git blame launcher/Start Codex Deck.command:6; дефект предшествует BASE 06678bb."
+        ],
+        "behavior_evidence": [
+          "Безопасное воспроизведение /bin/zsh -c 'status=0': zsh:1: read-only variable: status; exit 1, без обращения к приложениям."
+        ]
+      },
+      {
+        "audit_id": "E3",
+        "title": "Дождаться остановки Windows watcher перед заменой комплекта",
+        "severity": "P2",
+        "file": "launcher/Start-CodexDeck.ps1",
+        "line": 30,
+        "confidence": 75,
+        "pre_existing": true,
+        "suggested_fix": "После записи watcher.stop дождаться с ограничением времени завершения идентифицированного старого собственного watcher, проверяя его исполняемый файл и путь сценария, либо освобождения принадлежащего ему mutex. При истечении времени завершать установку до замены файлов и сохранять сигнал остановки; удалять его только после подтверждённой остановки.",
+        "reviewers": [
+          "correctness"
+        ],
+        "independent_reviewers": [
+          "correctness"
+        ],
+        "first_evidence": "launcher/Start-CodexDeck.ps1:30 --   Start-Sleep -Seconds 3",
+        "provenance": [
+          "provenance: 02321ae Dazer 2026-07-18 - Prepare Codex Deck 0.6.0 multi-host release"
+        ],
+        "behavior_evidence": []
+      },
+      {
+        "audit_id": "E4",
+        "title": "Windows повторяет восстановление при каждом новом процессе",
+        "severity": "P2",
+        "file": "launcher/Watch-CodexDeck.ps1",
+        "line": 192,
+        "confidence": 75,
+        "pre_existing": true,
+        "suggested_fix": "До Invoke-CodexDeckLauncher сохранять общий срок запрета повторного восстановления, не зависящий от pid, и состояние ожидания запуска. Использовать в Windows ту же политику устойчивого нового процесса и десятиминутного ограничения попыток, что и launcher/macos/watcher-policy.ts; ошибка launcher не должна снимать ограничение. Проверить несколько последовательных поколений без порта через изолированную модель, затем отдельно проверить Windows без физического устройства.",
+        "reviewers": [
+          "reliability"
+        ],
+        "independent_reviewers": [
+          "reliability"
+        ],
+        "first_evidence": "launcher/Watch-CodexDeck.ps1:192 --             Invoke-CodexDeckLauncher -ForceRestart",
+        "provenance": [
+          "provenance: 6e97d4d Dazer 2026-07-18 - Keep the Windows Codex Deck bridge available; git blame launcher/Watch-CodexDeck.ps1:188-192"
+        ],
+        "behavior_evidence": []
+      },
+      {
+        "audit_id": "E5",
+        "title": "Приоритеты выбора окна Codex приходится сопровождать дважды",
+        "severity": "P2",
+        "file": "launcher/runtime-override.ts",
+        "line": 156,
+        "confidence": 75,
+        "pre_existing": true,
+        "suggested_fix": "В U6 выделить чистую функцию упорядоченного выбора среди уже отфильтрованных страниц, сохранив caller-specific фильтры, входные типы и экспортируемые имена selectRuntimeTarget/selectCodexMainTarget. Проверить существующие случаи, отсутствие/невалидность URL согласно каждому входному контракту и импорт launcher без SDK. Учесть bundle:false: общий emitted-модуль должен входить в самостоятельный Windows-комплект.",
+        "reviewers": [
+          "maintainability"
+        ],
+        "independent_reviewers": [
+          "maintainability"
+        ],
+        "first_evidence": "launcher/runtime-override.ts:156 --   return pages.find((target) => isIndexDocument(target) && !new URL(target.url!).search)",
+        "provenance": [
+          "provenance: 2274932 Dazer 2026-07-18 - Fix macOS renderer selection after Codex updates; both implementations originated in this commit and predate BASE 06678bb."
+        ],
+        "behavior_evidence": []
+      },
+      {
+        "audit_id": "E6",
+        "title": "Разделить удержания одинаковых кнопок изменения рассуждения",
+        "severity": "P2",
+        "file": "src/actions.ts",
+        "line": 152,
+        "confidence": 75,
+        "pre_existing": true,
+        "suggested_fix": "Хранить состояние удержания и таймер в Map по ev.action.id, останавливать только соответствующий контекст в onKeyUp/onWillDisappear и проверять поколение удержания после каждого await send, чтобы позднее завершение предыдущего нажатия не запустило повтор нового.",
+        "reviewers": [
+          "correctness"
+        ],
+        "independent_reviewers": [
+          "correctness"
+        ],
+        "first_evidence": "src/actions.ts:152 --   override onKeyUp(_ev: KeyUpEvent): void { this.stop(); }",
+        "provenance": [
+          "provenance: b39feb8 Dazer 2026-07-17 - Initial public release of Codex Deck"
+        ],
+        "behavior_evidence": [
+          "Изолированная проверка настоящего ReasoningUp со счётчиком adjustReasoning: down(A), down(B), up(B) дали changes=1 и pressed=false, хотя A остаётся нажатой. Таймер очищен; SDK и приложения не запускались."
+        ]
+      },
+      {
+        "audit_id": "E7",
+        "title": "Быстрое нажатие отправляет отпускание раньше нажатия",
+        "severity": "P2",
+        "file": "src/codex-micro-renderer-bridge.ts",
+        "line": 452,
+        "confidence": 75,
+        "pre_existing": true,
+        "suggested_fix": "Хранить в контроллере незавершённую отправку нажатия по action.id и ждать её перед отправкой соответствующего отпускания; убрать запись при завершении и исчезновении действия. Проверить короткое нажатие с задержанным refresh и последовательность 1,0, сохранив независимость одинаковых Agent на разных устройствах.",
+        "reviewers": [
+          "adversarial"
+        ],
+        "independent_reviewers": [
+          "adversarial"
+        ],
+        "first_evidence": "src/codex-micro-renderer-bridge.ts:452 --     const snapshot = act === 1 ? await this.refresh() : this.lastSnapshot ?? await this.refresh();",
+        "provenance": [
+          "provenance: 9a02dbc dazer1234 2026-07-21 - feat: add native iPhone companion and usage controls; асимметричное ожидание refresh предшествует BASE 06678bb."
+        ],
+        "behavior_evidence": [
+          "Проба через настоящий Agent1.onKeyDown/onKeyUp, DeckController.sendAgent и CodexMicroRendererBridge.sendAgent с задержанным refresh и подставным dispatch: nativeActs=[0,1], capturedPressCount=0. Внешний Codex не использовался; конкретная реакция его внутренних обработчиков дополнительно не проверена."
+        ]
+      },
+      {
+        "audit_id": "E8",
+        "title": "Контроллер кнопок владеет протоколом и жизненным циклом OpenCode",
+        "severity": "P2",
+        "file": "src/controller.ts",
+        "line": 274,
+        "confidence": 75,
+        "pre_existing": true,
+        "suggested_fix": "В U6 перенести syncOpenCodeCollectorDemand, refreshOpenCodeSnapshot, applyOpenCodeSnapshot, openCodeSlot и разбор/подтверждение из OpenCode-ветви sendAgent в узкий владелец источника OpenCode, доступный через его публичный вход. Он владеет секретом, сборщиком, поколением и составной идентичностью; контроллер получает готовые слоты/состояние и передаёт захваченное назначение на открытие. Сборку зависимостей оставить в plugin.ts; захват назначения по action.id, порядок очереди и SDK-отрисовку сохранить. Не вводить общий контейнер или универсальный транспорт. Проверить существующие сценарии Both/OpenCode, отключение источника во время запуска, неудачу API после локального подтверждения и отказ подтверждать новую ревизию старым назначением.",
+        "reviewers": [
+          "maintainability"
+        ],
+        "independent_reviewers": [
+          "maintainability"
+        ],
+        "first_evidence": "src/controller.ts:274 --         const separator = assignment.threadKey?.indexOf(\"\\0\") ?? -1;",
+        "provenance": [
+          "provenance: e422f7d xonika9 2026-09-19 - fix(agent): stabilize OpenCode queue and usage display; точная строка src/controller.ts:274 предшествует BASE 06678bb. Исходная ссылка fd996ef относится к предшествующей работе с подтверждением, а не происхождению этой строки."
+        ],
+        "behavior_evidence": []
+      },
+      {
+        "audit_id": "E9",
+        "title": "Квоты Mac подменяются данными Codex при отсутствии CodexBar",
+        "severity": "P2",
+        "file": "src/controller.ts",
+        "line": 538,
+        "confidence": 100,
+        "pre_existing": true,
+        "suggested_fix": "Во всех четырёх потребителях accountUsageSource в src/controller.ts читать только source.usage вместо source.usage ?? source.snapshot?.usage. Проверить полный путь изображений Mac без свежего CodexBar, с renderer windows и обоими resetCredits=null; сохранить Windows и сведения о кредитах сброса.",
+        "reviewers": [
+          "correctness",
+          "testing",
+          "api-contract",
+          "adversarial"
+        ],
+        "independent_reviewers": [
+          "correctness",
+          "testing",
+          "api-contract",
+          "adversarial"
+        ],
+        "first_evidence": "src/controller.ts:538 --     const usage = source.usage ?? source.snapshot?.usage;",
+        "provenance": [
+          "provenance: d088676 xonika9 2026-09-18 - feat(agent): unify Codex and OpenCode task queue",
+          "provenance: d088676, xonika9, 2026-09-18T00:29:12+03:00 — feat(agent): unify Codex and OpenCode task queue; targeted blame attributes the fallback, Mac composition and helper test to that commit, and BASE 06678bb contains the same consumer fallback.",
+          "provenance: d088676 xonika9 2026-09-18 - feat(agent): unify Codex and OpenCode task queue; git blame относит строки 538, 546 и 589-605 к этому коммиту. До удаления relay Mac также возвращал local, поэтому нарушение существовало до BASE 06678bb.",
+          "provenance: d088676 xonika9 2026-09-18 - feat(agent): unify Codex and OpenCode task queue; строка выбора usage предшествует BASE 06678bb."
+        ],
+        "behavior_evidence": [
+          "Изолированная проверка настоящего DeckController.renderUsageLimit с синтетическим Mac-снимком и resetCredits=null: accountUsageSource().usage отсутствует, но SVG содержит data-usage-used=\"41\". Файлы, SDK-соединение и приложения не использовались.",
+          "Изолированная проверка Node импортировала только src/usage.ts: composeMacUsage(undefined, rendererWith37PercentAndNullCredits) === undefined, но выражение потребителя source.usage ?? source.snapshot?.usage возвращает окно с usedPercent=37. Приложения, службы и личные данные не использовались."
+        ]
+      },
+      {
+        "audit_id": "E10",
+        "title": "Изменённый или удалённый SSH-профиль сохраняет прежний туннель",
+        "severity": "P2",
+        "file": "src/opencode/collector.ts",
+        "line": 357,
+        "confidence": 100,
+        "pre_existing": true,
+        "suggested_fix": "Сохранять нормализованный SSH-target в Connection; после успешного чтения настроек сверять активные id и target, завершать только собственные удалённые/изменённые туннели и обнаруживать новый target. Ошибку чтения не считать подтверждённым удалением. Проверить изменение target при прежнем id, удаление профиля и сохранение остальных соединений.",
+        "reviewers": [
+          "reliability",
+          "adversarial"
+        ],
+        "independent_reviewers": [
+          "reliability",
+          "adversarial"
+        ],
+        "first_evidence": "src/opencode/collector.ts:357 --       if (existing) return { connection: existing };",
+        "provenance": [
+          "provenance: d088676 xonika9 2026-09-18 - feat(agent): unify Codex and OpenCode task queue; git blame src/opencode/collector.ts:355-357",
+          "provenance: d088676 xonika9 2026-09-18 - feat(agent): unify Codex and OpenCode task queue; строки discoverSsh предшествуют BASE 06678bb."
+        ],
+        "behavior_evidence": [
+          "Изолированное воспроизведение: после ready target изменён с fixture-a на fixture-b при том же fixed-id; следующий refresh снова ready, spawnCount остаётся 2, оба первоначальных spawn используют fixture-a. Нового подключения к fixture-b нет. Использовались только внедрённые фиктивные зависимости.",
+          "Проба через настоящий start/refresh: после изменения target health остаётся ready, число spawn=2, последний запущенный host остаётся fixture-a, завершённых процессов нет."
+        ]
+      },
+      {
+        "audit_id": "E11",
+        "title": "SSH-источник не восстанавливается после смены процесса OpenCode",
+        "severity": "P2",
+        "file": "src/opencode/collector.ts",
+        "line": 443,
+        "confidence": 100,
+        "pre_existing": true,
+        "suggested_fix": "При incompatible удалить и завершить только принадлежащий сборщику туннель этого connectionId; следующий опрос повторяет discovery, аутентификацию и проверку PID/version. Старую регистрацию не переиспользовать и новые сведения не принимать без проверки. Проверить ready -> новый PID -> incompatible -> повторное обнаружение -> ready.",
+        "reviewers": [
+          "correctness",
+          "reliability",
+          "adversarial"
+        ],
+        "independent_reviewers": [
+          "correctness",
+          "reliability",
+          "adversarial"
+        ],
+        "first_evidence": "src/opencode/collector.ts:443 --       return { ...unavailable(connection.connectionId, now), health: \"incompatible\" };",
+        "provenance": [
+          "provenance: d088676 xonika9 2026-09-18 - feat(agent): unify Codex and OpenCode task queue",
+          "provenance: d088676 xonika9 2026-09-18 - feat(agent): unify Codex and OpenCode task queue; git blame src/opencode/collector.ts:443",
+          "provenance: d088676 xonika9 2026-09-18 - feat(agent): unify Codex and OpenCode task queue; 5b93b93 xonika9 2026-09-19 - fix(agent): restore OpenCode signals and usage fallback. Обе строки предшествуют BASE 06678bb."
+        ],
+        "behavior_evidence": [
+          "Изолированная проверка с подменёнными файлами, процессами и HTTP: смена PID 88 → 89 дала health [ready,incompatible,incompatible], число запусков SSH осталось 2, завершений туннеля до stop — 0; сеть и настоящие процессы не использовались.",
+          "Изолированное воспроизведение через внедрённые зависимости: начальная личность pid=42 даёт ready; после смены ответа на pid=43 два последовательных refresh дают incompatible. spawnCount=2 и terminatedBeforeStop=0: повторного обнаружения и удаления старого туннеля нет. Реальные HTTP/SSH и файлы состояния не использовались."
+        ]
+      }
+    ],
+    "validation": {
+      "batch_outcome": "verdicts",
+      "bound_exceeded": false,
+      "confirmed": 1,
+      "failed": 0,
+      "malformed": 0,
+      "protected_subject_reclassifications": 0,
+      "rejected": 1,
+      "rejection_provenance_checked": {
+        "#": 2,
+        "base": "06678bb",
+        "paths": [
+          "launcher/Start-CodexDeck.ps1:46-66",
+          "launcher/Start-CodexDeck.ps1:79-98",
+          "launcher/runtime-override.ts:1"
+        ],
+        "result": "Real pre-existing bundle-preflight gap; rejected as introduced/newly exposed by reviewed diff."
+      },
+      "shortcut_skipped": 0,
+      "unresolved": 0,
+      "verdicts": [
+        {
+          "#": 1,
+          "protected_subject": null,
+          "reason": "На 9b7d80c новый test/controller.test.ts:554–568 при обычном запуске дочернего сценария проверяет отсутствующий в src/render.ts:175–196 атрибут, после чего обработчик SDK 3.0.1 в plugin/logging/index.js:27 оставляет код 0 и родитель принимает незавершённый сценарий; проверенные startup-proof.json и журнал подтверждают AFTER_START/BEFORE_ASSERT без COMPLETE, а независимая проба на Node v24.16.0 воспроизводит AssertionError с кодом 0.",
+          "status": "confirmed"
+        },
+        {
+          "#": 2,
+          "protected_subject": "data-loss",
+          "reason": "При -InstallStartup из неполного комплекта с отсутствующим ws/lib дефект реален по коду, но не введён и не вновь открыт diff: уже 06678bb:launcher/Start-CodexDeck.ps1:46–66 проверял лишь наличие каталога ws и удалял исправный установленный ws, строки 79–98 останавливали наблюдатель и сообщали успех без проверки загрузки, а runtime-override.ts:1 уже импортировал ws; новые проверки 9b7d80c строже прежних и не создают этот сценарий, что Node v24.16.0 подтверждает лишь как сохраняющийся пробел (--check=0, импорт отсутствующего модуля=1), частота неполных комплектов и выполнение Windows не измерены.",
+          "status": "rejected"
+        }
+      ]
+    },
+    "stage_receipt": {
+      "status": "complete",
+      "stages": [
+        {
+          "stage": "scope",
+          "started_at": "2026-10-04T22:09:37.353170+00:00",
+          "ended_at": "2026-10-04T22:09:44.057687+00:00"
+        },
+        {
+          "stage": "select",
+          "started_at": "2026-10-04T22:09:44.057687+00:00",
+          "ended_at": "2026-10-04T22:10:51.707426+00:00"
+        },
+        {
+          "stage": "peer",
+          "started_at": "2026-10-04T22:10:20.867393+00:00",
+          "ended_at": "2026-10-05T03:29:29.326906+00:00"
+        },
+        {
+          "stage": "dispatch",
+          "started_at": "2026-10-04T22:10:51.707426+00:00",
+          "ended_at": "2026-10-05T03:35:12.148437+00:00"
+        },
+        {
+          "stage": "merge",
+          "started_at": "2026-10-05T03:38:08.203496+00:00",
+          "ended_at": "2026-10-05T03:43:59.427423+00:00"
+        },
+        {
+          "stage": "validate",
+          "started_at": "2026-10-05T03:44:11.439374+00:00",
+          "ended_at": "2026-10-05T03:47:03.032924+00:00"
+        },
+        {
+          "stage": "report",
+          "started_at": "2026-10-05T03:49:33.102608+00:00",
+          "ended_at": "2026-10-05T03:54:30.922059+00:00"
+        }
+      ],
+      "timing_note": "Original stage times include intentional interruption/idle time; they are not active execution cost. Original select had 7, required in-process adversarial fallback made final 8."
+    },
+    "artifact_names": [
+      "finish-input.json",
+      "synthesized-findings.json",
+      "validator-input.json",
+      "validator-verdicts.json",
+      "validator-outcome.json",
+      "final-findings.json",
+      "actionable-findings.json",
+      "advisory-outputs.json",
+      "report.md",
+      "metadata.json",
+      "stages.jsonl"
+    ]
+  },
+  "peer": {
+    "target": "claude",
+    "route": "claude",
+    "requested_model": "claude-opus-5-5",
+    "requested_effort": "high",
+    "job_id": "20261004T221020Z-88c9aeb7",
+    "terminal_state": "done",
+    "result_exit_code": 3,
+    "usable_artifact": false,
+    "provider_dispatch_attested": true,
+    "classification": "authentication-no-review",
+    "diagnostic": "Failed to authenticate: OAuth session expired and could not be refreshed | terminal_reason=api_error",
+    "account_failure_attribution": "Provider-capable dispatch attested by launch/provider diagnostic; credential refresh required for future Claude review, no retry in this run.",
+    "replacement_route": "none: no other attested-different installed allowlisted provider",
+    "coverage": "adversarial lens: in-process fallback (cross-model peer not run: provider OAuth authentication failed)",
+    "outcome": "in-process-fallback"
+  },
+  "simplification": {
+    "passes": {
+      "reuse": {
+        "status": "complete",
+        "substantive_candidates": 0,
+        "applied": 0
+      },
+      "quality": {
+        "status": "complete",
+        "candidates": 9,
+        "applied": 0
+      },
+      "efficiency": {
+        "status": "complete",
+        "candidates": 5,
+        "applied": 0
+      }
+    },
+    "u6_optional_quality": [
+      "Q1",
+      "Q2",
+      "Q3",
+      "Q4",
+      "Q5",
+      "Q6",
+      "Q7 with distinct entry filters",
+      "Q8/Q9 after consumer recheck and retained behavior proof"
+    ],
+    "efficiency_disposition": {
+      "u6": [
+        "E1 unowned socket attempt",
+        "E2 own SSH cleanup, merged with B4"
+      ],
+      "u8": [
+        "E5 bounded archive input read"
+      ],
+      "excluded_from_mandatory_u6": [
+        "E3 ancestor request coalescing",
+        "E4 unchanged watcher state writes"
+      ]
+    },
+    "constraints": [
+      "No combined identity/usage classifiers or CDP client rewrite",
+      "No bulk source-grep test removal",
+      "No product removals beyond iPhone/Codex relay"
+    ]
+  },
+  "chosen_u6": [
+    "B1 truthful startup proof with negative control",
+    "B2 authoritative Mac usage consumers",
+    "B3 SSH identity mismatch eviction/re-discovery",
+    "B4 current target/removed-profile own tunnel cleanup",
+    "B5 finite CDP/HTTP waits and pending failure",
+    "B6 failed native socket attempt cleanup",
+    "B7 per-context ordered captured Agent phases",
+    "B8 per-context reasoning holds/generation",
+    "KTD5 one-package owner separation with public inputs"
+  ],
+  "chosen_u8": [
+    "I1 zsh own variable",
+    "I2 await own old watcher stop before replacing",
+    "I3 load target standalone bundle before stopping old service and prove readiness",
+    "I4 PID-independent Windows recovery limit",
+    "I5 attributed old relay SSH cleanup only",
+    "Existing archive-size bound enforced during read"
+  ],
+  "coverage": {
+    "cross_model_independence": false,
+    "peer_sentence": "adversarial lens: in-process fallback (cross-model peer not run: provider OAuth authentication failed)",
+    "retained_risks": [
+      "Фактическая привязка существующего порта в Windows осталась непроверенной: launcher/Start-CodexDeck.ps1:168-180 и launcher/Watch-CodexDeck.ps1:88-100 принимают успешный /json/version на 127.0.0.1 без проверки адреса слушающего сокета; Windows-путь src/codex-micro-renderer-bridge.ts:850-857 также не проверяет remote-debugging-address. Новые запуски явно передают 127.0.0.1. Без запуска приложения или осмотра сокетов нельзя утверждать, что сохранённый путь повторного использования допускает реально доступный из сети порт."
+    ],
+    "testing_gaps": [
+      "Проверенные тесты не характеризуют повторное использование Windows-сеанса с портом отладки на нелокальном адресе; этот сценарий нужен для подтверждения инварианта SECURITY.md и сравнения с явной проверкой адреса в macOS launcher/macos/codex-deck-macos.ts:192-199.",
+      "test/opencode-collector.test.ts проверяет отсутствие пароля в снимке и аргументах SSH, но не содержит случая HTTP-перенаправления после получения Authorization. src/opencode/collector.ts:601-607 запрещает перенаправления; полезно закрепить отказ без отправки учётных данных другому адресу.",
+      "test/macos-launcher.test.ts:73-120 проверяет отказ предварительной проверки и отказ bootstrap; новые ветви launcher/macos/codex-deck-macos.ts:516-539 остаются без исполнительной проверки. Нужны ограниченные модели отказа bootout при еще существующей службе и успешного bootstrap с совпадающими pid службы, pid блокировки и записью запуска; несовпадение не должно считаться успехом.",
+      "test/usage.test.ts:66-72 подтверждает обновление устаревших лимитов поиском текста. Расширить существующую исполняемую модель снимка в test/micro-bridge.test.ts: проверить, что незавершившийся или отклоненный query.fetch не удерживает снимок агентов и что повторная попытка ограничена интервалом, используя управляемое время.",
+      "src/controller.ts:347-384 и src/opencode/collector.ts:188-269 содержат защиту поколений и остановку незавершенной работы. Текущие тесты OpenCode завершают start/refresh перед stop и подставляют уже готовый collector в контроллер. Нужен сценарий смены Both/OpenCode на Codex и остановки во время задержанной SSH-discovery/первого снимка: поздняя работа не должна вновь публиковать задачи или оставлять процесс туннеля.",
+      "Кнопка сброса лимита проверяется только как изображение и наличие маршрутов в тексте. Для src/controller.ts:222-248 и src/actions.ts:318-342 отсутствует проверка короткого удержания, длительного удержания, исчезновения кнопки до отпускания и отсутствующего/неприменимого кредита. Исполнять реальные обработчики с управляемым временем и подставленным native bridge; расход кредита должен происходить только в допустимом сценарии.",
+      "Все архивы test/release-audit.test.ts создаются storedZip с методом 0. Реальные release ZIP используют сжатие, поэтому ветвь inflateRawSync метода 8 в scripts/audit-release.mjs не покрыта: добавить небольшой сжатый архив с закрытым состоянием и поврежденным CRC, сохранив вызов настоящего audit-release.mjs как основную границу проверки."
+    ],
+    "broad_checks_rerun": false,
+    "live_apps": "not-run",
+    "fedora_ssh": "not-run",
+    "windows_execution": "not-run",
+    "physical_device": "not-run",
+    "credit_spend": false
+  },
+  "source_mutations": false,
+  "index_mutations": false,
+  "commits": false,
+  "push": false,
+  "parent_report_and_plan_edited_by_this_worker": false,
+  "docs": [
+    "docs/maintenance/feature-scope.md",
+    "docs/maintenance/code-audit.md"
+  ],
+  "intentionally_pending_units": [
+    "U6",
+    "U7",
+    "U8"
+  ],
+  "cleanup": {
+    "consumed_peer_job_deleted": true,
+    "peer_job_outstanding": false,
+    "review_run": "retained temporarily for owner integration/audit; durable sanitized receipt survives loss of temporary directory",
+    "codex_home_evidence_or_worktrees_created_or_expanded": false
+  }
+}

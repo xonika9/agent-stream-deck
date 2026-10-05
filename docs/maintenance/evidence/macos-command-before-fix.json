@@ -1,0 +1,7 @@
+{
+  "environment": "isolated macOS zsh with stub start script",
+  "scenario": "successful child startup",
+  "exit_code": 1,
+  "stderr": "[fixture]/Start Codex Deck.command:6: read-only variable: status\n",
+  "stdout": ""
+}

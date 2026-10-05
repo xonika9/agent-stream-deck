@@ -1,0 +1,7 @@
+{
+  "probe": "Unchanged production controller.start and HostToggle; SDK real; fake local snapshot; original invalid SVG assertion; marker after assertions",
+  "exit_code": 0,
+  "stdout": "BEFORE_START\nAFTER_START\nBEFORE_ASSERT\n",
+  "stderr": "CAPTURED:AssertionError:The input did not match the regular expression /data-host-target=\"MAC\"/. Input:\n",
+  "completion_marker_present": false
+}
