@@ -58,7 +58,16 @@
     "moreRootPages": true,
     "collectorHealth": "capacity-exceeded",
     "collectorTaskCount": 0,
-    "oldTerminalHistoryNotBackfilled": true
+    "oldTerminalHistoryNotBackfilled": true,
+    "userObservedActiveTask": {
+      "cardAppeared": true,
+      "cardTurnedGreen": true,
+      "physicalPressOpenedOpenCode": true,
+      "evidence": "user report after requested Fedora task; not an agent-observed API trace",
+      "viewedCardDisappeared": true,
+      "sameChatNewTaskCardReappeared": true,
+      "newRevisionFinishedGreen": "not separately confirmed"
+    }
   },
   "physical": {
     "usbDeviceDetected": true,
@@ -67,19 +76,20 @@
     "userObserved": {
       "currentCodexCardPress": "pass: user confirmed correct chat opened",
       "emptyAgentSlotPress": "pass: user confirmed no action",
-      "quotaPress": "display switch expectation withdrawn; usage-limit action has no key handler"
+      "quotaPress": "display switch expectation withdrawn; usage-limit action has no key handler",
+      "OpenCodeCardPress": "pass: user confirmed card appeared, completed (green), physical press opened app"
     }
   },
   "blocker": {
     "kind": "resolved",
     "manualUnlock": "user confirmed; native Stream Deck interface accessible"
   },
-  "windows": "unavailable; no native validation",
+  "windows": "explicitly deferred by user; native Windows and Windows CI acceptance remain open",
   "remaining": [
-    "OpenCode active task/open/completion/acknowledgement/revision behavior",
-    "Fedora disconnect/recovery",
-    "physical presses/hold/empty slot/queue change/quotas without spending",
-    "native Windows acceptance"
+    "Fedora disconnect/recovery without old completion backfill",
+    "physical holds and queue change",
+    "local OpenCode active task acceptance if not covered by Fedora observation",
+    "Mac CI clean install; Windows and Windows CI explicitly deferred"
   ],
   "interface": {
     "actualNativeAppObserved": true,

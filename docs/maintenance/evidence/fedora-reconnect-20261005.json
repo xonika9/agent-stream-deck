@@ -1,0 +1,33 @@
+{
+  "environment": "macOS actual production collector, actual local OpenCode and saved Fedora SSH",
+  "method": "SIGTERM only to probe-owned local SSH tunnel; two explicit production refreshes; automatic cadence paused; installed plugin tunnel and remote service untouched",
+  "before": [
+    "capacity-exceeded",
+    "capacity-exceeded"
+  ],
+  "outage": [
+    "unavailable",
+    "capacity-exceeded"
+  ],
+  "restored": [
+    "capacity-exceeded",
+    "capacity-exceeded"
+  ],
+  "remoteLossDetected": true,
+  "localSourceStayedAvailable": true,
+  "newAuthenticatedTunnelCreated": true,
+  "oldCompletionAdded": false,
+  "allPhaseTaskCounts": [
+    0,
+    0
+  ],
+  "cleanup": "collector.stop completed; only probe-owned children terminated",
+  "command": "node_modules/.bin/tsx outputs/maintenance-probes/fedora-reconnect.ts",
+  "exitCode": 0,
+  "limitations": [
+    "Separate live collector probe; not installed plugin card retention proof",
+    "No active local cards during observation",
+    "API notification error not injected",
+    "Windows deferred"
+  ]
+}
