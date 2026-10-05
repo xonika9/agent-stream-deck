@@ -2,6 +2,28 @@
 
 Versions through `0.7.0.2` below are the historical upstream releases by Dazer. Starting with `1.0.0`, releases belong to the xonika9 fork and use its own plugin identity.
 
+## 2.1.0 - 2026-10-05
+
+### Highlights
+
+- Added macOS T3 Code tasks to the Stream Deck queue, including the local app and explicitly connected remote Linux environments over authenticated SSH.
+- Simplified the source selector to Codex, OpenCode, T3 Code, and All. Saved Both settings resolve to All; existing action UUIDs and profiles are preserved.
+- Added separate read-only T3 pairing sessions, protected credential storage, environment-scoped identities, and independent failure handling. A failed T3 connection drops its stale cards while successful connections remain visible.
+- Serialized connection setup so concurrent commands preserve each other's configuration. Renewing the local connection preserves remote connections.
+
+### Compatibility and behavior
+
+- T3 collection is macOS-only. Windows installation and existing actions remain supported; remote Linux hosts supply tasks rather than running the Stream Deck plugin.
+- T3 button presses bring T3 Code to the foreground without selecting a specific conversation. Fresh completed/failed results leave the queue when their button is pressed, the result is reported viewed, or five minutes pass; a newer result can return.
+- T3 setup requires a separate read-only connection; SSH setup requires a trusted saved host, Python 3, and an already-running remote T3 server. No desktop credential decryption, service startup, relay, or Codex endpoint forwarding is added. See [T3 setup and compatibility](https://github.com/xonika9/codex-stream-deck/blob/v2.1.0/docs/T3CODE_COMPATIBILITY.md).
+- The Both selector option is removed. Its stored value is accepted as All, which includes T3 tasks when connected.
+
+### Validation
+
+- Automated macOS validation passed: clean dependency install, lint, import boundaries, type checking, tests (212 passed, two existing platform skips), plugin validation, packaging, archive integrity, checksums, and release artifact audit.
+- Live macOS application validation confirmed local and Fedora T3 tasks together, including the previously missing W34 card. T3 button presses on physical Stream Deck hardware and native Windows application/device validation were not run for this release.
+- T3 integration was characterized against Nightly 0.0.46-nightly.20261005.2689. Automated SSH cancellation, timeout, oversized-response and cross-environment collision scenarios remain unverified; successful SSH collection was checked live.
+
 ## 2.0.0 - 2026-10-05
 
 ### Highlights

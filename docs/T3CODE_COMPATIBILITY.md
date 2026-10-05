@@ -8,6 +8,10 @@ are unchanged; T3 Code collection is currently macOS-only.
 
 ## Connect the local server
 
+The setup commands below run from a source checkout of this repository with Node.js
+24 or newer and dependencies installed with `npm ci`. They are setup tools; the
+installed Stream Deck plugin continues polling without that checkout process running.
+
 Start T3 Code normally. Create a one-time pairing credential with its own CLI,
 then pipe the JSON directly into the connector:
 
