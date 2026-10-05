@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { spawnSync } from "node:child_process";
 import { build } from "esbuild";
-import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -98,12 +98,39 @@ test("macOS watcher update fails before stopping on preflight failure and report
       import childProcess from "node:child_process";
       import { syncBuiltinESMExports } from "node:module";
       import { writeFileSync } from "node:fs";
+      import { join } from "node:path";
+      let watcher;
+      process.on("beforeExit", () => {
+        if (!watcher) return;
+        const child = watcher;
+        watcher = undefined;
+        child.once("exit", () => writeFileSync(${JSON.stringify(join(root, "watcher-exited"))}, "exited"));
+        child.ref();
+        child.kill();
+      });
       const original = childProcess.spawnSync;
+      const originalSpawn = childProcess.spawn;
+      childProcess.spawn = (...args) => {
+        if (process.env.CHILD_WATCHER === "true") throw new Error("Fixture blocked external process launch");
+        return originalSpawn(...args);
+      };
       const calls = [];
       childProcess.spawnSync = (command, args, options) => {
+        if (process.env.CHILD_WATCHER === "true") {
+          if (command === "/bin/ps") return { status: 0, stdout: "", stderr: "" };
+          // Block discovery, app launch/quit, and every external child command.
+          return { status: 1, stdout: "", stderr: "Fixture blocked external command" };
+        }
         if (command === "/bin/launchctl") {
           calls.push(args);
           writeFileSync(${JSON.stringify(callsPath)}, JSON.stringify(calls));
+          if (process.env.INSTALL_SCENARIO === "live") {
+            if (args[0] === "bootstrap") watcher = childProcess.spawn("/bin/zsh", [join(process.env.HOME, "Library/Application Support/CodexDeck/watcher-launch.sh")], { env: { ...process.env, CHILD_WATCHER: "true", NODE_OPTIONS: "--import=" + JSON.stringify(${JSON.stringify(mockPath)}) }, stdio: "ignore" });
+            watcher?.unref();
+            return { status: 0, stdout: args[0] === "print" ? "state = running; pid = " + watcher.pid : "", stderr: "" };
+          }
+          if (process.env.INSTALL_SCENARIO === "no-ready") return { status: 0, stdout: args[0] === "print" ? "state = running; pid = 777" : "", stderr: "" };
+          if (process.env.INSTALL_SCENARIO === "busy") return { status: args[0] === "print" ? 0 : 1, stdout: "state = running", stderr: "fixture busy service" };
           return { status: args[0] === "bootout" ? 0 : 1, stdout: "", stderr: "fixture launchctl failure" };
         }
         if (command === "/bin/zsh" && process.env.PREFLIGHT_FAIL === "true") {
@@ -114,18 +141,35 @@ test("macOS watcher update fails before stopping on preflight failure and report
       syncBuiltinESMExports();
     `,
     );
-    for (const preflightFails of [true, false]) {
+    for (const scenario of ["preflight", "bootstrap", "busy", "no-ready", "live"]) {
+      const preflightFails = scenario === "preflight";
       await writeFile(callsPath, "[]");
       const result = spawnSync(process.execPath, ["--import", mockPath, fixtureRuntime, "install"], {
-        env: { ...process.env, HOME: root, PREFLIGHT_FAIL: String(preflightFails) },
+        env: { ...process.env, HOME: root, PREFLIGHT_FAIL: String(preflightFails), INSTALL_SCENARIO: scenario },
         encoding: "utf8",
-        timeout: 15_000,
+        timeout: 35_000,
       });
-      assert.equal(result.status, 1);
+      assert.equal(result.status, scenario === "live" ? 0 : 1, result.stderr);
       const calls = JSON.parse(await readFile(callsPath, "utf8")) as string[][];
       if (preflightFails) {
         assert.match(result.stderr, /fixture runtime preflight failure/);
         assert.deepEqual(calls, [], "preflight failure must not stop the existing service");
+      } else if (scenario === "busy") {
+        assert.match(result.stderr, /runtime was left unchanged/);
+        assert.deepEqual(
+          calls.map((args) => args[0]),
+          ["bootout", "print"],
+        );
+      } else if (scenario === "no-ready") {
+        assert.match(result.stderr, /did not acquire its lock and confirm startup/);
+        assert.doesNotMatch(result.stdout, /installed and watcher running/);
+        assert.ok(calls.some((args) => args[0] === "bootstrap"));
+        assert.ok(calls.some((args) => args[0] === "print"));
+      } else if (scenario === "live") {
+        assert.match(result.stdout, /installed and watcher running/);
+        assert.ok(calls.some((args) => args[0] === "print"));
+        assert.equal(await readFile(join(root, "watcher-exited"), "utf8"), "exited");
+        await assert.rejects(readFile(join(root, "Library/Application Support/CodexDeck/watcher.lock/pid")));
       } else {
         assert.match(result.stderr, /partially failed after stopping the old service/);
         assert.deepEqual(
@@ -134,6 +178,37 @@ test("macOS watcher update fails before stopping on preflight failure and report
         );
         assert.match(calls[0]![1]!, /com\.simeo\.codex-deck\.watcher$/);
       }
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("double-click launcher handles success, decline and accepted restart in actual zsh", {
+  skip: process.platform !== "darwin",
+}, async () => {
+  const root = await mkdtemp(join(tmpdir(), "codex-command-"));
+  try {
+    const command = join(root, "Start Codex Deck.command");
+    await writeFile(command, await readFile(new URL("../launcher/Start Codex Deck.command", import.meta.url)));
+    const stub = join(root, "start-codex-deck.sh");
+    await writeFile(
+      stub,
+      '#!/bin/zsh\n[[ "$2" == "--restart" ]] && { print restarted; exit 0; }\nexit $FIXTURE_STATUS\n',
+    );
+    await chmod(stub, 0o755);
+    for (const scenario of [
+      { status: "0", input: "", restarted: false },
+      { status: "2", input: "no\n", restarted: false },
+      { status: "2", input: "yes\n", restarted: true },
+    ]) {
+      const result = spawnSync("/bin/zsh", [command], {
+        env: { ...process.env, FIXTURE_STATUS: scenario.status },
+        input: scenario.input,
+        encoding: "utf8",
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stdout.includes("restarted"), scenario.restarted);
     }
   } finally {
     await rm(root, { recursive: true, force: true });

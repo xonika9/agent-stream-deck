@@ -49,11 +49,7 @@ for (const filename of [
 for (const filename of ["Start Codex Deck.cmd", "Start-CodexDeck.ps1", "Watch-CodexDeck.ps1", "README.txt"]) {
   await cp(resolve("launcher", filename), resolve(output, filename));
 }
-await cp(resolve("docs"), resolve(output, "docs"), { recursive: true });
-await cp(resolve("README.md"), resolve(output, "README.md"));
-await cp(resolve("LICENSE"), resolve(output, "LICENSE"));
-await cp(resolve("SECURITY.md"), resolve(output, "SECURITY.md"));
-await cp(resolve("CONTRIBUTING.md"), resolve(output, "CONTRIBUTING.md"));
+await copyPublicDocs(output);
 
 await build({
   entryPoints: [resolve("launcher/macos/codex-deck-macos.ts")],
@@ -74,8 +70,30 @@ for (const filename of ["start-codex-deck.sh", "Start Codex Deck.command"]) {
   await writeFile(destination, contents.replace(/\r\n/g, "\n"), { encoding: "utf8", mode: 0o755 });
   await chmod(destination, 0o755);
 }
-await cp(resolve("docs"), resolve(macOutput, "docs"), { recursive: true });
-await cp(resolve("README.md"), resolve(macOutput, "README.md"));
-await cp(resolve("LICENSE"), resolve(macOutput, "LICENSE"));
-await cp(resolve("SECURITY.md"), resolve(macOutput, "SECURITY.md"));
-await cp(resolve("CONTRIBUTING.md"), resolve(macOutput, "CONTRIBUTING.md"));
+await copyPublicDocs(macOutput);
+
+async function copyPublicDocs(destination) {
+  await mkdir(resolve(destination, "docs"), { recursive: true });
+  for (const filename of [
+    "ARCHITECTURE.md",
+    "MACOS.md",
+    "WINDOWS.md",
+    "TROUBLESHOOTING.md",
+    "ICON_SETUP.md",
+    "OPENCODE_COMPATIBILITY.md",
+  ]) {
+    await cp(resolve("docs", filename), resolve(destination, "docs", filename));
+  }
+  await mkdir(resolve(destination, "docs/assets"), { recursive: true });
+  for (const filename of [
+    "codex-deck-hero.png",
+    "agent-status-preview.svg",
+    "agent-status-preview-dark.svg",
+    "usage-controls-preview.svg",
+  ]) {
+    await cp(resolve("docs/assets", filename), resolve(destination, "docs/assets", filename));
+  }
+  for (const filename of ["README.ru.md", "README.md", "LICENSE", "SECURITY.md", "CONTRIBUTING.md"]) {
+    await cp(resolve(filename), resolve(destination, filename));
+  }
+}

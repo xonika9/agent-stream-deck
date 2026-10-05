@@ -1,4 +1,4 @@
-import { readFile, readdir, stat } from "node:fs/promises";
+import { open, readFile, readdir, stat } from "node:fs/promises";
 import { basename, extname, isAbsolute, posix, resolve } from "node:path";
 import { inflateRawSync } from "node:zlib";
 
@@ -21,6 +21,7 @@ const forbiddenFiles = new Set([
   "mobile-local-pairing.svg",
   "relay-tunnel.pid",
   "watcher-state.json",
+  "watcher-ready.json",
   "watcher.log",
   "watcher.log.1",
   "watcher.log.2",
@@ -224,6 +225,35 @@ function auditArchive(path, archive) {
   if (offset !== centralOffset + centralSize) throw new Error("ZIP central directory size mismatch");
 }
 
+async function readBoundedArchive(path) {
+  const handle = await open(path, "r");
+  try {
+    // Check the opened file, then cap every read on that same descriptor. A file
+    // growing after stat cannot cause an unbounded allocation or read.
+    const { size } = await handle.stat();
+    if (size > maxArchiveBytes) throw new Error(`archive exceeds ${maxArchiveBytes} bytes`);
+    let archive = Buffer.allocUnsafe(size);
+    let total = 0;
+    while (true) {
+      if (total === archive.length) {
+        const probe = Buffer.allocUnsafe(1);
+        const { bytesRead } = await handle.read(probe, 0, 1, null);
+        if (bytesRead === 0) return archive.subarray(0, total);
+        if (total === maxArchiveBytes) throw new Error(`archive exceeds ${maxArchiveBytes} bytes`);
+        const grown = Buffer.allocUnsafe(Math.min(maxArchiveBytes, Math.max(total + 1024 * 1024, total * 2)));
+        archive.copy(grown, 0, 0, total);
+        grown[total++] = probe[0];
+        archive = grown;
+      }
+      const { bytesRead } = await handle.read(archive, total, archive.length - total, null);
+      if (bytesRead === 0) return archive.subarray(0, total);
+      total += bytesRead;
+    }
+  } finally {
+    await handle.close();
+  }
+}
+
 async function walk(path) {
   const info = await stat(path);
   if (info.isDirectory()) {
@@ -233,7 +263,7 @@ async function walk(path) {
   const extension = extname(path).toLowerCase();
   if (archiveExtensions.has(extension)) {
     try {
-      auditArchive(path, await readFile(path));
+      auditArchive(path, await readBoundedArchive(path));
     } catch (error) {
       failures.push(`${path}: cannot audit archive (${String(error)})`);
     }

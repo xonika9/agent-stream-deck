@@ -121,3 +121,5 @@ Old remote selections and pairing files are ignored without deleting their priva
 - The exact action that failed.
 
 Do not attach Codex databases, rollout files, relay JSON, authentication data, personal paths, or official SVG asset files.
+
+If an update reports incomplete legacy relay ownership, inspect the saved PID and its original command before manually terminating anything; a matching forwarded port does not prove ownership. If shutdown times out, no bundle files were replaced and `watcher.stop` remains. A partial update after shutdown requires correcting the bundle/runtime and rerunning the installer; it does not restore retired listeners. Windows automatic recovery waits ten minutes between attempts, even across changed process IDs or failure.

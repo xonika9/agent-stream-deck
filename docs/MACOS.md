@@ -89,3 +89,5 @@ The watcher runtime is copied outside the repository. Rebuild and run `install` 
 ```
 
 This unloads the LaunchAgent and removes its runtime, bridge state, policy state, lock, and logs. It deliberately preserves `host.json`, old private relay configuration, and `icons/`. No Codex application data is removed and Codex is not restarted.
+
+The installer runs the copied autonomous runtime self-test with the same Node.js 24 resolver before stopping the owned service. A failed stop while the service remains registered preserves its runtime. Success requires the service PID, lock PID and fresh startup token to agree; bootstrap/readiness failure is a partial update and does not restore removed listeners.

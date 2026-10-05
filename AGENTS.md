@@ -3,7 +3,7 @@
 ## Setup and validation
 
 - Use Node.js 24 or newer and install dependencies with `npm ci`.
-- For code changes, run `npm run check`, `npm test`, and `npm run validate`.
+- For code changes, run `npm run lint`, `npm run check:boundaries`, `npm run check`, `npm test`, and `npm run validate`.
 - Never create branches — always commit and work directly on `main`.
 - Run `npm run audit:release` after building release artifacts.
 - Report automated, live-app, and physical-device validation separately. Never describe fixture, compile, build, or package validation as physical-device testing.
@@ -18,3 +18,5 @@
 - Update compatibility notes when renderer integration behavior changes.
 
 See `CONTRIBUTING.md` for the pull-request contract and `SECURITY.md` for the complete security boundary.
+
+Use public `#area` entry points between source areas; follow the import direction in `docs/ARCHITECTURE.md`. Native boundary checks require ordinary ESM imports, including `import type`, rather than inline import types or `require`.

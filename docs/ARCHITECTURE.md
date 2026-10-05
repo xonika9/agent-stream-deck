@@ -229,3 +229,5 @@ native event families above. Automatic fixtures verify press/release ordering,
 finite HTTP/WebSocket/CDP budgets, and disposal of unsuccessful connection
 attempts, including a peer that never completes a close handshake. They do not
 add a newly verified live Codex version or replace application/device acceptance.
+
+Launcher updates validate their complete autonomous runtime before replacing the owned watcher. Startup acknowledgement belongs to the newly launched process; a historical log line is insufficient. Windows recovery reserves a global ten-minute cooldown before attempting a restart and retains it on failure.

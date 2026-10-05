@@ -457,7 +457,7 @@ async function runWatcher(): Promise<number> {
     safeLog(`Unhandled watcher rejection: ${String(reason)}`);
   });
 
-  await log("Watcher started.");
+  await log(`Watcher started. token=${process.argv[3] ?? ""}`);
   let policy = resumeWatcherPolicyState(await readJson<WatcherPolicyState>(WATCHER_STATE_PATH));
   let enabledSignature = "";
   try {
@@ -501,7 +501,7 @@ async function runWatcher(): Promise<number> {
   }
 }
 
-export function buildWatcherLaunchScript(runtimePath = INSTALLED_RUNTIME_PATH): string {
+export function buildWatcherLaunchScript(runtimePath = INSTALLED_RUNTIME_PATH, startupToken = ""): string {
   const shellQuote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`;
   return `#!/bin/zsh
 set -u
@@ -521,7 +521,7 @@ for node_candidate in "\${candidates[@]}"; do
   node_version=$("$node_candidate" --version 2>/dev/null) || continue
   node_major=\${\${node_version#v}%%.*}
   [[ "$node_major" == <-> && "$node_major" -ge 24 ]] || continue
-  exec "$node_candidate" "$runtime" "\${1:-watch}"
+  exec "$node_candidate" "$runtime" "\${1:-watch}" ${shellQuote(startupToken)}
 done
 
 print -r -- "$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ) [launcher] Node.js 24 or newer was not found; watcher did not start." >> ${shellQuote(WATCHER_LOG_PATH)}
@@ -591,6 +591,7 @@ async function installLaunchAgent(): Promise<void> {
   await mkdir(dirname(LAUNCH_AGENT_PATH), { recursive: true });
   const temporaryRuntime = `${INSTALLED_RUNTIME_PATH}.${process.pid}.tmp.mjs`;
   const temporaryLauncher = `${WATCHER_LAUNCHER_PATH}.${process.pid}.tmp`;
+  const startupToken = randomUUID();
   let oldWatcherStopped = false;
   try {
     await copyFile(source, temporaryRuntime);
@@ -609,7 +610,7 @@ async function installLaunchAgent(): Promise<void> {
     }
     oldWatcherStopped = true;
     await rename(temporaryRuntime, INSTALLED_RUNTIME_PATH);
-    await atomicWrite(WATCHER_LAUNCHER_PATH, buildWatcherLaunchScript(), 0o700);
+    await atomicWrite(WATCHER_LAUNCHER_PATH, buildWatcherLaunchScript(INSTALLED_RUNTIME_PATH, startupToken), 0o700);
     await atomicWrite(LAUNCH_AGENT_PATH, buildLaunchAgentPlist(), 0o644);
     await hostState();
     run("/bin/launchctl", ["bootstrap", `gui/${currentUserId()}`, LAUNCH_AGENT_PATH]);
@@ -624,7 +625,7 @@ async function installLaunchAgent(): Promise<void> {
         pid > 0 &&
         pid === lockPid &&
         /\bstate = running\b/.test(status) &&
-        logText.includes(`[${pid}] Watcher started.`)
+        logText.includes(`[${pid}] Watcher started. token=${startupToken}`)
       ) {
         ready = true;
         break;

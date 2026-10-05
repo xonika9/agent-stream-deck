@@ -96,6 +96,8 @@ async function main() {
     );
   }
 
+  run(npm, ["run", "lint"]);
+  run(npm, ["run", "check:boundaries"]);
   run(npm, ["run", "check"]);
   run(npm, ["test"]);
   run(npm, ["run", "validate"]);

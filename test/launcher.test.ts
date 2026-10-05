@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
@@ -78,7 +79,7 @@ test("watcher recovery decision self-test passes in PowerShell", async (context)
     watcherPath,
     "-SelfTest",
   ]);
-  assert.match(stdout, /self-test passed \(6 cases\)/i);
+  assert.match(stdout, /self-test passed \(8 cases\)/i);
 });
 
 test("launcher supports the current shared-chunk native detection path", () => {
@@ -135,4 +136,26 @@ test("launcher activates and verifies a native event bus exposed only by app-sha
     context,
   );
   assert.equal(verify.ready, true);
+});
+
+test("Windows updater preserves unproven SSH and cleans only retired same-root bundle files", (context) => {
+  if (process.platform !== "win32") {
+    context.skip("Windows PowerShell updater fixture requires Windows");
+    return;
+  }
+  const result = spawnSync(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      fileURLToPath(new URL("./windows-update-fixture.ps1", import.meta.url)),
+      "-Repository",
+      fileURLToPath(new URL("../", import.meta.url)),
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /fixture passed/);
 });

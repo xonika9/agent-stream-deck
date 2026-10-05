@@ -38,7 +38,7 @@ Codex runs locally on each platform. Mac also supports local OpenCode and saved 
 - Elgato Stream Deck 7.1 or newer on the computer connected to the Stream Deck.
 - Node.js 24 or newer for the platform launcher.
 - Windows 10+ or macOS 13+.
-- Tested hardware: standard 15-key Stream Deck MK.2.
+- Historical hardware testing: standard 15-key Stream Deck MK.2; the current update still needs live application and physical-device acceptance.
 
 Other Stream Deck models may work, but the included layout and physical-device testing target the normal 5×3 MK.2.
 
@@ -85,7 +85,7 @@ If the renderer's full catalog is temporarily unavailable or incompatible, Activ
 
 On a profile with N Agent buttons, place logical **Agent 1** through **Agent N** next to each other in order. Idle chats cannot be opened from those buttons while the queue is enabled. Pinned and unpinned tasks participate in the full native catalog; **custom** deliberately keeps only its six configured candidates, and the queue may still compact the relevant ones. Disable Active queue to restore the exact existing local agent-source layout.
 
-Selecting **OpenCode** or **Both** forces Active queue while preserving the saved Codex-only preference. The characterized OpenCode path covers OpenCode Desktop on macOS, validated against `2.0.5` and `2.0.10`: its managed local service and saved non-interactive SSH connections. Later versions remain available when their protected registration, authenticated identity through `/api/info` or legacy `/api/status`, and bounded API response shapes still match; incompatible capabilities fail closed per connection. A bounded, sanitized task title is shown only by the local Stream Deck renderer, with a stable `OpenCode N` alias as its fallback; titles never enter logs. Locations, messages, connection targets, and credentials are neither rendered nor logged. Successful completions and failed tasks remain visible for up to five minutes after their terminal event unless OpenCode reports them viewed or their Stream Deck key is pressed first. Older terminal history is not backfilled. Pressing an OpenCode key also brings OpenCode Desktop forward, removes that exact result locally, and best-effort publishes the same terminal revision through OpenCode's official session-view route; unsupported versions retain the local fallback. A later result from the same chat appears again. WSL and saved HTTP connections are not part of this first integration.
+Selecting **OpenCode** or **Both** forces Active queue while preserving the saved Codex-only preference. The characterized OpenCode path covers OpenCode Desktop on macOS, historically characterized against `2.0.5` and `2.0.10`: its managed local service and saved non-interactive SSH connections. Later versions remain available when their protected registration, authenticated identity through `/api/info` or legacy `/api/status`, and bounded API response shapes still match; incompatible capabilities fail closed per connection. A bounded, sanitized task title is shown only by the local Stream Deck renderer, with a stable `OpenCode N` alias as its fallback; titles never enter logs. Locations, messages, connection targets, and credentials are neither rendered nor logged. Successful completions and failed tasks remain visible for up to five minutes after their terminal event unless OpenCode reports them viewed or their Stream Deck key is pressed first. Older terminal history is not backfilled. Pressing an OpenCode key also brings OpenCode Desktop forward, removes that exact result locally, and best-effort publishes the same terminal revision through OpenCode's official session-view route; unsupported versions retain the local fallback. A later result from the same chat appears again. WSL and saved HTTP connections are not part of this first integration.
 
 ## Recommended 15-key layout
 
@@ -182,6 +182,8 @@ Start with [Troubleshooting](docs/TROUBLESHOOTING.md). The important rule is: re
 
 ```shell
 npm ci
+npm run lint
+npm run check:boundaries
 npm run check
 npm test
 npm run validate
@@ -209,3 +211,5 @@ artwork from that concept is included.
 ## License and trademarks
 
 Code and original artwork are licensed under [MIT](LICENSE). OpenAI, Codex, ChatGPT, Elgato, Stream Deck, and their marks/assets belong to their respective owners; third-party and user-supplied assets are not relicensed.
+
+Current local metadata identifies OpenCode `2.0.22`, Stream Deck `7.6.0` (build `23012`), and CodexBar `0.70.0` (build `161`). Metadata is not a live compatibility result. Codex was not found in the bounded standard-directory metadata search; that does not prove it is absent. The build uses Node.js 24 and Stream Deck SDKVersion 3.

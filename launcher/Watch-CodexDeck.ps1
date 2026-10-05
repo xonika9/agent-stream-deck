@@ -2,6 +2,7 @@ param(
   [switch]$Once,
   [switch]$SelfTest,
   [switch]$RecoverExistingSession,
+  [string]$StartupToken = '',
   [ValidateRange(1, 30)]
   [int]$PollSeconds = 2
 )
@@ -21,10 +22,11 @@ function Test-RecoveryAllowed(
   [string]$HandledGeneration,
   [bool]$RecoverExisting,
   [bool]$SawStopped,
-  [bool]$HadHealthy
+  [bool]$HadHealthy,
+  [DateTimeOffset]$NextRecoveryAt = [DateTimeOffset]::MinValue
 ) {
   $generationChanged = -not [string]::IsNullOrWhiteSpace($HandledGeneration) -and $Generation -ne $HandledGeneration
-  $RecoverExisting -or $SawStopped -or $HadHealthy -or $generationChanged
+  ([DateTimeOffset]::UtcNow -ge $NextRecoveryAt) -and ($RecoverExisting -or $SawStopped -or $HadHealthy -or $generationChanged)
 }
 
 if ($SelfTest) {
@@ -34,6 +36,8 @@ if ($SelfTest) {
     @{ Name = 'rapid main-process replacement recovers'; Expected = $true; Actual = Test-RecoveryAllowed 'v1:101' 'v1:100' $false $false $false },
     @{ Name = 'observed stopped interval recovers'; Expected = $true; Actual = Test-RecoveryAllowed 'v1:101' '' $false $true $false },
     @{ Name = 'previous healthy bridge recovers'; Expected = $true; Actual = Test-RecoveryAllowed 'v2:200' 'v1:100' $false $false $true },
+    @{ Name = 'new process during global cooldown remains untouched'; Expected = $false; Actual = Test-RecoveryAllowed 'v1:102' 'v1:101' $true $true $true ([DateTimeOffset]::UtcNow.AddMinutes(10)) },
+    @{ Name = 'new process after global cooldown may recover'; Expected = $true; Actual = Test-RecoveryAllowed 'v1:103' 'v1:102' $false $false $true ([DateTimeOffset]::UtcNow.AddSeconds(-1)) },
     @{ Name = 'login recovery handles startup race'; Expected = $true; Actual = Test-RecoveryAllowed 'v1:100' '' $true $false $false }
   )
   $failures = @($cases | Where-Object { $_.Actual -ne $_.Expected })
@@ -147,8 +151,19 @@ $hadHealthyBridge = $false
 $handledGeneration = ''
 $lastHealthyGeneration = ''
 $lastState = ''
+$nextRecoveryAt = [DateTimeOffset]::MinValue
+$readyPath = Join-Path $stateRoot 'watcher-ready.json'
 
 try {
+  if (-not (Test-LauncherReady)) { throw 'The watcher bundle is unavailable.' }
+  $node = Get-Command node -ErrorAction Stop
+  $major = [int]((& $node.Source --version).TrimStart('v').Split('.')[0])
+  if ($major -lt 24) { throw 'Node.js 24 or newer is required; watcher startup was not confirmed.' }
+  $runtime = Join-Path $PSScriptRoot 'runtime-override.mjs'
+  if (-not (Test-Path -LiteralPath $runtime)) { $runtime = Join-Path $PSScriptRoot '..\release\codex-deck-launcher\runtime-override.mjs' }
+  & $node.Source --input-type=module -e "await import('node:url').then(m => import(m.pathToFileURL(process.argv[2]).href))" codex-deck-preflight $runtime
+  if ($LASTEXITCODE -ne 0) { throw 'The watcher runtime cannot load.' }
+  [IO.File]::WriteAllText($readyPath, (@{ pid = $PID; token = $StartupToken } | ConvertTo-Json -Compress))
   Write-WatcherLog "Watcher started (pid=$PID, recoverExisting=$($RecoverExistingSession.IsPresent))."
   while ($true) {
     if (Test-Path -LiteralPath $stopPath) {
@@ -184,8 +199,9 @@ try {
         }
         else {
           Clear-StalePortFile
-          $mayRecover = Test-RecoveryAllowed $generation $handledGeneration $RecoverExistingSession $sawStoppedSession $hadHealthyBridge
+          $mayRecover = Test-RecoveryAllowed $generation $handledGeneration $RecoverExistingSession $sawStoppedSession $hadHealthyBridge $nextRecoveryAt
           if ($generation -ne $handledGeneration -and $mayRecover) {
+            $nextRecoveryAt = [DateTimeOffset]::UtcNow.AddMinutes(10)
             $handledGeneration = $generation
             Write-WatcherLog "Codex $($codex.Version) started without the bridge; performing one automatic recovery restart."
             Start-Sleep -Milliseconds 1500
@@ -213,6 +229,7 @@ try {
   }
 }
 finally {
+  Remove-Item -LiteralPath $readyPath -Force -ErrorAction SilentlyContinue
   $mutex.ReleaseMutex()
   $mutex.Dispose()
   Write-WatcherLog 'Watcher stopped.'

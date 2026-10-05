@@ -1,0 +1,160 @@
+{
+  "base": "97095a55e7ac134455e02364eadc7acf9cf10031",
+  "environment": {
+    "platform": "macOS",
+    "node": "v24.16.0",
+    "powershell": "portable PowerShell 7.6.6 arm64; interpreter/function fixtures only; not Windows 5.1/CIM/COM"
+  },
+  "commands": [
+    {
+      "command": "npm ci",
+      "result": "pass; 84 packages installed, 85 audited, 0 vulnerabilities"
+    },
+    {
+      "command": "npm run lint",
+      "result": "pass; one pre-existing informational useTemplate suggestion"
+    },
+    {
+      "command": "npm run check:boundaries",
+      "result": "pass"
+    },
+    {
+      "command": "npm run check",
+      "result": "pass"
+    },
+    {
+      "command": "npm test",
+      "result": "209 tests: 207 passed, 2 Windows-only skips"
+    },
+    {
+      "command": "npm run validate",
+      "result": "pass"
+    },
+    {
+      "command": "npm run pack",
+      "result": "pass"
+    },
+    {
+      "command": "npm run release:prepare",
+      "result": "pass; version 1.0.1 unchanged; includes all mandatory gates, validate, pack and final directory audit"
+    },
+    {
+      "command": "npm run audit:release",
+      "result": "pass; 3 artifact roots"
+    },
+    {
+      "command": "node docs/maintenance/evidence/u6-package-proof.mjs",
+      "result": "pass; isolated ws runtime ready; no TypeScript or launcher SDK dependency"
+    },
+    {
+      "command": "portable pwsh -File test/windows-update-fixture.ps1 -Repository <checkout>",
+      "result": "pass; actual interpreter executes staged split fallback import, rejects damaged ws, preserves unknown SSH/private config, retires exact owned SSH, waits real busy mutex to 30-second timeout, cleans only obsolete same-root bundle files"
+    },
+    {
+      "command": "portable pwsh -File launcher/Watch-CodexDeck.ps1 -SelfTest",
+      "result": "pass; 8 recovery cases"
+    },
+    {
+      "command": "git diff --check",
+      "result": "pass"
+    }
+  ],
+  "redGreen": {
+    "I1": {
+      "red": "root macos-command-before-fix.json actual zsh read-only status failure",
+      "green": "actual zsh success, declined restart, accepted restart fixture"
+    },
+    "I2": {
+      "red": "old Request-WatcherStop executed against real held named mutex returns after 3 seconds; fixture fails busy watcher rejection",
+      "green": "current function waits 30 seconds then fails, stop marker retained"
+    },
+    "I3": {
+      "red": "old Get-WatcherBundle executed with missing ws/lib/websocket.js accepts syntax-valid runtime; same fixture fails expected pre-stop rejection",
+      "green": "current staged runtime import rejects broken dependency; valid split fallback assembles, imports and self-tests before mutation"
+    },
+    "I4": {
+      "red": "old Test-RecoveryAllowed executed with current self-test fails new-PID-within-cooldown case",
+      "green": "current self-test 8 cases passed; cooldown reserved before restart and unchanged by error catch"
+    },
+    "I5": {
+      "characterization": "06678bb watcher can leave independent ssh; weak old cleanup is not reused",
+      "green": "actual interpreter fixture proves unknown SSH untouched/actionable migration and exact owned legacy SSH retired with private config preserved"
+    },
+    "archiveBound": {
+      "redMaxRssKiB": 574768,
+      "greenMaxRssKiB": 48128,
+      "inputBytes": 536870913,
+      "proof": "same sparse oversized archive and V8 64 MiB heap; process.resourceUsage().maxRSS",
+      "deflate": "actual method 8 accepted; corrupt central CRC rejected"
+    }
+  },
+  "manifest": {
+    "UUID": "com.xonika9.codex-deck",
+    "actions": 53,
+    "SDKVersion": 3,
+    "Nodejs": {
+      "Version": "24",
+      "Debug": "enabled"
+    },
+    "Software": {
+      "MinimumVersion": "7.1"
+    }
+  },
+  "artifacts": [
+    {
+      "path": "outputs/release-v1.0.1/codex-deck-launcher-macos-v1.0.1.zip",
+      "sha256": "788ea34e69abaa52d739fb72af6652a058373658443176753431dec2b67de58a"
+    },
+    {
+      "path": "outputs/release-v1.0.1/codex-deck-launcher-windows-v1.0.1.zip",
+      "sha256": "eed5d88a9205faed62372961cfc0267b7a87348ca57ad1072f730f5932c48455"
+    },
+    {
+      "path": "outputs/release-v1.0.1/com.xonika9.codex-deck.streamDeckPlugin",
+      "sha256": "3a6e133093264eed00e7dee5999a6dfa631b5e0c9e152d2f46d8a8d51b6208e9"
+    }
+  ],
+  "archives": [
+    {
+      "path": "outputs/release-v1.0.1/codex-deck-launcher-macos-v1.0.1.zip",
+      "entryCount": 21,
+      "maintenanceOrPlans": [],
+      "publicGuides": [
+        "codex-deck-launcher-macos/docs/ARCHITECTURE.md",
+        "codex-deck-launcher-macos/docs/TROUBLESHOOTING.md",
+        "codex-deck-launcher-macos/docs/WINDOWS.md",
+        "codex-deck-launcher-macos/docs/MACOS.md",
+        "codex-deck-launcher-macos/docs/OPENCODE_COMPATIBILITY.md",
+        "codex-deck-launcher-macos/docs/ICON_SETUP.md"
+      ],
+      "readmes": [
+        "codex-deck-launcher-macos/README.md",
+        "codex-deck-launcher-macos/README.ru.md"
+      ],
+      "retiredFiles": []
+    },
+    {
+      "path": "outputs/release-v1.0.1/codex-deck-launcher-windows-v1.0.1.zip",
+      "entryCount": 44,
+      "maintenanceOrPlans": [],
+      "publicGuides": [
+        "codex-deck-launcher/docs/ARCHITECTURE.md",
+        "codex-deck-launcher/docs/TROUBLESHOOTING.md",
+        "codex-deck-launcher/docs/WINDOWS.md",
+        "codex-deck-launcher/docs/MACOS.md",
+        "codex-deck-launcher/docs/OPENCODE_COMPATIBILITY.md",
+        "codex-deck-launcher/docs/ICON_SETUP.md"
+      ],
+      "readmes": [
+        "codex-deck-launcher/README.md",
+        "codex-deck-launcher/README.ru.md"
+      ],
+      "retiredFiles": []
+    }
+  ],
+  "liveApplications": "not tested",
+  "windowsIntegration": "not tested; CI configured but not executed remotely",
+  "physicalDevice": "not tested",
+  "acceptance": "docs/maintenance/u8-acceptance.md",
+  "rootOwnedFilesUntouched": true
+}

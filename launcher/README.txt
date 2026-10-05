@@ -36,3 +36,5 @@ watcher; building the repository alone does not update the installed service.
 
 This is an unofficial compatibility bridge and may need an update after a Codex
 desktop release.
+
+Updates first load the complete autonomous runtime on Node.js 24, then wait for the old owned watcher to stop. Startup success requires the new process to confirm ownership. Failure after stopping is a partial update; retired relay listeners are not restored. Windows automatic recovery has a global ten-minute cooldown, including failed attempts. Legacy relay cleanup requires exact saved PID and command ownership; unproven ownership requires manual inspection. Private settings and OpenCode connections are preserved.

@@ -1,0 +1,14 @@
+{
+  "skill": "ce-simplify-code",
+  "scope": "U8 changed launcher, packaging, audit code and tests only",
+  "reviewers": ["code-reuse", "code-quality", "efficiency"],
+  "model": "inherited per explicit repository worker requirement",
+  "outcomes": {
+    "reuse": {"applied": 1, "change": "move repeated top-level public file copies into copyPublicDocs"},
+    "quality": {"applied": 2, "changes": ["rename storedZip to buildZip for method-8 support", "remove redundant destinationRoot alias"]},
+    "efficiency": {"applied": 1, "change": "read normal archives directly into the descriptor-stat sized buffer; bounded growth and extra-byte probe remain"}
+  },
+  "skipped": 0,
+  "reviewer_retry": "Code-quality first dispatch had service capacity failure; resumed same reviewer successfully.",
+  "safety_checks_preserved": true
+}

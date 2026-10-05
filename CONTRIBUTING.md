@@ -51,6 +51,8 @@ release/codex-deck-launcher-macos/start-codex-deck.sh install
 
 ```sh
 npm ci
+npm run lint
+npm run check:boundaries
 npm run check
 npm test
 npm run validate
@@ -73,3 +75,5 @@ operating system, hardware model, and manual verification performed. Report
 automated checks, live-app verification, and physical-device verification as
 separate evidence. Never describe fixture, compile, build, or package validation
 as physical-device verification.
+
+Current acceptance must distinguish automated checks, live application scenarios, and physical Stream Deck testing. Local packaging does not establish Windows execution or device behavior. Launcher archives contain only supported public guides and explicit assets, not plans or maintenance evidence.

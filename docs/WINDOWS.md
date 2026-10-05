@@ -63,3 +63,7 @@ The launcher does not patch the installed Codex package.
 3. Delete `%LOCALAPPDATA%\CodexDeck` only if you also want to remove local icons, identity, relay configuration, and diagnostics.
 
 Uninstalling the watcher does not close or restart Codex.
+
+Automatic recovery reserves a global ten-minute cooldown before each restart; process replacement and failed attempts do not reset it. Updating waits up to 30 seconds for the owned watcher mutex; timeout retains the stop marker and leaves bundle files untouched. The runtime and its packaged dependencies are safely imported from a staged autonomous copy before stopping. Readiness confirms the new live process and startup token.
+
+An old `relay-tunnel.pid` is used only with its saved `relay-client.json` and exact documented SSH command to prove ownership. Proven old Codex relay tunnels are stopped; unknown SSH or OpenCode processes remain untouched and the update reports an incomplete migration. Private JSON settings remain on disk. Only the retired `Configure-CodexDeckRelay.ps1`, `Configure-CodexDeckMobile.ps1`, and `mobile-pairing.mjs` bundle files are removed.
