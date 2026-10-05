@@ -1,0 +1,15 @@
+{
+  "environment": "macOS 26.6.1 arm64; ephemeral tool, not Windows",
+  "version": "PowerShell 7.6.6",
+  "source": "https://github.com/PowerShell/PowerShell/releases/tag/v7.6.6",
+  "archive": "powershell-7.6.6-osx-arm64.tar.gz",
+  "sha256": "6df833d094ebac1c1a74340d7b3437f4aaf5e03ce640484a1c4359f3ce8b3db1",
+  "official_hash_matched": true,
+  "version_command": "/tmp/codex-deck-pwsh-7.6.6/pwsh -NoLogo -NoProfile -Command $PSVersionTable.PSVersion.ToString()",
+  "version_command_exit": 0,
+  "installation": "extracted in task temporary directory only; no system install or PATH changes",
+  "fixture_validation": "Root replay passed: real autonomous runtime red/green, actual updater functions, busy mutex timeout, four readiness-consumer cases with mocked process boundary, eight recovery SelfTest cases, parser of three scripts. Mac interpreter only.",
+  "windows_validation": false,
+  "disposition": "Task-created ephemeral portable interpreter and archive removed after successful final verification",
+  "removedBytes": 271688426
+}

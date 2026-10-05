@@ -1,0 +1,8 @@
+{
+  "environment": "macOS Node24 Biome2.5.15",
+  "probe": "three-node ordinary import-type cycle",
+  "exit": 1,
+  "diagnostic": "lint/suspicious/noImportCycles",
+  "passed": true,
+  "temporary_files_removed": true
+}

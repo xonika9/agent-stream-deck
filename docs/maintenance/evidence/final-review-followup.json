@@ -1,0 +1,41 @@
+{
+  "reviewRunId": "20261005-final-maintenance",
+  "receiptStatus": "complete",
+  "codeCorrections": {
+    "C1": "applied inline; real runtime causal red/green and complete gates",
+    "C2": "applied inline; eight cases actual PowerShell Mac, Windows5.1 pending"
+  },
+  "testingGapMacNoReceipt": {
+    "status": "closed by root after review",
+    "source": "test/macos-launcher.test.ts",
+    "scenario": "launchctl bootstrap success and running PID without new lock/receipt",
+    "observed": "actual installer times out, throws and never prints readiness",
+    "targetedCommand": "npx tsx --test test/macos-launcher.test.ts",
+    "exit": 0
+  },
+  "finalGates": {
+    "lint": 0,
+    "boundaries": 0,
+    "check": 0,
+    "test": {
+      "exit": 0,
+      "total": 209,
+      "pass": 207,
+      "fail": 0,
+      "skip": 2
+    },
+    "validate": 0
+  },
+  "unapplied": {
+    "finding": 1,
+    "severity": "P1",
+    "status": "external acceptance incomplete",
+    "reason": "Target environments and separate user authorization for installed apps/services required; exact scenario and artifacts prepared",
+    "recordedIn": [
+      "docs/maintenance/implementation-report.md",
+      "docs/maintenance/final-code-review.md",
+      "docs/maintenance/u8-acceptance.md"
+    ]
+  },
+  "residualEarlyFixtureImpact": "unknown; cannot retroactively prove absence"
+}

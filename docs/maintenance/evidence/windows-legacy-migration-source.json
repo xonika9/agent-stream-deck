@@ -1,0 +1,40 @@
+{
+  "base": "06678bb",
+  "environment": "read-only repository source trace; Windows not executed",
+  "source": "launcher/Watch-CodexDeck.ps1",
+  "legacy_owned_pid_file": "relay-tunnel.pid",
+  "legacy_config_file": "relay-client.json",
+  "legacy_mutex": "Local\\CodexDeckBridgeWatcher",
+  "ownership_requirements": [
+    "saved process ID still identifies ssh.exe",
+    "legacy config contains valid saved target and loopback local/remote ports",
+    "actual command contains -N, exact -L 127.0.0.1:local:127.0.0.1:remote, exact terminal saved SSH target",
+    "legacy launch options match the documented noninteractive, exit-on-forward-failure and keepalive arguments; no unrelated forwarding options"
+  ],
+  "notes": [
+    "Old watcher finalizer releases mutex but does not terminate independent relay ssh process.",
+    "Do not reuse weak legacy Stop-OwnedRelayTunnel check accepting any -N/-L under saved PID.",
+    "Do not infer ownership from a matching port alone; OpenCode and unrelated SSH must be preserved.",
+    "Existing private config files must not be deleted; actual installed processes were not inspected."
+  ],
+  "retired_bundle_files": [
+    "Configure-CodexDeckRelay.ps1",
+    "Configure-CodexDeckMobile.ps1",
+    "mobile-pairing.mjs"
+  ],
+  "legacy_launch_arguments": [
+    "-N",
+    "-T",
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "ExitOnForwardFailure=yes",
+    "-o",
+    "ServerAliveInterval=30",
+    "-o",
+    "ServerAliveCountMax=3",
+    "-L",
+    "127.0.0.1:<local>:127.0.0.1:<remote>",
+    "<saved SSH alias>"
+  ]
+}

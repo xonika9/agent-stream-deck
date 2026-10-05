@@ -1,0 +1,25 @@
+{
+  "environment": "macOS; read-only standard application bundle metadata",
+  "live_validation": false,
+  "applications": [
+    {
+      "name": "Elgato Stream Deck.app",
+      "bundle_id": "com.elgato.StreamDeck",
+      "version": "7.6.0",
+      "build": "23012"
+    },
+    {
+      "name": "OpenCode.app",
+      "bundle_id": "ai.opencode.desktop",
+      "version": "2.0.22",
+      "build": "2.0.22"
+    },
+    {
+      "name": "CodexBar.app",
+      "bundle_id": "com.steipete.codexbar",
+      "version": "0.70.0",
+      "build": "161"
+    }
+  ],
+  "limitation": "Metadata does not prove launch, renderer integration, Fedora connection or physical device behavior."
+}

@@ -1,0 +1,358 @@
+{
+  "status": "complete",
+  "verdict": "Not ready",
+  "verdict_reason": "Обзор завершён. Открытых подтверждённых ошибок исходников не осталось; явный U8 и общая приёмка продукта не завершены: #1 требует результатов на целевых установках Mac/Windows/Fedora и физическом Stream Deck.",
+  "scope": {
+    "base": "06678bb430b94e8d3d1982623934b6cb2a3543f3",
+    "branch": "main",
+    "head_sha": "97095a55e7ac134455e02364eadc7acf9cf10031",
+    "pr_url": null,
+    "files_changed": 171,
+    "working_tree": "HEAD плюс незакоммиченная U8; test/windows-update-fixture.ps1 включён. Сохранённые отчёты рассмотрены как контекст доказательств."
+  },
+  "intent": "Обновить зависимости, удалить приложение iPhone и отдельный Codex relay, разделить обязанности одного пакета с сохранением Mac Codex/OpenCode/Both, самостоятельного Windows, Fedora SSH, очереди, UUID, настроек и безопасности.",
+  "intent_confidence": "explicit",
+  "reviewers": [
+    "correctness",
+    "project-standards",
+    "testing",
+    "maintainability",
+    "security",
+    "reliability",
+    "api-contract",
+    "adversarial"
+  ],
+  "findings": [
+    {
+      "#": 1,
+      "autofix_class": "manual",
+      "confidence": 100,
+      "evidence": [
+        "docs/maintenance/u8-acceptance.md:3 -- Установка в реальные приложения пока не выполнялась. Эти сценарии требуют отдельного разрешения владельца и доступа к соответствующей среде.",
+        "docs/maintenance/u8-acceptance.md:7-11 -- Mac Codex/OpenCode/Fedora, Windows PowerShell 5.1/CIM/COM и физический Stream Deck обозначены непроверенными.",
+        "docs/plans/2026-10-05-0015-refactor-codex-deck-maintenance-plan.md:325-329 -- U8 требует обновить старый профиль и скопированный watcher на разрешённой установке, AE2/AE6 и живые сценарии.",
+        "docs/plans/2026-10-05-0015-refactor-codex-deck-maintenance-plan.md:349 -- Если нужная среда недоступна, код можно передать на проверку, но общая приёмка остаётся незавершённой до соответствующего наблюдаемого результата.",
+        "docs/maintenance/evidence/final-owner-validation.json -- liveApps, windowsIntegration, physicalDevice: not verified; remoteCI: configured, not run."
+      ],
+      "file": "docs/maintenance/u8-acceptance.md",
+      "first_evidence": "docs/maintenance/u8-acceptance.md:3 -- Установка в реальные приложения пока не выполнялась.",
+      "independent_reviewers": [
+        "project-standards"
+      ],
+      "line": 3,
+      "owner": "downstream-resolver",
+      "pre_existing": false,
+      "requires_verification": true,
+      "reviewers": [
+        "project-standards",
+        "testing",
+        "correctness",
+        "api-contract",
+        "adversarial"
+      ],
+      "severity": "P1",
+      "suggested_fix": "На разрешённых целевых установках выполнить сценарии U8/AE2/AE6: Mac Codex/OpenCode/Both и сохранённый Fedora SSH, самостоятельный Windows, обновление старого профиля и скопированного наблюдателя; отдельно записать модель физического Stream Deck и результаты нажатий/удержаний/квот без расхода кредитов. Сохранить раздельные результаты, ОС/версии и наблюдаемый исход; до этого не обозначать общую приёмку завершённой. Внешние установки требуют отдельного поручения владельца.",
+      "title": "U8 не завершён: обновление установленных приложений и физическое устройство не проверены",
+      "why_it_matters": "Явный план требует наблюдаемой приёмки обновлённого плагина и скопированного наблюдателя на Mac и самостоятельном Windows, настоящего источника Fedora и физического устройства. Успешные автоматические проверки, упаковка и переносимая PowerShell-фикстура не подтверждают эти результаты. Документация корректно признаёт пробел; реализации U1-U7 и автоматической части U8 можно передать на проверку, но полная приёмка и общий критерий завершения остаются незавершёнными.",
+      "external_acceptance_authority": "Требуется отдельное поручение владельца для действий с установленными приложениями и доступ к целевой Windows/Fedora/устройству; текущая проверка только читает исходники.",
+      "validation_status": "confirmed",
+      "validation_reason": "Для завершения общей приёмки текущего изменения необходимы живые сценарии U8/AE2/AE6 на Mac, самостоятельном Windows, сохранённом источнике Fedora и физическом Stream Deck: план (строки 325–329, 349) требует этих наблюдаемых результатов, тогда как docs/maintenance/u8-acceptance.md:3,7–11,15 и final-owner-validation.json прямо фиксируют их отсутствие для HEAD 97095a55 плюс U8; изолированные проверки с подменой процессов подтверждают только автоматическую часть, а исправленные argv[2]/codex-deck-preflight и ожидание восьми случаев закрывают прежние ошибки C1/C2, но не этот пробел приёмки.",
+      "protected_subject": null
+    }
+  ],
+  "actionable_findings": [
+    {
+      "#": 1,
+      "autofix_class": "manual",
+      "confidence": 100,
+      "evidence": [
+        "docs/maintenance/u8-acceptance.md:3 -- Установка в реальные приложения пока не выполнялась. Эти сценарии требуют отдельного разрешения владельца и доступа к соответствующей среде.",
+        "docs/maintenance/u8-acceptance.md:7-11 -- Mac Codex/OpenCode/Fedora, Windows PowerShell 5.1/CIM/COM и физический Stream Deck обозначены непроверенными.",
+        "docs/plans/2026-10-05-0015-refactor-codex-deck-maintenance-plan.md:325-329 -- U8 требует обновить старый профиль и скопированный watcher на разрешённой установке, AE2/AE6 и живые сценарии.",
+        "docs/plans/2026-10-05-0015-refactor-codex-deck-maintenance-plan.md:349 -- Если нужная среда недоступна, код можно передать на проверку, но общая приёмка остаётся незавершённой до соответствующего наблюдаемого результата.",
+        "docs/maintenance/evidence/final-owner-validation.json -- liveApps, windowsIntegration, physicalDevice: not verified; remoteCI: configured, not run."
+      ],
+      "file": "docs/maintenance/u8-acceptance.md",
+      "first_evidence": "docs/maintenance/u8-acceptance.md:3 -- Установка в реальные приложения пока не выполнялась.",
+      "independent_reviewers": [
+        "project-standards"
+      ],
+      "line": 3,
+      "owner": "downstream-resolver",
+      "pre_existing": false,
+      "requires_verification": true,
+      "reviewers": [
+        "project-standards",
+        "testing",
+        "correctness",
+        "api-contract",
+        "adversarial"
+      ],
+      "severity": "P1",
+      "suggested_fix": "На разрешённых целевых установках выполнить сценарии U8/AE2/AE6: Mac Codex/OpenCode/Both и сохранённый Fedora SSH, самостоятельный Windows, обновление старого профиля и скопированного наблюдателя; отдельно записать модель физического Stream Deck и результаты нажатий/удержаний/квот без расхода кредитов. Сохранить раздельные результаты, ОС/версии и наблюдаемый исход; до этого не обозначать общую приёмку завершённой. Внешние установки требуют отдельного поручения владельца.",
+      "title": "U8 не завершён: обновление установленных приложений и физическое устройство не проверены",
+      "why_it_matters": "Явный план требует наблюдаемой приёмки обновлённого плагина и скопированного наблюдателя на Mac и самостоятельном Windows, настоящего источника Fedora и физического устройства. Успешные автоматические проверки, упаковка и переносимая PowerShell-фикстура не подтверждают эти результаты. Документация корректно признаёт пробел; реализации U1-U7 и автоматической части U8 можно передать на проверку, но полная приёмка и общий критерий завершения остаются незавершёнными.",
+      "external_acceptance_authority": "Требуется отдельное поручение владельца для действий с установленными приложениями и доступ к целевой Windows/Fedora/устройству; текущая проверка только читает исходники.",
+      "validation_status": "confirmed",
+      "validation_reason": "Для завершения общей приёмки текущего изменения необходимы живые сценарии U8/AE2/AE6 на Mac, самостоятельном Windows, сохранённом источнике Fedora и физическом Stream Deck: план (строки 325–329, 349) требует этих наблюдаемых результатов, тогда как docs/maintenance/u8-acceptance.md:3,7–11,15 и final-owner-validation.json прямо фиксируют их отсутствие для HEAD 97095a55 плюс U8; изолированные проверки с подменой процессов подтверждают только автоматическую часть, а исправленные argv[2]/codex-deck-preflight и ожидание восьми случаев закрывают прежние ошибки C1/C2, но не этот пробел приёмки.",
+      "protected_subject": null
+    }
+  ],
+  "triage_groups": [],
+  "pre_existing_findings": [],
+  "requirements_completeness": {
+    "plan": "docs/plans/2026-10-05-0015-refactor-codex-deck-maintenance-plan.md",
+    "source": "explicit",
+    "requirements": [
+      {
+        "id": "R1",
+        "status": "partially addressed"
+      },
+      {
+        "id": "R2",
+        "status": "partially addressed"
+      },
+      {
+        "id": "R3",
+        "status": "met"
+      },
+      {
+        "id": "R4",
+        "status": "met"
+      },
+      {
+        "id": "R5",
+        "status": "met"
+      },
+      {
+        "id": "R6",
+        "status": "partially addressed"
+      },
+      {
+        "id": "R7",
+        "status": "partially addressed"
+      },
+      {
+        "id": "R8",
+        "status": "partially addressed"
+      },
+      {
+        "id": "R9",
+        "status": "partially addressed"
+      },
+      {
+        "id": "R10",
+        "status": "partially addressed"
+      },
+      {
+        "id": "R11",
+        "status": "met"
+      },
+      {
+        "id": "R12",
+        "status": "met"
+      },
+      {
+        "id": "R13",
+        "status": "met"
+      },
+      {
+        "id": "R14",
+        "status": "partially addressed"
+      },
+      {
+        "id": "AE1",
+        "status": "partially addressed"
+      },
+      {
+        "id": "AE2",
+        "status": "partially addressed"
+      },
+      {
+        "id": "AE3",
+        "status": "partially addressed"
+      },
+      {
+        "id": "AE4",
+        "status": "met"
+      },
+      {
+        "id": "AE5",
+        "status": "met"
+      },
+      {
+        "id": "AE6",
+        "status": "partially addressed"
+      }
+    ],
+    "implementation_units": [
+      {
+        "id": "U1",
+        "status": "met"
+      },
+      {
+        "id": "U2",
+        "status": "met"
+      },
+      {
+        "id": "U3",
+        "status": "met"
+      },
+      {
+        "id": "U4",
+        "status": "met"
+      },
+      {
+        "id": "U5",
+        "status": "met"
+      },
+      {
+        "id": "U6",
+        "status": "met"
+      },
+      {
+        "id": "U7",
+        "status": "met"
+      },
+      {
+        "id": "U8",
+        "status": "partially addressed"
+      }
+    ],
+    "reverse_check": {
+      "unrequested_behavior_rules": [],
+      "note": "В рассмотренных изменениях и плане не установлено неподтверждённых новых правил поведения. Node 24, SDK 3, Stream Deck 7.1, локальный срок подтверждений и ограничения обновления заданы KTD2/KTD6/R9."
+    },
+    "evidence": "docs/maintenance/evidence/final-owner-validation.json; docs/maintenance/final-code-review.md",
+    "status_basis": "U1-U7 реализованы; U8 частично. Частичные требования имеют реализацию и автоматические доказательства, но их приёмка в приложениях/целевой ОС/устройстве требует #1. Полные формулировки и основания сохранены в плане и русском отчёте."
+  },
+  "learnings": [],
+  "agent_native_gaps": [],
+  "deployment_notes": [],
+  "residual_risks": [
+    {
+      "title": "Последствия ранней Mac-фикстуры неизвестны",
+      "why_it_matters": "До изоляции дочерних процессов фикстура могла обнаружить настоящий Codex; нет доказательства воздействия, но текущий просмотр не устанавливает отсутствие раннего воздействия.",
+      "evidence": [
+        "docs/maintenance/evidence/final-review-receipt.json:coverage.notes -- ранняя Mac-фикстура недостаточно изолировала дочерние процессы; последствия неизвестны.",
+        "test/macos-launcher.test.ts:114-122 -- текущая версия блокирует child spawn/spawnSync; :166 проверяет удаление блокировки."
+      ],
+      "reviewers": [
+        "correctness",
+        "testing"
+      ]
+    }
+  ],
+  "testing_gaps": [
+    {
+      "title": "Нет проверки отсутствующей квитанции после успешного bootstrap Mac",
+      "file": "test/macos-launcher.test.ts",
+      "line": 143,
+      "why_it_matters": "Список сценариев preflight/bootstrap/busy/live не исполняет успешный bootstrap без свежего подтверждения pid/token/lock; требуется доказать закрытый отказ на этой границе.",
+      "evidence": [
+        "test/macos-launcher.test.ts:143 -- for (const scenario of [\"preflight\", \"bootstrap\", \"busy\", \"live\"])"
+      ],
+      "reviewers": [
+        "testing"
+      ]
+    }
+  ],
+  "corrected_history": [
+    {
+      "history_id": "C1",
+      "status": "corrected_by_owner_during_review",
+      "title": "Проверка комплекта блокирует любой запуск Windows",
+      "severity": "P1",
+      "file": "launcher/Start-CodexDeck.ps1",
+      "line": 81,
+      "first_evidence": "launcher/Start-CodexDeck.ps1:81 --     & $node.Source --input-type=module -e \"await import('node:url').then(m => import(m.pathToFileURL(process.argv[1]).href))\" $runtimePath",
+      "closure_evidence": [
+        "launcher/Start-CodexDeck.ps1:81 -- import(m.pathToFileURL(process.argv[2]).href) codex-deck-preflight $runtimePath",
+        "launcher/Watch-CodexDeck.ps1:164 -- import(m.pathToFileURL(process.argv[2]).href) codex-deck-preflight $runtime",
+        "launcher/runtime-override.ts:4 -- CLI запускается только когда basename(process.argv[1]) равен runtime-override.mjs или runtime-override.ts.",
+        "test/windows-update-fixture.ps1:40 -- настоящий launcher/runtime-override.ts собирается esbuild с external ws, target node24.",
+        "docs/maintenance/evidence/final-owner-validation.json:finalReviewCorrections.windowsPreflight -- redExit1 Usage; greenExit0 реальный runtime импортирован, повреждённый ws отвергнут; Node24.16.0 reviewedHead97095a55 плюс U8."
+      ],
+      "current_actionable": false,
+      "validation_limit": "Валидатор #1 подтвердил закрытие C1/C2 как контекст единственного пробела приёмки; отдельные исторические дефекты не проходили новый пакет независимых проверок. Windows PowerShell 5.1 не проверен."
+    },
+    {
+      "history_id": "C2",
+      "status": "corrected_by_owner_during_review",
+      "title": "Ожидаемое число PowerShell-проверок ломает Windows CI",
+      "severity": "P1",
+      "file": "test/launcher.test.ts",
+      "line": 82,
+      "first_evidence": "test/launcher.test.ts:82 --   assert.match(stdout, /self-test passed \\(6 cases\\)/i);",
+      "closure_evidence": [
+        "test/launcher.test.ts:82 -- assert.match(stdout, /self-test passed \\(8 cases\\)/i);",
+        "launcher/Watch-CodexDeck.ps1:34-41 -- восемь сценариев самопроверки.",
+        "docs/maintenance/evidence/final-owner-validation.json -- PowerShell7.6.6 Mac SelfTest8 exit0, исправлен ожидаемый счётчик; native Windows5.1 ещё не проверен."
+      ],
+      "current_actionable": false,
+      "validation_limit": "Валидатор #1 подтвердил закрытие C1/C2 как контекст единственного пробела приёмки; отдельные исторические дефекты не проходили новый пакет независимых проверок. Windows PowerShell 5.1 не проверен."
+    }
+  ],
+  "coverage": {
+    "depth": "full",
+    "notes": [
+      "Восемь выбранных направлений собраны; AGENTS.md/CLAUDE.md применены ко всему изменению.",
+      "Не выбирались направления агента, Swift, производительности, миграции данных, прошлых решений и комментариев PR: соответствующего сохраняемого предмета нет.",
+      "Все локальные рецензенты наследовали модель и усилие основной сессии; межмодельная независимость отсутствует.",
+      "Предыдущий U5 имел отказ внешнего OAuth и охватывал только U1-U4; этот новый обзор охватывает U1-U8.",
+      "Раннее воздействие Mac-фикстуры неизвестно; окончательная версия изолирует дочерние команды, подтверждает выход и удаление блокировки.",
+      "C1/C2 исправлены владельцем, сохранены как история; отчётчик не менял исходники.",
+      "adversarial lens: in-process fallback (cross-model peer not run: provider-capable Claude dispatch returned OAuth session expired and could not be refreshed; no usable output; requested claude-opus-5-5 high, serving identity unverified)."
+    ],
+    "cross_model": {
+      "selected": true,
+      "target": "claude",
+      "route": "claude",
+      "preference_source": "default",
+      "outcome": "in-process-fallback",
+      "artifact": null,
+      "coverage": "adversarial lens: in-process fallback (cross-model peer not run: provider-capable Claude dispatch returned OAuth session expired and could not be refreshed; no usable output; requested claude-opus-5-5 high, serving identity unverified)."
+    },
+    "cross_model_independence_verified": false,
+    "validator": {
+      "outcome": "verdicts",
+      "batch_count": 1,
+      "confirmed": 1,
+      "rejected": 0,
+      "unresolved": 0,
+      "malformed": 0,
+      "failed": 0,
+      "shortcut_skipped": 0,
+      "protected_subject_reclassifications": 0,
+      "reason": "Единственный пробел приёмки подтверждён свежим чтением плана и результатов. Межмодельное подтверждение отсутствует."
+    },
+    "first_evidence_backfilled": 0,
+    "quote_gate_demotions": 0,
+    "mode_aware_demotions": 0,
+    "suppressed_by_confidence": {},
+    "settled_conflict_suppressions": 0,
+    "failed_reviewers": [],
+    "semantic_duplicates_merged": 1,
+    "corrected_history_count": 2,
+    "compound_packs": {
+      "roots": [],
+      "warnings": [],
+      "errors": []
+    },
+    "source_edits_by_reporter": 0,
+    "verification_evidence": "docs/maintenance/evidence/final-owner-validation.json"
+  },
+  "product_acceptance": "incomplete",
+  "verification": {
+    "automated": "npm ci; npm run release:prepare; npm run audit:release; автономная упаковка: успешно. Последний npm test: 207 успешно, 0 ошибок, 2 проверки Windows пропущены; обязательные lint/boundaries/check/validate выполнены.",
+    "portable_powershell": "PowerShell 7.6.6 на Mac: реальные функции проверки импорта, восемь самопроверок, разбор трёх скриптов и четыре сценария Start-BridgeWatcher с подменой процессов/часов прошли.",
+    "live_apps": "Mac Codex/OpenCode/Both, настоящий Fedora SSH, обновление старого установленного профиля/наблюдателя не проверены.",
+    "native_windows": "Windows PowerShell 5.1/CIM/COM и самостоятельный Windows не проверены; удалённый CI настроен, не запускался.",
+    "physical_device": "Физический Stream Deck не проверен."
+  },
+  "durable_artifacts": {
+    "receipt": "docs/maintenance/evidence/final-review-receipt.json",
+    "report": "docs/maintenance/final-code-review.md"
+  },
+  "run_id": "20261005-final-maintenance"
+}

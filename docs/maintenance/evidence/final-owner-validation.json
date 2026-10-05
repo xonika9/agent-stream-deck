@@ -1,0 +1,181 @@
+{
+  "environment": "macOS 26.6.1 arm64 Node24.16.0 npm11.13.0",
+  "reviewedHead": "97095a55e7ac134455e02364eadc7acf9cf10031 plus U8 dirty tree",
+  "commands": [
+    {
+      "command": "npm ci",
+      "exit": 0,
+      "result": "84 installed,85 audited,0 vulnerabilities"
+    },
+    {
+      "command": "npm run release:prepare",
+      "exit": 0,
+      "includes": [
+        "npm run lint",
+        "npm run check:boundaries",
+        "npm run check",
+        "npm test",
+        "npm run validate",
+        "npm run pack",
+        "node scripts/audit-release.mjs outputs/release-v1.0.1"
+      ],
+      "tests": {
+        "total": 209,
+        "pass": 207,
+        "fail": 0,
+        "skip": 2
+      }
+    },
+    {
+      "command": "npm run audit:release",
+      "exit": 0,
+      "artifactRoots": 3
+    },
+    {
+      "command": "node docs/maintenance/evidence/u6-package-proof.mjs",
+      "exit": 0,
+      "result": "isolated autonomous ws runtime ready, no TypeScript or SDK required"
+    },
+    {
+      "command": "portable pwsh -File test/windows-update-fixture.ps1 -Repository <checkout>",
+      "exit": 0,
+      "result": "real functions staged import/dependency rejection,30s busy mutex timeout,owned/unknown SSH,private settings,same-root cleanup"
+    },
+    {
+      "command": "portable pwsh -File launcher/Watch-CodexDeck.ps1 -SelfTest",
+      "exit": 0,
+      "cases": 8
+    },
+    {
+      "command": "PowerShell Parser.ParseFile: Start,Watch,update fixture",
+      "exit": 0
+    },
+    {
+      "command": "git diff --check",
+      "exit": 0
+    },
+    {
+      "command": "npm run release:prepare after review corrections",
+      "exit": 0,
+      "tests": {
+        "total": 209,
+        "pass": 207,
+        "fail": 0,
+        "skip": 2
+      }
+    },
+    {
+      "command": "portable pwsh Windows update fixture after extending readiness cases",
+      "exit": 0,
+      "readinessCases": 4,
+      "processBoundary": "mocked",
+      "actualFunction": "Start-BridgeWatcher",
+      "results": [
+        "fresh token accepted",
+        "stale token rejected",
+        "exited process rejected",
+        "missing readiness times out"
+      ]
+    },
+    {
+      "command": "npm run lint after final readiness fixture",
+      "exit": 0,
+      "info": 1
+    },
+    {
+      "command": "npm run check:boundaries after final readiness fixture",
+      "exit": 0
+    },
+    {
+      "command": "npm run check after final readiness fixture",
+      "exit": 0
+    },
+    {
+      "command": "npm test after final readiness fixture",
+      "exit": 0,
+      "tests": {
+        "total": 209,
+        "pass": 207,
+        "fail": 0,
+        "skip": 2
+      }
+    },
+    {
+      "command": "npm run validate after final readiness fixture",
+      "exit": 0
+    },
+    {
+      "command": "Final required gates after Mac no-readiness case: lint,boundaries,check,test,validate",
+      "exit": 0,
+      "tests": {
+        "total": 209,
+        "pass": 207,
+        "fail": 0,
+        "skip": 2
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "outputs/release-v1.0.1/codex-deck-launcher-macos-v1.0.1.zip",
+      "sha256": "283c35416de41910b5f3a851b1c86a17ce508961b542b5607d942114a6ebd2c7",
+      "entries": 21,
+      "noMaintenanceOrPlans": true,
+      "publicGuides": [
+        "codex-deck-launcher-macos/docs/ARCHITECTURE.md",
+        "codex-deck-launcher-macos/docs/TROUBLESHOOTING.md",
+        "codex-deck-launcher-macos/docs/WINDOWS.md",
+        "codex-deck-launcher-macos/docs/MACOS.md",
+        "codex-deck-launcher-macos/docs/OPENCODE_COMPATIBILITY.md",
+        "codex-deck-launcher-macos/docs/ICON_SETUP.md"
+      ]
+    },
+    {
+      "path": "outputs/release-v1.0.1/codex-deck-launcher-windows-v1.0.1.zip",
+      "sha256": "93a0ccc3329275405e0b02c45d087bb08c4805d53aa4bb053b181de8337fc919",
+      "entries": 44,
+      "noMaintenanceOrPlans": true,
+      "publicGuides": [
+        "codex-deck-launcher/docs/ARCHITECTURE.md",
+        "codex-deck-launcher/docs/TROUBLESHOOTING.md",
+        "codex-deck-launcher/docs/WINDOWS.md",
+        "codex-deck-launcher/docs/MACOS.md",
+        "codex-deck-launcher/docs/OPENCODE_COMPATIBILITY.md",
+        "codex-deck-launcher/docs/ICON_SETUP.md"
+      ]
+    },
+    {
+      "path": "outputs/release-v1.0.1/com.xonika9.codex-deck.streamDeckPlugin",
+      "sha256": "18f9ab4c78fbec23f5f58d49d402d6169af54e230144cfe94ec560e93aaa8114",
+      "entries": 11,
+      "noMaintenanceOrPlans": true,
+      "manifest": {
+        "uuid": "com.xonika9.codex-deck",
+        "actions": 53,
+        "actionUUIDsMatchBaseline": true,
+        "SDKVersion": 3,
+        "Nodejs": {
+          "Version": "24"
+        },
+        "Software": {
+          "MinimumVersion": "7.1"
+        }
+      }
+    }
+  ],
+  "liveApps": "not verified; early Mac fixture insufficient child isolation, impact unknown",
+  "windowsIntegration": "not verified; PowerShell7.6.6 Mac interpreter only",
+  "physicalDevice": "not verified",
+  "remoteCI": "configured, not run",
+  "originalPlanSHA256": "3beef9cac63ce44acceb2236e6acfe8b638e3a0bd0ee9fb64c48ac64df29dc4c",
+  "finalReviewCorrections": {
+    "windowsPreflight": {
+      "redExit": 1,
+      "red": "real bundled runtime activated CLI and threw Usage before stop",
+      "greenExit": 0,
+      "green": "real bundled runtime safely imported through placeholder argv in actual PowerShell functions; damaged ws rejected"
+    },
+    "windowsTestCount": "old expected six; actual eight recovery cases; corrected expectation"
+  },
+  "implementationCommit": "677a2716876d70057817e664f67c2c25a90f75d3"
+}

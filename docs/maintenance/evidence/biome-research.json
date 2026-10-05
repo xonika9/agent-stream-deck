@@ -1,0 +1,26 @@
+{
+  "checked_on": "2026-10-05",
+  "tool": "@biomejs/biome",
+  "registry_version": "2.5.15",
+  "engines": {
+    "node": ">=14.21.3"
+  },
+  "command": "npm view @biomejs/biome version engines --json",
+  "primary_sources": [
+    "https://biomejs.dev/linter/rules/no-import-cycles/javascript/",
+    "https://biomejs.dev/linter/rules/no-restricted-imports/javascript/",
+    "https://biomejs.dev/linter/plugins/"
+  ],
+  "observed_options": [
+    "noImportCycles.ignoreTypes defaults to true; plan requires explicit false.",
+    "noRestrictedImports handles imports/reexports/type-only/literal dynamic import and require.",
+    "patterns support gitignore-style groups since2.2.0.",
+    "GritQL register_diagnostic defaults severity error and can be restricted by file overrides."
+  ],
+  "implementation_status": "U7 implemented; registry/docs statements below are initial research, not proof. Actual native probes in u7-boundaries.json and u7-owner-boundaries.json govern observed behavior.",
+  "native_corrections": [
+    "noRestrictedImports misses bare/assigned literal require and inline TsImportType; precise GritQL guard requires ordinary ESM import/import type",
+    "noImportCycles excludes inline-import type queries; guarded out in maintained ESM areas",
+    "plugin file override must use **/src/**; initial src/** did not run diagnostics"
+  ]
+}
