@@ -1,16 +1,16 @@
 <p align="center">
-  <img src="docs/assets/codex-deck-hero.png" alt="" width="100%">
+  <img src="docs/assets/codex-deck-hero.jpg" alt="" width="100%">
 </p>
 
 <p align="center">
   Language: <strong>English</strong> · <a href="README.ru.md">Русский</a>
 </p>
 
-# Codex Deck
+# Agent Deck
 
 [![CI workflow status](https://github.com/xonika9/codex-stream-deck/actions/workflows/ci.yml/badge.svg)](https://github.com/xonika9/codex-stream-deck/actions/workflows/ci.yml)
 
-Codex Deck brings the Codex Micro control model to an Elgato Stream Deck. It mirrors Codex's six native agent slots and sends Codex's own Micro events for actions, joystick directions, encoder clicks, reasoning effort, and official keycap commands. It does not type text or depend on global hotkeys.
+Agent Deck brings Codex, OpenCode, and T3 Code tasks together on an Elgato Stream Deck. On macOS, six dynamic keys show tasks from one source or all three; Windows retains the local Codex integration. Codex also supports native Micro controls for task selection, actions, navigation, and reasoning effort. OpenCode and T3 Code keys show task status and bring their application to the foreground.
 
 This repository is a fork and continuation of [dazer1234/codex-stream-deck](https://github.com/dazer1234/codex-stream-deck). Current development and releases are maintained by [xonika9](https://github.com/xonika9).
 
@@ -25,39 +25,55 @@ This repository is a fork and continuation of [dazer1234/codex-stream-deck](http
 
 The same Stream Deck plugin package works on both platforms. Install only the launcher and configuration needed for your setup.
 
-| Setup            | Stream Deck software | Codex controlled                 | Guide                                                                  |
-| ---------------- | -------------------- | -------------------------------- | ---------------------------------------------------------------------- |
-| Windows only     | Windows              | Local Windows Codex              | [Windows setup](docs/WINDOWS.md)                                       |
-| Mac only         | macOS                | Local Mac Codex                  | [macOS setup](docs/MACOS.md)                                           |
+| Setup | Stream Deck software | Task sources | Guide |
+| --- | --- | --- | --- |
+| Windows only | Windows | Local Windows Codex | [Windows setup](docs/WINDOWS.md) |
+| Mac only | macOS | Local Codex, OpenCode, T3 Code | [macOS setup](docs/MACOS.md) |
 
-Codex runs locally on each platform. Mac also supports local OpenCode and saved Fedora SSH connections through the **OpenCode** and **All** task sources. Separate Codex relay operation has been removed.
+Codex runs locally on each platform. macOS also supports local OpenCode and T3 Code tasks, plus remote Linux tasks through saved SSH connections. Separate Codex relay operation has been removed.
+
+## Task sources and controls
+
+Choose the global source in any **Agent** action's Stream Deck property inspector: `Codex`, `OpenCode`, `T3 Code`, or `All`. `All` combines all three; saved `Both` settings resolve to `All`. Selecting OpenCode, T3 Code, or All enables **Active queue** while preserving the saved Codex-only preference.
+
+| Source | Setup | What a task key does |
+| --- | --- | --- |
+| Codex | Local launcher: [macOS](docs/MACOS.md) or [Windows](docs/WINDOWS.md) | Selects the task through the native Codex integration. |
+| OpenCode | macOS Desktop local service or saved SSH connection: [compatibility](docs/OPENCODE_COMPATIBILITY.md) | Brings OpenCode Desktop forward; does not select a specific conversation. |
+| T3 Code | Separate read-only connection to the local server or a running remote Linux server over SSH: [setup and compatibility](docs/T3CODE_COMPATIBILITY.md) | Brings T3 Code forward; does not select a specific conversation. |
+
+For OpenCode and T3 Code, fresh completed or failed results leave the queue after five minutes, when the source reports them viewed, or when their key is pressed. A newer result from the same conversation can appear again. T3 acknowledgements remain local to the plugin; OpenCode also attempts to report the result viewed through its supported API.
+
+T3 setup runs from a source checkout with Node.js 24 or newer and `npm ci`. It creates a separate read-only session; follow the [connection guide](docs/T3CODE_COMPATIBILITY.md) for local pairing or `npm run connect:t3:ssh -- <ssh-alias>`. The installed plugin then polls without a checkout process running. Native Micro action, joystick, encoder, reasoning, and new-task controls apply to Codex.
 
 ## Requirements
 
-- Codex desktop on the computer being controlled.
+- The desktop application for your selected task source; Codex desktop is required for native Codex controls.
 - Elgato Stream Deck 7.1 or newer on the computer connected to the Stream Deck.
 - Node.js 24 or newer for the platform launcher.
 - Windows 10+ or macOS 13+.
-- Historical hardware testing: standard 15-key Stream Deck MK.2; the current update still needs live application and physical-device acceptance.
+- Historical hardware testing: standard 15-key Stream Deck MK.2. Check each release for separate automated, live-app, and physical-device validation results.
 
 Other Stream Deck models may work, but the included layout and physical-device testing target the normal 5×3 MK.2.
 
 ## Quick install
 
 > [!NOTE]
-> This fork does not have a published binary release yet. The instructions below describe the release installation path that will become available on the [releases page](https://github.com/xonika9/codex-stream-deck/releases); contributors can build the current source with the commands in [Build and release validation](#build-and-release-validation).
+> Download the plugin and launcher archives from the [releases page](https://github.com/xonika9/codex-stream-deck/releases). Contributors can build the source with the commands in [Build and release validation](#build-and-release-validation).
 
 1. Download `com.xonika9.codex-deck.streamDeckPlugin` from the matching xonika9 release and open it on the computer running Stream Deck.
 2. Download only the launcher for that computer:
    - Windows: `codex-deck-launcher-windows-vX.Y.Z.zip`
    - macOS: `codex-deck-launcher-macos-vX.Y.Z.zip`
 3. Follow [Windows](docs/WINDOWS.md) or [macOS](docs/MACOS.md).
-4. In **Codex Settings > Codex Micro**, choose the agent source, action assignments, joystick actions, and encoder behavior.
+4. Choose the task source in an **Agent** action's Stream Deck property inspector. For native Codex controls, configure agent assignments, actions, joystick, and encoder behavior in **Codex Settings > Codex Micro**.
 5. Build the two Stream Deck pages below.
+
+The Agent Deck name is used in this README; released package filenames, plugin/action UUIDs, and local data directories retain their existing Codex Deck identifiers.
 
 
 > [!WARNING]
-> The xonika9 fork uses the new plugin UUID `com.xonika9.codex-deck`. Stream Deck treats it as a different plugin from upstream `com.simeo.codex-deck`: existing actions, per-action settings, and global plugin settings are not migrated automatically. Save or export your profiles, install only one variant at a time, rebuild both pages with the new actions, and then remove the old plugin. Local Codex Deck host, legacy private relay, and icon data remain in the existing platform data directory; the macOS watcher intentionally keeps its established `com.simeo.codex-deck.watcher` service label.
+> The xonika9 fork uses the new plugin UUID `com.xonika9.codex-deck`. Stream Deck treats it as a different plugin from upstream `com.simeo.codex-deck`: existing actions, per-action settings, and global plugin settings are not migrated automatically. Save or export your profiles, install only one variant at a time, rebuild both pages with the new actions, and then remove the old plugin. Local Agent Deck host, legacy private relay, and icon data remain in the existing platform data directory; the macOS watcher intentionally keeps its established `com.simeo.codex-deck.watcher` service label.
 
 ## Features
 
@@ -79,7 +95,7 @@ Other Stream Deck models may work, but the included layout and physical-device t
 
 Enable **Active queue** in any Agent action's property inspector to compact relevant tasks into the first Agent keys. The setting applies globally to Agent 1–6 on that computer and defaults to off. It draws from Codex's native pinned and unpinned sidebar catalog: attention and error tasks come first, completion/unread tasks keep their existing FIFO ordering when activity times are available, and working tasks are ordered by the latest user message that started work. Opening or selecting a task, changing its title, background reasoning or tool work, assistant output, renderer activity, and ordinary refreshes do not reorder working keys. A later user message moves a continuously working task forward.
 
-Codex Deck derives that working-order signal only from the type, timestamp, and byte offset of a structural `event_msg` whose `payload.type` is `user_message`; it does not read the message text. If that record is unavailable—for example after a cold start, or outside the bounded 512 KiB session tail—the task receives a stable queue-local fallback instead of a fabricated start time. Known starts sort ahead of unknown starts. The fallback lasts only for the current enabled queue epoch: disabling and re-enabling Active queue or restarting the plugin starts a new epoch, while temporarily disappeared entries are retained for 24 hours. Idle and off tasks are hidden, the remaining positions close up without gaps, and the displayed queue remains capped at six.
+Agent Deck derives that working-order signal only from the type, timestamp, and byte offset of a structural `event_msg` whose `payload.type` is `user_message`; it does not read the message text. If that record is unavailable—for example after a cold start, or outside the bounded 512 KiB session tail—the task receives a stable queue-local fallback instead of a fabricated start time. Known starts sort ahead of unknown starts. The fallback lasts only for the current enabled queue epoch: disabling and re-enabling Active queue or restarting the plugin starts a new epoch, while temporarily disappeared entries are retained for 24 hours. Idle and off tasks are hidden, the remaining positions close up without gaps, and the displayed queue remains capped at six.
 
 If the renderer's full catalog is temporarily unavailable or incompatible, Active queue fails closed to the existing six native Micro slots without taking the normal snapshot offline. A healthy black position is unassigned and does nothing when pressed. Connecting, degraded, and offline diagnostics remain visible.
 
@@ -91,7 +107,7 @@ Selecting **OpenCode**, **T3 Code**, or **All** forces Active queue while preser
 
 This is the actual polished two-page layout used for the MK.2. It keeps the six live agents on the main page and puts lower-frequency navigation/reasoning controls on page 2.
 
-> This layout is only a recommendation and a practical starting point. Every action, position, page, and profile can be customized freely to match your own workflow; Codex Deck does not require this exact arrangement.
+> This layout is only a recommendation and a practical starting point. Every action, position, page, and profile can be customized freely to match your own workflow; Agent Deck does not require this exact arrangement.
 
 ### Page 1 — agents and daily actions
 
@@ -111,7 +127,7 @@ The action names describe the default Codex Micro setup. The keys always follow 
 
 ²The existing host key shows the local Codex connection state. Old profiles keep its UUID; saved remote selection is ignored without modifying old private files. ³Configure Stream Deck's built-in **Switch Profile** action to return to your own standard profile; no user-specific profile ID is distributed.
 
-The page-navigation and profile-switch keys are built-in Stream Deck actions. All other named controls come from Codex Deck. Every official Codex Micro keycap is also exposed as a standalone action, so extra pages can be customized without changing the six synchronized Micro action slots.
+The page-navigation and profile-switch keys are built-in Stream Deck actions. All other named controls come from Agent Deck. Every official Codex Micro keycap is also exposed as a standalone action, so extra pages can be customized without changing the six synchronized Micro action slots.
 
 ### Usage and reset controls
 
@@ -138,9 +154,11 @@ Name each copy after its Codex keycap ID, such as `FAST.svg`, `APPR.svg`, `REJ.s
 
 ## How it works
 
+The following path describes native Codex controls. OpenCode and T3 Code use separate task collectors; see [Task sources and controls](#task-sources-and-controls).
+
 ```text
 Stream Deck key
-    -> Codex Deck plugin
+    -> Agent Deck plugin
     -> loopback-only Chrome DevTools connection
     -> Codex renderer host-event bus
     -> native Codex Micro handler
@@ -158,8 +176,8 @@ No virtual HID driver is installed and no Codex application file is patched. See
 
 - The Codex debug endpoint remains loopback-only and must never be exposed or forwarded.
 - CDP is privileged: another untrusted process running as the same local user could try to access it.
-- Codex Deck has no telemetry, cloud service, or update service.
-- Codex Deck reads exact local rollout filenames for ownership and a bounded recent tail for structural status tags plus numeric `token_count` fields. It does not parse or relay prompts, responses, project names, or other conversation content.
+- Agent Deck has no telemetry, cloud service, or update service.
+- For Codex, Agent Deck reads exact local rollout filenames for ownership and a bounded recent tail for structural status tags plus numeric `token_count` fields. It does not parse or relay prompts, responses, project names, or other conversation content.
 - OpenCode monitoring is off in the default Codex mode. When selected, the characterized macOS collector reads only user-owned service/SSH registration data and bounded API projections; it never opens OpenCode SQLite, starts WSL, or publishes task content.
 - Optional SVGs stay in the user-local icons directory and are never uploaded.
 - Private relay tokens, local host state, logs, and personal paths are excluded by the release audit.
@@ -168,9 +186,9 @@ Do not use the launcher while running untrusted local software. See [SECURITY.md
 
 ## Compatibility
 
-Compatibility is versioned with each release because Codex Deck depends on undocumented Codex desktop internals. After the first xonika9 release, consult the notes and validation evidence on the [releases page](https://github.com/xonika9/codex-stream-deck/releases) for the tested combinations.
+Compatibility is versioned with each release because Agent Deck depends on undocumented Codex desktop internals. Consult the notes and validation evidence on the [releases page](https://github.com/xonika9/codex-stream-deck/releases) for the tested combinations.
 
-OpenCode compatibility is intentionally narrower than Codex compatibility; see [OpenCode compatibility](docs/OPENCODE_COMPATIBILITY.md).
+OpenCode and T3 Code support is macOS-only and depends on their supported API contracts; see [OpenCode compatibility](docs/OPENCODE_COMPATIBILITY.md) and [T3 setup and compatibility](docs/T3CODE_COMPATIBILITY.md).
 
 The last upstream validation covered the Windows physical-device path and the Windows + Mac relay on a real setup. It also covered the macOS launcher, watcher, native bridge, and plugin package, but not a Stream Deck physically attached to the Mac. Treat those results as historical validation evidence, not as strict minimums, maximums, or a guarantee for later Codex builds.
 
@@ -211,12 +229,3 @@ artwork from that concept is included.
 ## License and trademarks
 
 Code and original artwork are licensed under [MIT](LICENSE). OpenAI, Codex, ChatGPT, Elgato, Stream Deck, and their marks/assets belong to their respective owners; third-party and user-supplied assets are not relicensed.
-
-Current local metadata identifies OpenCode `2.0.22`, Stream Deck `7.6.0` (build `23012`), and CodexBar `0.70.0` (build `161`). Metadata is not a live compatibility result. Codex was not found in the bounded standard-directory metadata search; that does not prove it is absent. The build uses Node.js 24 and Stream Deck SDKVersion 3.
-
-### T3 Code tasks (macOS)
-
-Agent keys offer `Codex`, `OpenCode`, `T3 Code`, and `All` (all three sources).
-Saved `Both` settings migrate to `All`. Connect the local T3 server using its separate read-only
-session before selecting these modes. Remote Linux T3 tasks can be added with
-`npm run connect:t3:ssh -- <ssh-alias>`; see [setup and compatibility](docs/T3CODE_COMPATIBILITY.md).
