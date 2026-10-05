@@ -2,7 +2,8 @@ import type { AgentVisualStatus } from "./types.js";
 
 export function visualStatusFromMicro(status: string): AgentVisualStatus {
   switch (status) {
-    case "off": return "empty";
+    case "off":
+      return "empty";
     case "working":
     case "thinking":
       return "thinking";
@@ -16,7 +17,9 @@ export function visualStatusFromMicro(status: string): AgentVisualStatus {
     case "awaiting-approval":
     case "awaiting-response":
       return "input";
-    case "error": return "error";
-    default: return "idle";
+    case "error":
+      return "error";
+    default:
+      return "idle";
   }
 }

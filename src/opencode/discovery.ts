@@ -4,18 +4,41 @@ import { isRecord, boundedString, positiveInteger } from "./validation.js";
 
 export function parseRegistration(bytes: Buffer, remote = false): Registration | null {
   let value: unknown;
-  try { value = JSON.parse(bytes.toString("utf8")); } catch { return null; }
-  if (!isRecord(value) || (value.id !== undefined && !boundedString(value.id, 256)) ||
-    !boundedString(value.url, 2048) || !boundedString(value.password, 1024) || value.password.length === 0 ||
+  try {
+    value = JSON.parse(bytes.toString("utf8"));
+  } catch {
+    return null;
+  }
+  if (
+    !isRecord(value) ||
+    (value.id !== undefined && !boundedString(value.id, 256)) ||
+    !boundedString(value.url, 2048) ||
+    !boundedString(value.password, 1024) ||
+    value.password.length === 0 ||
+    !boundedString(value.version, 64) ||
+    value.version.length === 0 ||
     // biome-ignore lint/suspicious/noControlCharactersInRegex: Reject or strip untrusted control characters deliberately.
-    !boundedString(value.version, 64) || value.version.length === 0 || /[\u0000-\u001f\u007f]/u.test(value.version) ||
-    !positiveInteger(value.pid)) return null;
-  try { loopbackAddress(value.url, remote); } catch { return null; }
-  return { id: value.id as string | undefined, url: value.url, password: value.password, version: value.version, pid: value.pid };
+    /[\u0000-\u001f\u007f]/u.test(value.version) ||
+    !positiveInteger(value.pid)
+  )
+    return null;
+  try {
+    loopbackAddress(value.url, remote);
+  } catch {
+    return null;
+  }
+  return {
+    id: value.id as string | undefined,
+    url: value.url,
+    password: value.password,
+    version: value.version,
+    pid: value.pid,
+  };
 }
 
 export function parseRemoteRegistration(output: string): Registration | null {
-  const status = output.split(/\r?\n/u)
+  const status = output
+    .split(/\r?\n/u)
     .find((line) => line.startsWith("OPENCODE_SERVICE_STATUS="))
     ?.slice("OPENCODE_SERVICE_STATUS=".length);
   if (!status || status === "stopped") return null;
@@ -32,15 +55,29 @@ export function parseRemoteRegistration(output: string): Registration | null {
   const pairPassword = cleanPairOutput.match(/^\s*Password\s+([A-Za-z0-9._~+/=-]{1,1024})\s*$/mu)?.[1];
   if (!pairPassword) return null;
   let identity: unknown;
-  try { identity = JSON.parse(pairStatus); } catch { return null; }
-  if (!isRecord(identity) || !boundedString(identity.version, 64) || identity.version.length === 0 ||
-    !positiveInteger(identity.pid)) return null;
-  return parseRegistration(Buffer.from(JSON.stringify({
-    url: status,
-    password: pairPassword,
-    version: identity.version,
-    pid: identity.pid
-  })), true);
+  try {
+    identity = JSON.parse(pairStatus);
+  } catch {
+    return null;
+  }
+  if (
+    !isRecord(identity) ||
+    !boundedString(identity.version, 64) ||
+    identity.version.length === 0 ||
+    !positiveInteger(identity.pid)
+  )
+    return null;
+  return parseRegistration(
+    Buffer.from(
+      JSON.stringify({
+        url: status,
+        password: pairPassword,
+        version: identity.version,
+        pid: identity.pid,
+      }),
+    ),
+    true,
+  );
 }
 
 export function remoteBlock(output: string, name: string, maximumBytes: number): string | null {
@@ -63,8 +100,15 @@ export function parseSshServers(bytes: Buffer): SshServer[] {
   if (raw === undefined) return [];
   if (!Array.isArray(raw) || raw.length > MAX_SSH_SERVERS) throw new Error("ssh-shape");
   return raw.map((item) => {
-    if (!isRecord(item) || !boundedString(item.id, 256) || !boundedString(item.target, 2048) ||
-      !boundedString(item.name, 256) || item.id.length === 0 || item.target.length === 0) throw new Error("ssh-entry");
+    if (
+      !isRecord(item) ||
+      !boundedString(item.id, 256) ||
+      !boundedString(item.target, 2048) ||
+      !boundedString(item.name, 256) ||
+      item.id.length === 0 ||
+      item.target.length === 0
+    )
+      throw new Error("ssh-entry");
     return { id: item.id, target: item.target, name: item.name };
   });
 }
@@ -74,10 +118,18 @@ export function loopbackAddress(input: string, remote = false): { host: string; 
   const allowedHosts = remote
     ? new Set(["127.0.0.1", "localhost", "0.0.0.0", "[::]", "[::1]"])
     : new Set(["127.0.0.1", "[::1]"]);
-  if (url.protocol !== "http:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash ||
-    !allowedHosts.has(url.hostname) || !url.port) throw new Error("origin");
+  if (
+    url.protocol !== "http:" ||
+    url.username ||
+    url.password ||
+    url.pathname !== "/" ||
+    url.search ||
+    url.hash ||
+    !allowedHosts.has(url.hostname) ||
+    !url.port
+  )
+    throw new Error("origin");
   const port = Number(url.port);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("port");
   return { host: url.hostname === "[::]" || url.hostname === "[::1]" ? "[::1]" : "127.0.0.1", port };
 }
-

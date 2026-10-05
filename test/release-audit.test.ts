@@ -12,7 +12,7 @@ function crc32(contents: Buffer): number {
   let crc = 0xffffffff;
   for (const byte of contents) {
     crc ^= byte;
-    for (let bit = 0; bit < 8; bit += 1) crc = (crc & 1) ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1;
+    for (let bit = 0; bit < 8; bit += 1) crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1;
   }
   return (crc ^ 0xffffffff) >>> 0;
 }
@@ -96,11 +96,11 @@ test("release audit inspects supported archives and rejects unsafe entry paths",
     assert.match(traversalResult.stderr, /unsafe archive entry path/);
 
     const plugin = join(root, "clean.streamDeckPlugin");
-    await writeFile(plugin, storedZip([["plugin/manifest.json", "{\"Name\":\"Public\"}\n"]]));
+    await writeFile(plugin, storedZip([["plugin/manifest.json", '{"Name":"Public"}\n']]));
     const cleanResult = spawnSync(process.execPath, [auditScript, plugin], { encoding: "utf8" });
     assert.equal(cleanResult.status, 0, cleanResult.stderr);
 
-    const corrupt = storedZip([["plugin/manifest.json", "{\"Name\":\"Public\"}\n"]]);
+    const corrupt = storedZip([["plugin/manifest.json", '{"Name":"Public"}\n']]);
     const payloadOffset = 30 + Buffer.byteLength("plugin/manifest.json");
     corrupt[payloadOffset] = corrupt[payloadOffset]! ^ 0xff;
     await writeFile(plugin, corrupt);

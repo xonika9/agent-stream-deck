@@ -7,12 +7,14 @@ import { acquirePidLock, isBridgeStateStale, removeStaleBridgeStateFile } from "
 import {
   createWatcherPolicyState,
   evaluateWatcherPolicy,
-  resumeWatcherPolicyState
+  resumeWatcherPolicyState,
 } from "../launcher/macos/watcher-policy.js";
 
 test("initial existing normal session remains untouched", () => {
   const result = evaluateWatcherPolicy(createWatcherPolicyState(0), {
-    now: 0, generation: "A", bridgeHealthy: false
+    now: 0,
+    generation: "A",
+    bridgeHealthy: false,
   });
   assert.equal(result.action.type, "preserve-initial-session");
   assert.equal(result.state.suppressedInitialGeneration, "A");
@@ -20,7 +22,9 @@ test("initial existing normal session remains untouched", () => {
 
 test("same process generation is never recovery-restarted repeatedly", () => {
   let result = evaluateWatcherPolicy(createWatcherPolicyState(0), {
-    now: 0, generation: "A", bridgeHealthy: true
+    now: 0,
+    generation: "A",
+    bridgeHealthy: true,
   });
   result = evaluateWatcherPolicy(result.state, { now: 30_000, generation: "B", bridgeHealthy: false });
   result = evaluateWatcherPolicy(result.state, { now: 40_000, generation: "B", bridgeHealthy: false });
@@ -31,7 +35,9 @@ test("same process generation is never recovery-restarted repeatedly", () => {
 
 test("rapid main-process replacement is detected without observing a stopped poll", () => {
   let result = evaluateWatcherPolicy(createWatcherPolicyState(0), {
-    now: 0, generation: "A", bridgeHealthy: true
+    now: 0,
+    generation: "A",
+    bridgeHealthy: true,
   });
   result = evaluateWatcherPolicy(result.state, { now: 30_000, generation: "B", bridgeHealthy: false });
   assert.deepEqual(result.action, { type: "wait", reason: "confirm-stable-unbridged-generation" });
@@ -39,13 +45,15 @@ test("rapid main-process replacement is detected without observing a stopped pol
   assert.deepEqual(result.action, {
     type: "restart-for-recovery",
     generation: "B",
-    reason: "previous-healthy-bridge-missing"
+    reason: "previous-healthy-bridge-missing",
   });
 });
 
 test("an observed stopped interval never auto-launches Codex", () => {
   let result = evaluateWatcherPolicy(createWatcherPolicyState(0), {
-    now: 0, generation: "A", bridgeHealthy: true
+    now: 0,
+    generation: "A",
+    bridgeHealthy: true,
   });
   result = evaluateWatcherPolicy(result.state, { now: 6_000, generation: null, bridgeHealthy: false });
   assert.deepEqual(result.action, { type: "wait", reason: "codex-not-running" });
@@ -55,21 +63,29 @@ test("an observed stopped interval never auto-launches Codex", () => {
 
 test("previous healthy bridge triggers recovery after app update replacement", () => {
   let result = evaluateWatcherPolicy(createWatcherPolicyState(0), {
-    now: 0, generation: "A:/Applications/Old.app", bridgeHealthy: true
+    now: 0,
+    generation: "A:/Applications/Old.app",
+    bridgeHealthy: true,
   });
   result = evaluateWatcherPolicy(result.state, {
-    now: 30_000, generation: "B:/Applications/New.app", bridgeHealthy: false
+    now: 30_000,
+    generation: "B:/Applications/New.app",
+    bridgeHealthy: false,
   });
   assert.equal(result.action.type, "wait");
   result = evaluateWatcherPolicy(result.state, {
-    now: 40_000, generation: "B:/Applications/New.app", bridgeHealthy: false
+    now: 40_000,
+    generation: "B:/Applications/New.app",
+    bridgeHealthy: false,
   });
   assert.equal(result.action.type, "restart-for-recovery");
 });
 
 test("a recovery attempt opens a global circuit across replacement generations", () => {
   let result = evaluateWatcherPolicy(createWatcherPolicyState(0), {
-    now: 0, generation: "A", bridgeHealthy: true
+    now: 0,
+    generation: "A",
+    bridgeHealthy: true,
   });
   result = evaluateWatcherPolicy(result.state, { now: 30_000, generation: "B", bridgeHealthy: false });
   result = evaluateWatcherPolicy(result.state, { now: 40_000, generation: "B", bridgeHealthy: false });
@@ -80,13 +96,17 @@ test("a recovery attempt opens a global circuit across replacement generations",
 
 test("LaunchAgent startup race waits, preserves a fresh install, and recovers prior bridge state", () => {
   let fresh = evaluateWatcherPolicy(createWatcherPolicyState(0), {
-    now: 0, generation: null, bridgeHealthy: false
+    now: 0,
+    generation: null,
+    bridgeHealthy: false,
   });
   fresh = evaluateWatcherPolicy(fresh.state, { now: 2_000, generation: "LOGIN", bridgeHealthy: false });
   assert.equal(fresh.action.type, "preserve-initial-session");
 
   let prior = evaluateWatcherPolicy(createWatcherPolicyState(0), {
-    now: 0, generation: "OLD", bridgeHealthy: true
+    now: 0,
+    generation: "OLD",
+    bridgeHealthy: true,
   }).state;
   prior = resumeWatcherPolicyState(prior, 100_000);
   let resumed = evaluateWatcherPolicy(prior, { now: 101_000, generation: "LOGIN", bridgeHealthy: false });

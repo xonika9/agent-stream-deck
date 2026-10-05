@@ -10,12 +10,21 @@ export async function getOrCreateOpenCodeIdentitySecret(root = codexDeckStateRoo
   await mkdir(root, { recursive: true, mode: 0o700 });
   const rootMetadata = await lstat(root);
   const uid = typeof process.getuid === "function" ? process.getuid() : undefined;
-  if (!rootMetadata.isDirectory() || rootMetadata.isSymbolicLink() || (rootMetadata.mode & 0o022) !== 0 ||
-    (uid != null && rootMetadata.uid !== uid)) throw new Error("Codex Deck state directory is unsafe.");
+  if (
+    !rootMetadata.isDirectory() ||
+    rootMetadata.isSymbolicLink() ||
+    (rootMetadata.mode & 0o022) !== 0 ||
+    (uid != null && rootMetadata.uid !== uid)
+  )
+    throw new Error("Codex Deck state directory is unsafe.");
   const path = join(root, "opencode-identity.key");
   const created = randomBytes(SECRET_BYTES);
   try {
-    const handle = await open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+    const handle = await open(
+      path,
+      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+      0o600,
+    );
     try {
       await handle.writeFile(created);
       await handle.sync();
@@ -29,8 +38,13 @@ export async function getOrCreateOpenCodeIdentitySecret(root = codexDeckStateRoo
   const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
     const metadata = await handle.stat();
-    if (!metadata.isFile() || metadata.size !== SECRET_BYTES || (metadata.mode & 0o077) !== 0 ||
-      (uid != null && metadata.uid !== uid)) throw new Error("OpenCode identity secret is unsafe.");
+    if (
+      !metadata.isFile() ||
+      metadata.size !== SECRET_BYTES ||
+      (metadata.mode & 0o077) !== 0 ||
+      (uid != null && metadata.uid !== uid)
+    )
+      throw new Error("OpenCode identity secret is unsafe.");
     const value = await handle.readFile();
     if (value.length !== SECRET_BYTES) throw new Error("OpenCode identity secret is invalid.");
     return value;

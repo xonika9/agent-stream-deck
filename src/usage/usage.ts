@@ -1,4 +1,14 @@
-import type { CodexHost, HostSnapshot, HostHealth, MicroSnapshot, ThemeMode, UsageLimitMode, UsageSnapshot, UsageWindow, UsageWindowKind } from "#agents";
+import type {
+  CodexHost,
+  HostSnapshot,
+  HostHealth,
+  MicroSnapshot,
+  ThemeMode,
+  UsageLimitMode,
+  UsageSnapshot,
+  UsageWindow,
+  UsageWindowKind,
+} from "#agents";
 
 export type AccountUsageSource = {
   health: HostHealth;
@@ -20,10 +30,14 @@ export function usageWindowKind(minutes: number | null): UsageWindowKind {
 export function selectUsageWindow(usage: UsageSnapshot | undefined, mode: UsageLimitMode): UsageWindow | undefined {
   const windows = usage?.windows ?? [];
   if (mode === "five-hour" || mode === "weekly") return windows.find((window) => window.kind === mode);
-  return windows.find((window) => window.kind === "five-hour")
-    ?? windows.find((window) => window.kind === "weekly")
-    ?? [...windows].sort((left, right) =>
-      (left.windowDurationMins ?? Number.MAX_SAFE_INTEGER) - (right.windowDurationMins ?? Number.MAX_SAFE_INTEGER))[0];
+  return (
+    windows.find((window) => window.kind === "five-hour") ??
+    windows.find((window) => window.kind === "weekly") ??
+    [...windows].sort(
+      (left, right) =>
+        (left.windowDurationMins ?? Number.MAX_SAFE_INTEGER) - (right.windowDurationMins ?? Number.MAX_SAFE_INTEGER),
+    )[0]
+  );
 }
 
 export function parseUsageLimitMode(value: unknown): UsageLimitMode {
@@ -47,19 +61,20 @@ export function usageTheme(source: AccountUsageSource): ThemeMode {
 /** macOS quota windows are authoritative only when they came from CodexBar. */
 export function composeMacUsage(
   codexBar: UsageSnapshot | undefined,
-  bridge: UsageSnapshot | undefined
+  bridge: UsageSnapshot | undefined,
 ): UsageSnapshot | undefined {
-  if (codexBar) return {
-    ...codexBar,
-    resetCreditsAvailable: bridge?.resetCreditsAvailable ?? null,
-    resetCreditsApplicable: bridge?.resetCreditsApplicable ?? null
-  };
+  if (codexBar)
+    return {
+      ...codexBar,
+      resetCreditsAvailable: bridge?.resetCreditsAvailable ?? null,
+      resetCreditsApplicable: bridge?.resetCreditsApplicable ?? null,
+    };
   if (!bridge || (bridge.resetCreditsAvailable == null && bridge.resetCreditsApplicable == null)) return;
   return {
     windows: [],
     observedAt: bridge.observedAt,
     resetCreditsAvailable: bridge.resetCreditsAvailable,
-    resetCreditsApplicable: bridge.resetCreditsApplicable
+    resetCreditsApplicable: bridge.resetCreditsApplicable,
   };
 }
 
@@ -67,12 +82,13 @@ export function selectAccountUsage(
   localHost: CodexHost | undefined,
   localSnapshot: HostSnapshot | undefined,
   localHealth: HostHealth,
-  codexBarUsage: UsageSnapshot | undefined
+  codexBarUsage: UsageSnapshot | undefined,
 ): AccountUsageSource {
-    const bridgeUsage = localSnapshot?.snapshot.usage;
-    const macUsage = composeMacUsage(codexBarUsage, bridgeUsage);
-    const localUsage = localHost?.platform === "darwin" ? macUsage : bridgeUsage;
-    const localUsageHealth: HostHealth = localHost?.platform === "darwin"
+  const bridgeUsage = localSnapshot?.snapshot.usage;
+  const macUsage = composeMacUsage(codexBarUsage, bridgeUsage);
+  const localUsage = localHost?.platform === "darwin" ? macUsage : bridgeUsage;
+  const localUsageHealth: HostHealth =
+    localHost?.platform === "darwin"
       ? codexBarUsage
         ? { state: "ready", changedAt: codexBarUsage.observedAt }
         : localHealth.state === "ready"
@@ -81,11 +97,11 @@ export function selectAccountUsage(
       : localUsage
         ? { state: "ready", changedAt: localUsage.observedAt }
         : localHealth;
-    return {
-      health: localUsageHealth,
-      hostId: localHost?.hostId,
-      snapshot: localSnapshot?.snapshot,
-      usage: localUsage,
-      theme: localSnapshot?.snapshot.theme
-    };
-  }
+  return {
+    health: localUsageHealth,
+    hostId: localHost?.hostId,
+    snapshot: localSnapshot?.snapshot,
+    usage: localUsage,
+    theme: localSnapshot?.snapshot.theme,
+  };
+}

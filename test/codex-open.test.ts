@@ -4,7 +4,10 @@ import { codexOpenSpec, codexThreadUrl } from "#codex";
 
 test("Codex task deep links only accept task UUIDs or new", () => {
   assert.equal(codexThreadUrl("new"), "codex://threads/new");
-  assert.equal(codexThreadUrl("019f6de7-44c2-7fe2-9d17-9322c952e626"), "codex://threads/019f6de7-44c2-7fe2-9d17-9322c952e626");
+  assert.equal(
+    codexThreadUrl("019f6de7-44c2-7fe2-9d17-9322c952e626"),
+    "codex://threads/019f6de7-44c2-7fe2-9d17-9322c952e626",
+  );
   assert.throws(() => codexThreadUrl("../../settings"), /Invalid Codex task ID/);
 });
 

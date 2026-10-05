@@ -14,7 +14,11 @@ export class AuthenticatedOpenCodeClient {
   async fetchJson(connection: Connection, path: string, maximumBytes = RESPONSE_LIMIT): Promise<unknown> {
     const result = await this.fetchAuthenticated(connection, path, maximumBytes);
     if (result.status < 200 || result.status >= 300) throw new Error("http-status");
-    try { return JSON.parse(result.body); } catch { throw new Error("invalid-json"); }
+    try {
+      return JSON.parse(result.body);
+    } catch {
+      throw new Error("invalid-json");
+    }
   }
 
   async verifyIdentity(connection: Connection): Promise<boolean> {
@@ -44,7 +48,11 @@ export class AuthenticatedOpenCodeClient {
   private identityMatches(connection: Connection, response: { status: number; body: string }): boolean {
     if (response.status < 200 || response.status >= 300) return false;
     let identity: unknown;
-    try { identity = JSON.parse(response.body); } catch { return false; }
+    try {
+      identity = JSON.parse(response.body);
+    } catch {
+      return false;
+    }
     return isRecord(identity) && identity.version === connection.version && identity.pid === connection.pid;
   }
 
@@ -53,7 +61,7 @@ export class AuthenticatedOpenCodeClient {
     path: string,
     authorization?: string,
     maximumBytes = RESPONSE_LIMIT,
-    request: Pick<RequestInit, "method" | "headers" | "body"> = {}
+    request: Pick<RequestInit, "method" | "headers" | "body"> = {},
   ) {
     const controller = new AbortController();
     this.abortControllers.add(controller);
@@ -66,7 +74,7 @@ export class AuthenticatedOpenCodeClient {
         headers,
         body: request.body,
         redirect: "error",
-        signal: controller.signal
+        signal: controller.signal,
       });
       return { status: response.status, body: await readBoundedBody(response, maximumBytes) };
     } finally {
@@ -74,7 +82,6 @@ export class AuthenticatedOpenCodeClient {
       this.abortControllers.delete(controller);
     }
   }
-
 }
 
 async function readBoundedBody(response: Response, maximumBytes: number): Promise<string> {
@@ -100,4 +107,3 @@ async function readBoundedBody(response: Response, maximumBytes: number): Promis
   }
   return Buffer.concat(chunks, total).toString("utf8");
 }
-

@@ -8,22 +8,36 @@ import { readCodexBarUsage } from "#usage";
 import type { OfficialKeycapId } from "#codex";
 import { LocalActivityIndex } from "#agents";
 import {
-  renderAgentBlackKey, renderAgentKey, renderBuiltinKeycap, renderFallbackKeycap, renderHostTargetKey, renderImportedKeycap,
-  renderRateLimitResetKey, renderUsageLimitKey, renderUsageOverviewKey, type BuiltinIconName
+  renderAgentBlackKey,
+  renderAgentKey,
+  renderBuiltinKeycap,
+  renderFallbackKeycap,
+  renderHostTargetKey,
+  renderImportedKeycap,
+  renderRateLimitResetKey,
+  renderUsageLimitKey,
+  renderUsageOverviewKey,
+  type BuiltinIconName,
 } from "./render.js";
 import { openCodexThread } from "#codex";
 import type { OpenCodeSource } from "#opencode";
 import { visualStatusFromMicro } from "#agents";
 import { parseTaskSource, selectTaskCandidates, usesActiveQueue } from "#agents";
 import type {
-  HostHealth, MicroActionSlot, MicroDirection, MicroSnapshot, ReasoningAdjustment,
-  RoutedAgentSlot, TaskSource, UsageLimitMode, UsageSnapshot, UsageWindowKind
+  HostHealth,
+  MicroActionSlot,
+  MicroDirection,
+  MicroSnapshot,
+  ReasoningAdjustment,
+  RoutedAgentSlot,
+  TaskSource,
+  UsageLimitMode,
+  UsageSnapshot,
+  UsageWindowKind,
 } from "#agents";
 import { selectAccountUsage, selectUsageWindow, usageTheme, type AccountUsageSource } from "#usage";
 
-export type FixedIconSource =
-  | { kind: "local"; keycapId: string }
-  | { kind: "builtin"; name: BuiltinIconName };
+export type FixedIconSource = { kind: "local"; keycapId: string } | { kind: "builtin"; name: BuiltinIconName };
 
 type FixedIconRegistration = { action: KeyAction<{}>; source: FixedIconSource };
 type AgentRegistration = { action: KeyAction<{}>; slot: number };
@@ -74,8 +88,12 @@ export class DeckController {
 
   constructor(private readonly sources: DeckControllerDependencies) {}
 
-  private get codex(): CodexSource { return this.sources.codex; }
-  private get openCode(): OpenCodeSource { return this.sources.openCode; }
+  private get codex(): CodexSource {
+    return this.sources.codex;
+  }
+  private get openCode(): OpenCodeSource {
+    return this.sources.openCode;
+  }
 
   async start(): Promise<void> {
     this.stopped = false;
@@ -136,8 +154,9 @@ export class DeckController {
       if (taskSourceChanged) {
         const synchronize = this.syncOpenCodeCollectorDemand();
         void this.refreshDisplay().catch(() => streamDeck.logger.error("Agent display settings refresh failed."));
-        void synchronize.then(() => this.refreshDisplay()).catch(() =>
-          streamDeck.logger.error("Agent display settings refresh failed."));
+        void synchronize
+          .then(() => this.refreshDisplay())
+          .catch(() => streamDeck.logger.error("Agent display settings refresh failed."));
       } else {
         void this.refreshDisplay().catch(() => streamDeck.logger.error("Agent display settings refresh failed."));
       }
@@ -242,11 +261,22 @@ export class DeckController {
       button.press = undefined;
       return this.enqueueAgent(action.id, button, async () => {
         try {
-          try { await press.down; } catch { /* The native owner may already have delivered the press. */ }
+          try {
+            await press.down;
+          } catch {
+            /* The native owner may already have delivered the press. */
+          }
           if (press.abort.signal.aborted || !press.assignment || press.assignment.taskSource === "opencode") return;
-          await this.codex.microBridge.sendAgent(press.assignment.sourceSlot, 0, press.assignment.threadKey!, press.abort.signal);
+          await this.codex.microBridge.sendAgent(
+            press.assignment.sourceSlot,
+            0,
+            press.assignment.threadKey!,
+            press.abort.signal,
+          );
           void this.refresh();
-        } finally { button.active.delete(press); }
+        } finally {
+          button.active.delete(press);
+        }
       });
     }
     const button = this.agentButtons.get(action.id) ?? { active: new Set<AgentPress>() };
@@ -277,11 +307,13 @@ export class DeckController {
     const previous = button.tail;
     const pending = previous ? previous.catch(() => undefined).then(operation) : operation();
     button.tail = pending;
-    void pending.finally(() => {
-      if (button.tail !== pending) return;
-      button.tail = undefined;
-      if (button.active.size === 0 && this.agentButtons.get(id) === button) this.agentButtons.delete(id);
-    }).catch(() => undefined);
+    void pending
+      .finally(() => {
+        if (button.tail !== pending) return;
+        button.tail = undefined;
+        if (button.active.size === 0 && this.agentButtons.get(id) === button) this.agentButtons.delete(id);
+      })
+      .catch(() => undefined);
     return pending;
   }
 
@@ -313,8 +345,11 @@ export class DeckController {
     if (this.refreshInFlight) return this.refreshInFlight;
     const pending = this.refreshOnce();
     this.refreshInFlight = pending;
-    try { await pending; }
-    finally { if (this.refreshInFlight === pending) this.refreshInFlight = undefined; }
+    try {
+      await pending;
+    } finally {
+      if (this.refreshInFlight === pending) this.refreshInFlight = undefined;
+    }
   }
 
   private async refreshOnce(): Promise<void> {
@@ -337,9 +372,7 @@ export class DeckController {
     }
     const now = Date.now();
     const activeQueueEnabled = this.effectiveActiveQueueEnabled();
-    const queueInputs = activeQueueEnabled && this.codex.localHealth.reason === "codex-not-running"
-      ? []
-      : inputs;
+    const queueInputs = activeQueueEnabled && this.codex.localHealth.reason === "codex-not-running" ? [] : inputs;
     const codexSlots = activeQueueEnabled
       ? this.activityIndex.mergeActiveCatalog(queueInputs[0], now)
       : this.activityIndex.merge(this.codex.localSnapshot, now);
@@ -348,16 +381,22 @@ export class DeckController {
       ? projectActiveQueue(merged, queueInputs, this.activeQueueRankIndex, now)
       : merged;
 
-    const assignments = this.routedSlots.map((slot) => `${slot.id}=${slot.taskSource ?? "codex"}:${slot.host.platform}`).join(" ");
+    const assignments = this.routedSlots
+      .map((slot) => `${slot.id}=${slot.taskSource ?? "codex"}:${slot.host.platform}`)
+      .join(" ");
     if (assignments !== this.lastAssignmentSignature) {
       this.lastAssignmentSignature = assignments;
       streamDeck.logger.info(`Agent slots: ${assignments || "empty"}`);
     }
 
-    const statuses = this.routedSlots.map((slot) => `${slot.taskSource ?? "codex"}:${slot.host.hostId}:${slot.status}:${slot.selected}`).join(",");
+    const statuses = this.routedSlots
+      .map((slot) => `${slot.taskSource ?? "codex"}:${slot.host.hostId}:${slot.status}:${slot.selected}`)
+      .join(",");
     if (statuses !== this.lastStatusSignature) {
       this.lastStatusSignature = statuses;
-      streamDeck.logger.info(`Agent states: ${this.routedSlots.map((slot) => `${slot.id + 1}=${slot.status}`).join(" ") || "empty"}`);
+      streamDeck.logger.info(
+        `Agent states: ${this.routedSlots.map((slot) => `${slot.id + 1}=${slot.status}`).join(" ") || "empty"}`,
+      );
     }
 
     const target = this.targetSnapshot();
@@ -365,7 +404,8 @@ export class DeckController {
     if (layout !== this.lastLayoutSignature) {
       this.lastLayoutSignature = layout;
       this.keycapImages.clear();
-      if (target) streamDeck.logger.info(`Codex Micro layout synchronized (${target.agentSource}, ${target.theme} theme).`);
+      if (target)
+        streamDeck.logger.info(`Codex Micro layout synchronized (${target.agentSource}, ${target.theme} theme).`);
     }
     await this.renderAll();
   }
@@ -378,30 +418,51 @@ export class DeckController {
       ...[...this.hostToggleActions.values()].map((action) => this.renderHostToggle(action)),
       ...[...this.usageLimitActions.values()].map((registration) => this.renderUsageLimit(registration)),
       ...[...this.usageOverviewActions.values()].map((action) => this.renderUsageOverview(action)),
-      ...[...this.rateLimitResetActions.values()].map((action) => this.renderRateLimitReset(action))
+      ...[...this.rateLimitResetActions.values()].map((action) => this.renderRateLimitReset(action)),
     ]);
   }
 
   private async renderAgent({ action, slot }: AgentRegistration): Promise<void> {
     const agent = this.routedSlots[slot];
-    const health = agent?.taskSource === "opencode" ? this.openCode.openCodeHealth
-      : agent ? this.codex.localHealth : this.selectedTaskHealth();
+    const health =
+      agent?.taskSource === "opencode"
+        ? this.openCode.openCodeHealth
+        : agent
+          ? this.codex.localHealth
+          : this.selectedTaskHealth();
     const codexStopped = slot < 4 && health.state === "degraded" && health.reason === "codex-not-running";
     const healthyQueueGap = this.effectiveActiveQueueEnabled() && !agent && health.state === "ready";
     if (codexStopped || healthyQueueGap) {
       await this.setImage(action, renderAgentBlackKey());
       return;
     }
-    const unavailableTitle = health.state === "degraded" ? "Signals uncertain"
-      : health.state === "offline" ? "Host offline"
-        : health.state === "connecting" ? "Connecting" : "Not assigned";
+    const unavailableTitle =
+      health.state === "degraded"
+        ? "Signals uncertain"
+        : health.state === "offline"
+          ? "Host offline"
+          : health.state === "connecting"
+            ? "Connecting"
+            : "Not assigned";
     const title = agent?.title ?? (agent?.threadKey && health.state === "ready" ? "New chat" : unavailableTitle);
     const status = agent ? visualStatusFromMicro(agent.status) : "empty";
     const theme = this.targetSnapshot()?.theme ?? this.codex.localSnapshot?.snapshot.theme ?? "light";
     const hostBadge = agent?.taskSource === "opencode" ? "O" : undefined;
-    await this.setImage(action, renderAgentKey(
-      slot, title, status, agent?.selected ?? false, this.animationFrame, theme, hostBadge,
-      health.state, agent?.contextUsedPercent, this.showContextRings && agent?.taskSource !== "opencode"));
+    await this.setImage(
+      action,
+      renderAgentKey(
+        slot,
+        title,
+        status,
+        agent?.selected ?? false,
+        this.animationFrame,
+        theme,
+        hostBadge,
+        health.state,
+        agent?.contextUsedPercent,
+        this.showContextRings && agent?.taskSource !== "opencode",
+      ),
+    );
   }
 
   private async renderAnimatedAgents(): Promise<void> {
@@ -411,9 +472,13 @@ export class DeckController {
       const status = visualStatusFromMicro(agent.status);
       return status === "thinking" || status === "input";
     });
-    await Promise.all(registrations.map((registration) => this.renderAgent(registration).catch((error) =>
-      streamDeck.logger.error(`Agent animation ${registration.slot + 1} failed: ${String(error)}`)
-    )));
+    await Promise.all(
+      registrations.map((registration) =>
+        this.renderAgent(registration).catch((error) =>
+          streamDeck.logger.error(`Agent animation ${registration.slot + 1} failed: ${String(error)}`),
+        ),
+      ),
+    );
   }
 
   private async renderMicroAction({ action, slot }: MicroActionRegistration): Promise<void> {
@@ -426,9 +491,10 @@ export class DeckController {
 
   private async renderFixedAction(registration: FixedIconRegistration): Promise<void> {
     const theme = this.targetSnapshot()?.theme ?? "dark";
-    const image = registration.source.kind === "builtin"
-      ? renderBuiltinKeycap(registration.source.name, theme)
-      : await this.keycapImage(registration.source.keycapId, theme);
+    const image =
+      registration.source.kind === "builtin"
+        ? renderBuiltinKeycap(registration.source.name, theme)
+        : await this.keycapImage(registration.source.keycapId, theme);
     if (image) await this.setImage(registration.action, image);
   }
 
@@ -457,19 +523,19 @@ export class DeckController {
     const usage = source.usage;
     const startedAt = this.resetHolds.get(action.id);
     const progress = startedAt == null ? 0 : Math.min(1, (Date.now() - startedAt) / RESET_HOLD_MS);
-    await this.setImage(action, renderRateLimitResetKey(
-      usage?.resetCreditsAvailable ?? null,
-      progress,
-      usageTheme(source),
-      source.health.state
-    ));
+    await this.setImage(
+      action,
+      renderRateLimitResetKey(usage?.resetCreditsAvailable ?? null, progress, usageTheme(source), source.health.state),
+    );
   }
 
   private async renderResetHolds(): Promise<void> {
-    await Promise.all([...this.resetHolds.keys()].map(async (id) => {
-      const action = this.rateLimitResetActions.get(id);
-      if (action) await this.renderRateLimitReset(action);
-    }));
+    await Promise.all(
+      [...this.resetHolds.keys()].map(async (id) => {
+        const action = this.rateLimitResetActions.get(id);
+        if (action) await this.renderRateLimitReset(action);
+      }),
+    );
   }
 
   private targetHealth(): HostHealth {
@@ -491,7 +557,12 @@ export class DeckController {
   }
 
   private accountUsageSource(): AccountUsageSource {
-    return selectAccountUsage(this.codex.localHost, this.codex.localSnapshot, this.codex.localHealth, this.codexBarUsage);
+    return selectAccountUsage(
+      this.codex.localHost,
+      this.codex.localSnapshot,
+      this.codex.localHealth,
+      this.codexBarUsage,
+    );
   }
 
   private async setImage(action: KeyAction<{}>, image: string): Promise<void> {
@@ -518,8 +589,11 @@ export class DeckController {
   private scheduleRefresh(): void {
     if (this.stopped) return;
     this.poll = setTimeout(async () => {
-      try { await this.refresh(); }
-      finally { this.scheduleRefresh(); }
+      try {
+        await this.refresh();
+      } finally {
+        this.scheduleRefresh();
+      }
     }, 1_200);
   }
 
@@ -527,8 +601,11 @@ export class DeckController {
     if (this.stopped) return;
     this.animation = setTimeout(async () => {
       this.animationFrame = (this.animationFrame + 1) % 12;
-      try { await Promise.all([this.renderAnimatedAgents(), this.renderResetHolds()]); }
-      finally { this.scheduleAnimation(); }
+      try {
+        await Promise.all([this.renderAnimatedAgents(), this.renderResetHolds()]);
+      } finally {
+        this.scheduleAnimation();
+      }
     }, 200);
   }
 

@@ -4,12 +4,48 @@ import { join } from "node:path";
 import { nodeOpenCodeFileAccess } from "./secure-files.js";
 import { AuthenticatedOpenCodeClient } from "./client.js";
 import { OpenCodeTaskState } from "./state.js";
-import type { OpenCodeCollectorDependencies, OpenCodeProcess, OpenCodeCollectorSnapshot, OpenCodeConnectionSnapshot, Connection, SshServer, RawSession } from "./contracts.js";
-export type { OpenCodeTaskStatus, OpenCodeTask, OpenCodeConnectionHealth, OpenCodeConnectionSnapshot, OpenCodeCollectorSnapshot, OpenCodeProcess, OpenCodeCollectorDependencies } from "./contracts.js";
-import { REGISTRATION_LIMIT, SETTINGS_LIMIT, PROCESS_OUTPUT_LIMIT, MAX_CONNECTIONS, MAX_SESSIONS, MAX_ANCESTOR_DEPTH, FETCH_TIMEOUT_MS, POLL_INTERVAL_MS, SSH_EXECUTABLE } from "./limits.js";
+import type {
+  OpenCodeCollectorDependencies,
+  OpenCodeProcess,
+  OpenCodeCollectorSnapshot,
+  OpenCodeConnectionSnapshot,
+  Connection,
+  SshServer,
+  RawSession,
+} from "./contracts.js";
+export type {
+  OpenCodeTaskStatus,
+  OpenCodeTask,
+  OpenCodeConnectionHealth,
+  OpenCodeConnectionSnapshot,
+  OpenCodeCollectorSnapshot,
+  OpenCodeProcess,
+  OpenCodeCollectorDependencies,
+} from "./contracts.js";
+import {
+  REGISTRATION_LIMIT,
+  SETTINGS_LIMIT,
+  PROCESS_OUTPUT_LIMIT,
+  MAX_CONNECTIONS,
+  MAX_SESSIONS,
+  MAX_ANCESTOR_DEPTH,
+  FETCH_TIMEOUT_MS,
+  POLL_INTERVAL_MS,
+  SSH_EXECUTABLE,
+} from "./limits.js";
 import { parseRegistration, parseSshServers, parseRemoteRegistration, loopbackAddress } from "./discovery.js";
 import { parseActive, parsePending, parseRootSessions, parseSessionEnvelope } from "./session-data.js";
-import { REMOTE_DISCOVERY_SCRIPT, parseSshTarget, sshCommonArgs, minimalSshEnvironment, readProcessOutput, spawnProcess, reserveLoopbackPort, waitForLoopbackPort, terminateProcessGroup } from "./ssh.js";
+import {
+  REMOTE_DISCOVERY_SCRIPT,
+  parseSshTarget,
+  sshCommonArgs,
+  minimalSshEnvironment,
+  readProcessOutput,
+  spawnProcess,
+  reserveLoopbackPort,
+  waitForLoopbackPort,
+  terminateProcessGroup,
+} from "./ssh.js";
 import { mapConcurrent, unavailable } from "./collection-utils.js";
 
 function defaultDependencies(): OpenCodeCollectorDependencies {
@@ -27,7 +63,7 @@ function defaultDependencies(): OpenCodeCollectorDependencies {
     spawn: spawnProcess,
     reserveLoopbackPort,
     waitForLoopbackPort,
-    terminateProcessGroup
+    terminateProcessGroup,
   };
 }
 
@@ -58,7 +94,9 @@ export class OpenCodeCollector {
     this.generation++;
     const snapshot = await this.refresh();
     if (this.running) {
-      this.interval = this.deps.setInterval(() => { void this.refresh().catch(() => undefined); }, POLL_INTERVAL_MS);
+      this.interval = this.deps.setInterval(() => {
+        void this.refresh().catch(() => undefined);
+      }, POLL_INTERVAL_MS);
     }
     return snapshot;
   }
@@ -67,7 +105,9 @@ export class OpenCodeCollector {
     if (!this.running) return Promise.reject(new Error("OpenCode collector is not started."));
     if (this.inFlight) return this.inFlight;
     const generation = this.generation;
-    this.inFlight = this.collect(generation).finally(() => { this.inFlight = undefined; });
+    this.inFlight = this.collect(generation).finally(() => {
+      this.inFlight = undefined;
+    });
     return this.inFlight;
   }
 
@@ -96,8 +136,8 @@ export class OpenCodeCollector {
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ idle: binding.idleAt })
-        }
+          body: JSON.stringify({ idle: binding.idleAt }),
+        },
       );
       return response.status >= 200 && response.status < 300;
     } catch {
@@ -144,8 +184,9 @@ export class OpenCodeCollector {
       }
     }
     results.push(...ssh.failures.map((connectionId) => unavailable(connectionId, now)));
-    const deduplicated = [...new Map(results.map((result) => [result.connectionId, result])).values()]
-      .sort((left, right) => left.connectionId.localeCompare(right.connectionId));
+    const deduplicated = [...new Map(results.map((result) => [result.connectionId, result])).values()].sort(
+      (left, right) => left.connectionId.localeCompare(right.connectionId),
+    );
     this.state.label(deduplicated, now);
     this.current = { version: 1, observedAt: now, connections: deduplicated };
     return this.current;
@@ -153,18 +194,29 @@ export class OpenCodeCollector {
 
   private async discoverLocal(): Promise<Connection[]> {
     const names = (await this.deps.files.list(this.deps.stateDirectory))
-      .filter((name) => /^service(?:[._-][A-Za-z0-9_-]{1,64})?\.json$/u.test(name)).sort().slice(0, MAX_CONNECTIONS);
+      .filter((name) => /^service(?:[._-][A-Za-z0-9_-]{1,64})?\.json$/u.test(name))
+      .sort()
+      .slice(0, MAX_CONNECTIONS);
     const connections: Connection[] = [];
     for (const name of names) {
       try {
-        const bytes = await this.deps.files.readSecure(join(this.deps.stateDirectory, name), REGISTRATION_LIMIT, this.deps.currentUid);
+        const bytes = await this.deps.files.readSecure(
+          join(this.deps.stateDirectory, name),
+          REGISTRATION_LIMIT,
+          this.deps.currentUid,
+        );
         const registration = parseRegistration(bytes);
         if (!registration) continue;
         const connectionId = this.opaqueId(`local\0${registration.id ?? name}`);
         const existing = this.connections.get(connectionId);
-        if (existing && !existing.tunnel && existing.endpoint === registration.url &&
-          existing.password === registration.password && existing.version === registration.version &&
-          existing.pid === registration.pid) {
+        if (
+          existing &&
+          !existing.tunnel &&
+          existing.endpoint === registration.url &&
+          existing.password === registration.password &&
+          existing.version === registration.version &&
+          existing.pid === registration.pid
+        ) {
           connections.push(existing);
           continue;
         }
@@ -173,7 +225,7 @@ export class OpenCodeCollector {
           endpoint: registration.url,
           password: registration.password,
           version: registration.version,
-          pid: registration.pid
+          pid: registration.pid,
         });
       } catch {
         // Unsafe and unreadable registrations are absent by design.
@@ -189,17 +241,22 @@ export class OpenCodeCollector {
         this.deps.settingsPath,
         SETTINGS_LIMIT,
         this.deps.currentUid,
-        "owner-write"
+        "owner-write",
       );
       servers = parseSshServers(bytes);
     } catch {
       return { connections: [], failures: [] };
     }
-    const targets = new Map(servers.map(server => {
-      const id = this.opaqueId(`ssh\0${server.id}`);
-      try { return [id, JSON.stringify(parseSshTarget(server.target))] as const; }
-      catch { return [id, null] as const; }
-    }));
+    const targets = new Map(
+      servers.map((server) => {
+        const id = this.opaqueId(`ssh\0${server.id}`);
+        try {
+          return [id, JSON.stringify(parseSshTarget(server.target))] as const;
+        } catch {
+          return [id, null] as const;
+        }
+      }),
+    );
     for (const [id, connection] of this.tunnels) {
       if (targets.get(id) === connection.sshTarget) continue;
       this.tunnels.delete(id);
@@ -223,8 +280,8 @@ export class OpenCodeCollector {
       }
     });
     return {
-      connections: results.flatMap((result) => result.connection ? [result.connection] : []),
-      failures: results.flatMap((result) => result.failure ? [result.failure] : [])
+      connections: results.flatMap((result) => (result.connection ? [result.connection] : [])),
+      failures: results.flatMap((result) => (result.failure ? [result.failure] : [])),
     };
   }
 
@@ -232,7 +289,8 @@ export class OpenCodeCollector {
     const target = parseSshTarget(server.target);
     const common = sshCommonArgs(target.args);
     const discovery = await this.deps.spawn(SSH_EXECUTABLE, [...common, target.host, "sh -l -s"], {
-      env: minimalSshEnvironment(this.deps.homeDirectory), detached: true
+      env: minimalSshEnvironment(this.deps.homeDirectory),
+      detached: true,
     });
     this.children.add(discovery);
     discovery.write(REMOTE_DISCOVERY_SCRIPT);
@@ -248,9 +306,9 @@ export class OpenCodeCollector {
         Promise.all([
           readProcessOutput(discovery.stdout, PROCESS_OUTPUT_LIMIT),
           readProcessOutput(discovery.stderr, 16 * 1024),
-          discovery.exited
+          discovery.exited,
         ]),
-        timeout
+        timeout,
       ]);
     } catch (error) {
       await this.deps.terminateProcessGroup(discovery);
@@ -265,17 +323,26 @@ export class OpenCodeCollector {
     const remote = loopbackAddress(registration.url, true);
     const localPort = await this.deps.reserveLoopbackPort();
     const forward = `127.0.0.1:${localPort}:${remote.host}:${remote.port}`;
-    const tunnel = await this.deps.spawn(SSH_EXECUTABLE, [
-      ...common,
-      "-o", "ExitOnForwardFailure=yes",
-      "-o", "ControlMaster=no",
-      "-o", "ControlPath=none",
-      "-L", forward,
-      "-N", target.host
-    ], { env: minimalSshEnvironment(this.deps.homeDirectory), detached: true });
+    const tunnel = await this.deps.spawn(
+      SSH_EXECUTABLE,
+      [
+        ...common,
+        "-o",
+        "ExitOnForwardFailure=yes",
+        "-o",
+        "ControlMaster=no",
+        "-o",
+        "ControlPath=none",
+        "-L",
+        forward,
+        "-N",
+        target.host,
+      ],
+      { env: minimalSshEnvironment(this.deps.homeDirectory), detached: true },
+    );
     this.children.add(tunnel);
     try {
-      if (!await this.deps.waitForLoopbackPort(localPort, FETCH_TIMEOUT_MS)) throw new Error("ssh-forward");
+      if (!(await this.deps.waitForLoopbackPort(localPort, FETCH_TIMEOUT_MS))) throw new Error("ssh-forward");
       const endpoint = `http://127.0.0.1:${localPort}`;
       const connection: Connection = {
         connectionId,
@@ -283,9 +350,9 @@ export class OpenCodeCollector {
         password: registration.password,
         version: registration.version,
         pid: registration.pid,
-        tunnel
+        tunnel,
       };
-      if (!await this.client.verifyIdentity(connection)) throw new Error("ssh-identity");
+      if (!(await this.client.verifyIdentity(connection))) throw new Error("ssh-identity");
       return connection;
     } catch (error) {
       await this.terminateChild(tunnel);
@@ -294,7 +361,7 @@ export class OpenCodeCollector {
   }
 
   private async collectConnection(connection: Connection, now: number): Promise<OpenCodeConnectionSnapshot> {
-    if (!await this.client.verifyIdentity(connection)) {
+    if (!(await this.client.verifyIdentity(connection))) {
       if (connection.tunnel) {
         this.tunnels.delete(connection.connectionId);
         await this.terminateChild(connection.tunnel);
@@ -305,7 +372,7 @@ export class OpenCodeCollector {
       this.client.fetchJson(connection, "/api/session/active"),
       this.client.fetchJson(connection, "/api/permission/request"),
       this.client.fetchJson(connection, "/api/form"),
-      this.client.fetchJson(connection, "/api/session?parentID=null&order=desc&limit=100")
+      this.client.fetchJson(connection, "/api/session?parentID=null&order=desc&limit=100"),
     ]);
     const activeIds = parseActive(activeRaw);
     const attentionIds = [...parsePending(permissionRaw), ...parsePending(formRaw)];
@@ -324,9 +391,17 @@ export class OpenCodeCollector {
         seen.add(currentId);
         let current = sessions.get(currentId);
         if (!current) {
-          if (sessions.size >= MAX_SESSIONS) { complete = false; break; }
-          current = parseSessionEnvelope(await this.client.fetchJson(connection, `/api/session/${encodeURIComponent(currentId)}`));
-          if (sessions.size >= MAX_SESSIONS) { complete = false; break; }
+          if (sessions.size >= MAX_SESSIONS) {
+            complete = false;
+            break;
+          }
+          current = parseSessionEnvelope(
+            await this.client.fetchJson(connection, `/api/session/${encodeURIComponent(currentId)}`),
+          );
+          if (sessions.size >= MAX_SESSIONS) {
+            complete = false;
+            break;
+          }
           sessions.set(current.id, current);
         }
         lineage.push(current);
@@ -350,7 +425,6 @@ export class OpenCodeCollector {
     const rootSessions = [...sessions.values()].filter((session) => session.parentID === undefined);
     return this.state.project(connection.connectionId, rootSessions, attentionRoots, activeRoots, now, complete);
   }
-
 
   private opaqueId(value: string): string {
     return `oc_${createHmac("sha256", this.secret).update(value).digest("base64url")}`;

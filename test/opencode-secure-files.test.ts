@@ -6,7 +6,7 @@ import test from "node:test";
 import { nodeOpenCodeFileAccess } from "#opencode";
 
 test("service secrets require private mode while Desktop settings may be owner-write-only", {
-  skip: process.platform === "win32"
+  skip: process.platform === "win32",
 }, async () => {
   const root = await mkdtemp(join(tmpdir(), "opencode-files-"));
   const path = join(root, "settings");
@@ -15,7 +15,7 @@ test("service secrets require private mode while Desktop settings may be owner-w
     await assert.rejects(() => nodeOpenCodeFileAccess.readSecure(path, 1024, process.getuid?.()));
     assert.equal(
       (await nodeOpenCodeFileAccess.readSecure(path, 1024, process.getuid?.(), "owner-write")).toString(),
-      "fixture"
+      "fixture",
     );
     await chmod(path, 0o666);
     await assert.rejects(() => nodeOpenCodeFileAccess.readSecure(path, 1024, process.getuid?.(), "owner-write"));

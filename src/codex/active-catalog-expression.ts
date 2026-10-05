@@ -6,9 +6,7 @@ export const SNAPSHOT_MAX_PAYLOAD_BYTES = 64 * 1024;
  * Build renderer-side discovery code. The loader override exists so tests can
  * execute the exact expression without importing Codex's hashed app bundle.
  */
-export function buildActiveCatalogDiscoveryExpression(
-  moduleLoaderExpression = "(url) => import(url)"
-): string {
+export function buildActiveCatalogDiscoveryExpression(moduleLoaderExpression = "(url) => import(url)"): string {
   return `
   // The full sidebar catalog is optional. Resolver incompatibility is cached,
   // while per-thread races only suppress the catalog for the current poll.

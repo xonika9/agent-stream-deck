@@ -20,8 +20,9 @@ test("session ownership is derived from exact rollout filenames, not message ref
     const annotated = await index.annotate(snapshot());
     assert.equal(annotated.slots[0]!.ownedByHost, true);
     assert.equal(annotated.slots[1]!.ownedByHost, false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
-  finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("rollout and prefixed thread identities use the same UUID", () => {
@@ -35,8 +36,14 @@ test("recent local rollout tails expose structural working and completion state 
   try {
     const activeId = "10000000-0000-4000-8000-000000000001";
     const completeId = "10000000-0000-4000-8000-000000000002";
-    await writeFile(join(root, `rollout-now-${activeId}.jsonl`), '{"type":"event_msg","payload":{"type":"agent_reasoning"}}\n');
-    await writeFile(join(root, `rollout-now-${completeId}.jsonl`), '{"type":"event_msg","payload":{"type":"agent_reasoning"}}\n{"type":"event_msg","payload":{"type":"task_complete"}}\n');
+    await writeFile(
+      join(root, `rollout-now-${activeId}.jsonl`),
+      '{"type":"event_msg","payload":{"type":"agent_reasoning"}}\n',
+    );
+    await writeFile(
+      join(root, `rollout-now-${completeId}.jsonl`),
+      '{"type":"event_msg","payload":{"type":"agent_reasoning"}}\n{"type":"event_msg","payload":{"type":"task_complete"}}\n',
+    );
     const annotated = await new CodexSessionOwnershipIndex([root], 60_000).annotate(snapshot());
     const states = new Map(annotated.hostSessions?.map((session) => [session.threadId, session.status]));
     assert.equal(states.get(activeId), "working");
@@ -57,14 +64,15 @@ test("current response_item records keep a long-running Codex task working after
   try {
     const threadId = "10000000-0000-4000-8000-000000000009";
     const path = join(root, `rollout-now-${threadId}.jsonl`);
-    await writeFile(path,
+    await writeFile(
+      path,
       '{"type":"event_msg","payload":{"type":"task_started"}}\n' +
-      `${"x".repeat(520 * 1024)}\n` +
-      '{"timestamp":"2026-07-21T20:00:00.000Z","type":"response_item","payload":{"type":"reasoning"}}\n' +
-      '{"timestamp":"2026-07-21T20:00:01.000Z","type":"response_item","payload":{"type":"custom_tool_call","name":"exec"}}\n');
+        `${"x".repeat(520 * 1024)}\n` +
+        '{"timestamp":"2026-07-21T20:00:00.000Z","type":"response_item","payload":{"type":"reasoning"}}\n' +
+        '{"timestamp":"2026-07-21T20:00:01.000Z","type":"response_item","payload":{"type":"custom_tool_call","name":"exec"}}\n',
+    );
     const now = Date.parse("2026-07-21T20:00:02.000Z");
-    const annotated = await new CodexSessionOwnershipIndex([root], 0).annotate(
-      snapshotFor(threadId, false), now);
+    const annotated = await new CodexSessionOwnershipIndex([root], 0).annotate(snapshotFor(threadId, false), now);
     const session = annotated.hostSessions?.find((candidate) => candidate.threadId === threadId);
     assert.equal(session?.status, "working");
     assert.equal(session?.activityAt, Date.parse("2026-07-21T20:00:01.000Z"));
@@ -79,12 +87,16 @@ test("only structural user_message records advance the content-free work-start p
   try {
     const threadId = "10000000-0000-4000-8000-000000000011";
     const path = join(root, `rollout-now-${threadId}.jsonl`);
-    const first = '{"timestamp":"2026-07-21T20:00:00.000Z","type":"event_msg","payload":{"type":"user_message","message":"private"}}\n';
-    await writeFile(path, first +
-      '{"timestamp":"2026-07-21T20:00:01.000Z","type":"event_msg","payload":{"type":"task_started"}}\n' +
-      '{"timestamp":"2026-07-21T20:00:02.000Z","type":"event_msg","payload":{"type":"agent_reasoning"}}\n' +
-      '{"timestamp":"2026-07-21T20:00:03.000Z","type":"event_msg","payload":{"type":"thread_name_updated"}}\n' +
-      '{"timestamp":"2026-07-21T20:00:04.000Z","type":"response_item","payload":{"type":"message","role":"assistant"}}\n');
+    const first =
+      '{"timestamp":"2026-07-21T20:00:00.000Z","type":"event_msg","payload":{"type":"user_message","message":"private"}}\n';
+    await writeFile(
+      path,
+      first +
+        '{"timestamp":"2026-07-21T20:00:01.000Z","type":"event_msg","payload":{"type":"task_started"}}\n' +
+        '{"timestamp":"2026-07-21T20:00:02.000Z","type":"event_msg","payload":{"type":"agent_reasoning"}}\n' +
+        '{"timestamp":"2026-07-21T20:00:03.000Z","type":"event_msg","payload":{"type":"thread_name_updated"}}\n' +
+        '{"timestamp":"2026-07-21T20:00:04.000Z","type":"response_item","payload":{"type":"message","role":"assistant"}}\n',
+    );
     const index = new CodexSessionOwnershipIndex([root], 0);
     let annotated = await index.annotate(snapshotFor(threadId, true), Date.parse("2026-07-21T20:00:05.000Z"));
     let session = annotated.hostSessions?.find((candidate) => candidate.threadId === threadId);
@@ -93,16 +105,22 @@ test("only structural user_message records advance the content-free work-start p
     assert.equal(annotated.slots[0]!.workStartedAt, session?.workStartedAt);
     assert.equal(annotated.slots[0]!.workStartRevision, session?.workStartRevision);
 
-    const second = '{"timestamp":"2026-07-21T20:01:00.000Z","type":"event_msg","payload":{"type":"user_message","message":"more private"}}\n';
+    const second =
+      '{"timestamp":"2026-07-21T20:01:00.000Z","type":"event_msg","payload":{"type":"user_message","message":"more private"}}\n';
     await appendFile(path, second);
     annotated = await index.annotate(snapshotFor(threadId, false), Date.parse("2026-07-21T20:01:01.000Z"));
     session = annotated.hostSessions?.find((candidate) => candidate.threadId === threadId);
     assert.equal(session?.workStartedAt, Date.parse("2026-07-21T20:01:00.000Z"));
-    assert.equal(session?.workStartRevision, Buffer.byteLength(first +
-      '{"timestamp":"2026-07-21T20:00:01.000Z","type":"event_msg","payload":{"type":"task_started"}}\n' +
-      '{"timestamp":"2026-07-21T20:00:02.000Z","type":"event_msg","payload":{"type":"agent_reasoning"}}\n' +
-      '{"timestamp":"2026-07-21T20:00:03.000Z","type":"event_msg","payload":{"type":"thread_name_updated"}}\n' +
-      '{"timestamp":"2026-07-21T20:00:04.000Z","type":"response_item","payload":{"type":"message","role":"assistant"}}\n'));
+    assert.equal(
+      session?.workStartRevision,
+      Buffer.byteLength(
+        first +
+          '{"timestamp":"2026-07-21T20:00:01.000Z","type":"event_msg","payload":{"type":"task_started"}}\n' +
+          '{"timestamp":"2026-07-21T20:00:02.000Z","type":"event_msg","payload":{"type":"agent_reasoning"}}\n' +
+          '{"timestamp":"2026-07-21T20:00:03.000Z","type":"event_msg","payload":{"type":"thread_name_updated"}}\n' +
+          '{"timestamp":"2026-07-21T20:00:04.000Z","type":"response_item","payload":{"type":"message","role":"assistant"}}\n',
+      ),
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -114,28 +132,34 @@ test("work-start retention survives tail rollover only in the observing process"
     const threadId = "10000000-0000-4000-8000-000000000012";
     const path = join(root, `rollout-now-${threadId}.jsonl`);
     const startedAt = Date.parse("2026-07-21T20:00:00.000Z");
-    await writeFile(path,
+    await writeFile(
+      path,
       '{"timestamp":"2026-07-21T20:00:00.000Z","type":"event_msg","payload":{"type":"user_message","message":"private"}}\n' +
-      '{"timestamp":"2026-07-21T20:00:01.000Z","type":"event_msg","payload":{"type":"task_started"}}\n');
+        '{"timestamp":"2026-07-21T20:00:01.000Z","type":"event_msg","payload":{"type":"task_started"}}\n',
+    );
     const index = new CodexSessionOwnershipIndex([root], 0);
     let annotated = await index.annotate(snapshotFor(threadId, false), startedAt + 2_000);
     assert.equal(annotated.hostSessions?.find((session) => session.threadId === threadId)?.workStartedAt, startedAt);
 
-    await appendFile(path, `${"x".repeat(520 * 1024)}\n` +
-      '{"timestamp":"2026-07-21T20:01:00.000Z","type":"response_item","payload":{"type":"reasoning"}}\n');
+    await appendFile(
+      path,
+      `${"x".repeat(520 * 1024)}\n` +
+        '{"timestamp":"2026-07-21T20:01:00.000Z","type":"response_item","payload":{"type":"reasoning"}}\n',
+    );
     annotated = await index.annotate(snapshotFor(threadId, false), startedAt + 61_000);
     const retained = annotated.hostSessions?.find((session) => session.threadId === threadId);
     assert.deepEqual(
       { workStartedAt: retained?.workStartedAt, workStartRevision: retained?.workStartRevision },
-      { workStartedAt: startedAt, workStartRevision: 0 }
+      { workStartedAt: startedAt, workStartRevision: 0 },
     );
 
-    const expired = await index.annotate(
-      snapshotFor(threadId, false), startedAt + 61_001 + 24 * 60 * 60_000);
+    const expired = await index.annotate(snapshotFor(threadId, false), startedAt + 61_001 + 24 * 60 * 60_000);
     assert.equal(expired.hostSessions?.find((session) => session.threadId === threadId)?.workStartedAt, undefined);
 
-    const cold = await new CodexSessionOwnershipIndex([root], 0)
-      .annotate(snapshotFor(threadId, false), startedAt + 62_000);
+    const cold = await new CodexSessionOwnershipIndex([root], 0).annotate(
+      snapshotFor(threadId, false),
+      startedAt + 62_000,
+    );
     const coldSession = cold.hostSessions?.find((session) => session.threadId === threadId);
     assert.equal(coldSession?.workStartedAt, undefined);
     assert.equal(coldSession?.workStartRevision, undefined);
@@ -148,15 +172,28 @@ test("tracked off-six catalog candidates receive the exact owner's work-start pa
   const root = await mkdtemp(join(tmpdir(), "codex-deck-work-start-catalog-"));
   try {
     const threadId = "10000000-0000-4000-8000-000000000013";
-    await writeFile(join(root, `rollout-now-${threadId}.jsonl`),
-      '{"timestamp":"2026-07-21T20:00:00.000Z","type":"event_msg","payload":{"type":"user_message"}}\n');
+    await writeFile(
+      join(root, `rollout-now-${threadId}.jsonl`),
+      '{"timestamp":"2026-07-21T20:00:00.000Z","type":"event_msg","payload":{"type":"user_message"}}\n',
+    );
     const value = snapshot();
-    value.activeCatalog = { complete: true, candidates: [{
-      threadKey: `local:${threadId}`, conversationId: threadId, title: "Off six",
-      status: "working", selected: false, catalogIndex: 9
-    }] };
-    const annotated = await new CodexSessionOwnershipIndex([root], 0)
-      .annotate(value, Date.parse("2026-07-21T20:00:01.000Z"));
+    value.activeCatalog = {
+      complete: true,
+      candidates: [
+        {
+          threadKey: `local:${threadId}`,
+          conversationId: threadId,
+          title: "Off six",
+          status: "working",
+          selected: false,
+          catalogIndex: 9,
+        },
+      ],
+    };
+    const annotated = await new CodexSessionOwnershipIndex([root], 0).annotate(
+      value,
+      Date.parse("2026-07-21T20:00:01.000Z"),
+    );
     assert.equal(annotated.activeCatalog?.candidates[0]?.workStartedAt, Date.parse("2026-07-21T20:00:00.000Z"));
     assert.equal(annotated.activeCatalog?.candidates[0]?.workStartRevision, 0);
   } finally {
@@ -168,13 +205,14 @@ test("an old completion uses its event timestamp and cannot flash as newly compl
   const root = await mkdtemp(join(tmpdir(), "codex-deck-stale-completion-"));
   try {
     const threadId = "10000000-0000-4000-8000-000000000010";
-    await writeFile(join(root, `rollout-now-${threadId}.jsonl`),
+    await writeFile(
+      join(root, `rollout-now-${threadId}.jsonl`),
       '{"timestamp":"2026-07-21T19:00:00.000Z","type":"event_msg","payload":{"type":"task_started"}}\n' +
-      '{"timestamp":"2026-07-21T19:01:00.000Z","type":"event_msg","payload":{"type":"task_complete"}}\n' +
-      '{"timestamp":"2026-07-21T20:00:00.000Z","type":"event_msg","payload":{"type":"thread_settings_applied"}}\n');
+        '{"timestamp":"2026-07-21T19:01:00.000Z","type":"event_msg","payload":{"type":"task_complete"}}\n' +
+        '{"timestamp":"2026-07-21T20:00:00.000Z","type":"event_msg","payload":{"type":"thread_settings_applied"}}\n',
+    );
     const now = Date.parse("2026-07-21T20:00:01.000Z");
-    const annotated = await new CodexSessionOwnershipIndex([root], 0).annotate(
-      snapshotFor(threadId, false), now);
+    const annotated = await new CodexSessionOwnershipIndex([root], 0).annotate(snapshotFor(threadId, false), now);
     const session = annotated.hostSessions?.find((candidate) => candidate.threadId === threadId);
     assert.equal(session?.status, "idle");
     assert.equal(session?.activityAt, Date.parse("2026-07-21T19:01:00.000Z"));
@@ -195,17 +233,15 @@ test("rollout token counts expose bounded per-thread context usage without task 
         info: {
           total_token_usage: { total_tokens: 99_999_999 },
           last_token_usage: { total_tokens: 80_000 },
-          model_context_window: 100_000
-        }
-      }
+          model_context_window: 100_000,
+        },
+      },
     });
     await writeFile(join(root, `rollout-now-${threadId}.jsonl`), `${tokenCount}\n`);
     const value = snapshotFor(threadId, false);
     const annotated = await new CodexSessionOwnershipIndex([root], 60_000).annotate(value);
     assert.equal(annotated.slots[0]!.contextUsedPercent, 80);
-    assert.equal(
-      annotated.hostSessions?.find((session) => session.threadId === threadId)?.contextUsedPercent,
-      80);
+    assert.equal(annotated.hostSessions?.find((session) => session.threadId === threadId)?.contextUsedPercent, 80);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -216,10 +252,12 @@ test("a renderer turn_context after task_complete does not resurrect a finished 
   try {
     const threadId = "10000000-0000-4000-8000-000000000007";
     const path = join(root, `rollout-now-${threadId}.jsonl`);
-    await writeFile(path,
+    await writeFile(
+      path,
       '{"type":"event_msg","payload":{"type":"task_started"}}\n' +
-      '{"type":"event_msg","payload":{"type":"task_complete"}}\n' +
-      '{"type":"turn_context","payload":{"type":"turn_context"}}\n');
+        '{"type":"event_msg","payload":{"type":"task_complete"}}\n' +
+        '{"type":"turn_context","payload":{"type":"turn_context"}}\n',
+    );
     const index = new CodexSessionOwnershipIndex([root], 0);
     let state = await index.annotate(snapshotFor(threadId, false), Date.now());
     assert.equal(state.hostSessions?.find((session) => session.threadId === threadId)?.status, "complete");
@@ -237,9 +275,11 @@ test("a turn_aborted returns an owned task to idle until the next task_started",
   try {
     const threadId = "10000000-0000-4000-8000-000000000014";
     const path = join(root, `rollout-now-${threadId}.jsonl`);
-    await writeFile(path,
+    await writeFile(
+      path,
       '{"type":"event_msg","payload":{"type":"task_started"}}\n' +
-      '{"type":"event_msg","payload":{"type":"turn_aborted"}}\n');
+        '{"type":"event_msg","payload":{"type":"turn_aborted"}}\n',
+    );
     const index = new CodexSessionOwnershipIndex([root], 0);
     let state = await index.annotate(snapshotFor(threadId, false), Date.now());
     assert.equal(state.hostSessions?.find((session) => session.threadId === threadId)?.status, "idle");
@@ -270,7 +310,10 @@ test("acknowledging a completion survives later file touches but a new completio
     const afterTouch = await index.annotate(snapshotFor(threadId, false), Date.now() + 2);
     assert.equal(afterTouch.hostSessions?.find((session) => session.threadId === threadId)?.status, "idle");
 
-    await appendFile(path, '{"type":"event_msg","payload":{"type":"agent_reasoning"}}\n{"type":"event_msg","payload":{"type":"task_complete"}}\n');
+    await appendFile(
+      path,
+      '{"type":"event_msg","payload":{"type":"agent_reasoning"}}\n{"type":"event_msg","payload":{"type":"task_complete"}}\n',
+    );
     const nextCompletion = await index.annotate(snapshotFor(threadId, false), Date.now() + 3);
     assert.equal(nextCompletion.hostSessions?.find((session) => session.threadId === threadId)?.status, "complete");
   } finally {
@@ -287,9 +330,16 @@ test("the active renderer task acknowledges completion outside the six Micro slo
     const index = new CodexSessionOwnershipIndex([root], 0);
     const value = snapshot();
     value.activeThreadKey = `local:${threadId}`;
-    assert.equal((await index.annotate(value, Date.now())).hostSessions?.find((session) => session.threadId === threadId)?.status, "working");
+    assert.equal(
+      (await index.annotate(value, Date.now())).hostSessions?.find((session) => session.threadId === threadId)?.status,
+      "working",
+    );
     await appendFile(path, '{"type":"event_msg","payload":{"type":"task_complete"}}\n');
-    assert.equal((await index.annotate(value, Date.now() + 1)).hostSessions?.find((session) => session.threadId === threadId)?.status, "idle");
+    assert.equal(
+      (await index.annotate(value, Date.now() + 1)).hostSessions?.find((session) => session.threadId === threadId)
+        ?.status,
+      "idle",
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -321,16 +371,36 @@ test("catalog ownership uses only trusted conversation ids and selected catalog 
   try {
     const conversationId = "10000000-0000-4000-8000-000000000088";
     const temporarySuffix = "10000000-0000-4000-8000-000000000089";
-    await writeFile(join(root, `rollout-now-${conversationId}.jsonl`),
-      '{"type":"event_msg","payload":{"type":"task_complete"}}\n');
-    await writeFile(join(root, `rollout-now-${temporarySuffix}.jsonl`),
-      '{"type":"event_msg","payload":{"type":"task_complete"}}\n');
+    await writeFile(
+      join(root, `rollout-now-${conversationId}.jsonl`),
+      '{"type":"event_msg","payload":{"type":"task_complete"}}\n',
+    );
+    await writeFile(
+      join(root, `rollout-now-${temporarySuffix}.jsonl`),
+      '{"type":"event_msg","payload":{"type":"task_complete"}}\n',
+    );
     const index = new CodexSessionOwnershipIndex([root], 0);
     const value = snapshot();
-    value.activeCatalog = { complete: true, candidates: [
-      { threadKey: `local:${conversationId}`, conversationId, title: "Owned", status: "unread", selected: true, catalogIndex: 7 },
-      { threadKey: `local:client-new-thread:${temporarySuffix}`, title: "Temporary", status: "working", selected: true, catalogIndex: 8 }
-    ] };
+    value.activeCatalog = {
+      complete: true,
+      candidates: [
+        {
+          threadKey: `local:${conversationId}`,
+          conversationId,
+          title: "Owned",
+          status: "unread",
+          selected: true,
+          catalogIndex: 7,
+        },
+        {
+          threadKey: `local:client-new-thread:${temporarySuffix}`,
+          title: "Temporary",
+          status: "working",
+          selected: true,
+          catalogIndex: 8,
+        },
+      ],
+    };
 
     const annotated = await index.annotate(value, Date.now());
     assert.equal(annotated.activeCatalog!.candidates[0]!.ownedByHost, true);
@@ -339,7 +409,10 @@ test("catalog ownership uses only trusted conversation ids and selected catalog 
     assert.equal(annotated.hostSessions!.find((session) => session.threadId === temporarySuffix)!.status, "complete");
     index.markOpened(`local:client-new-thread:${temporarySuffix}`, null);
     const afterDirectOpen = await index.annotate(value, Date.now() + 1);
-    assert.equal(afterDirectOpen.hostSessions!.find((session) => session.threadId === temporarySuffix)!.status, "complete");
+    assert.equal(
+      afterDirectOpen.hostSessions!.find((session) => session.threadId === temporarySuffix)!.status,
+      "complete",
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -359,11 +432,19 @@ test("a missing tracked catalog identity is negatively cached until the planned 
       await originalRefresh(now, tracked);
     };
     const value = snapshot();
-    value.activeCatalog = { complete: true, candidates: [{
-      threadKey: "remote:10000000-0000-4000-8000-000000000090",
-      conversationId: "10000000-0000-4000-8000-000000000090",
-      title: "Remote only", status: "working", selected: false, catalogIndex: 0
-    }] };
+    value.activeCatalog = {
+      complete: true,
+      candidates: [
+        {
+          threadKey: "remote:10000000-0000-4000-8000-000000000090",
+          conversationId: "10000000-0000-4000-8000-000000000090",
+          title: "Remote only",
+          status: "working",
+          selected: false,
+          catalogIndex: 0,
+        },
+      ],
+    };
 
     await index.annotate(value, 1_000);
     await index.annotate(value, 1_001);
@@ -385,14 +466,26 @@ test("a tracked old session outside the public recent 128 is still read for cata
       await writeFile(join(root, `rollout-new-${id}.jsonl`), "{}\n");
     }
     const value = snapshot();
-    value.activeCatalog = { complete: true, candidates: [{
-      threadKey: `local:${trackedId}`, conversationId: trackedId,
-      title: "Tracked old", status: "unread", selected: false, catalogIndex: 129
-    }] };
+    value.activeCatalog = {
+      complete: true,
+      candidates: [
+        {
+          threadKey: `local:${trackedId}`,
+          conversationId: trackedId,
+          title: "Tracked old",
+          status: "unread",
+          selected: false,
+          catalogIndex: 129,
+        },
+      ],
+    };
 
     const annotated = await new CodexSessionOwnershipIndex([root], 60_000).annotate(value, Date.now());
     assert.equal(annotated.hostSessions?.length, 128);
-    assert.equal(annotated.hostSessions?.some((session) => session.threadId === trackedId), false);
+    assert.equal(
+      annotated.hostSessions?.some((session) => session.threadId === trackedId),
+      false,
+    );
     assert.equal(annotated.activeCatalog?.candidates[0]?.ownedByHost, true);
     assert.equal(annotated.activeCatalog?.candidates[0]?.status, "working");
   } finally {
@@ -407,19 +500,23 @@ function snapshot(): MicroSnapshot {
       threadKey: `local:${id === 0 ? owned : id === 1 ? mirrored : `00000000-0000-4000-8000-00000000000${id}`}`,
       title: `Task ${id + 1}`,
       status: "idle",
-      selected: false
+      selected: false,
     })),
     layout: {
       version: 1,
       slots: {
-        ACT06: { keycapId: "FAST" }, ACT07: { keycapId: "APPR" }, ACT08: { keycapId: "REJ" },
-        ACT09: { keycapId: "SPLIT" }, ACT10_ACT11: { keycapId: "CODEX" }, ACT12: { keycapId: "CODEX" }
+        ACT06: { keycapId: "FAST" },
+        ACT07: { keycapId: "APPR" },
+        ACT08: { keycapId: "REJ" },
+        ACT09: { keycapId: "SPLIT" },
+        ACT10_ACT11: { keycapId: "CODEX" },
+        ACT12: { keycapId: "CODEX" },
       },
-      analogStick: { up: {}, right: {}, down: {}, left: {} }
+      analogStick: { up: {}, right: {}, down: {}, left: {} },
     },
     agentSource: "recent",
     lightingAutoOff: "3-minutes",
-    theme: "dark"
+    theme: "dark",
   };
 }
 

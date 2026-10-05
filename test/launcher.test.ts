@@ -23,8 +23,12 @@ test("launcher rejects an unsafe feature-gate expression", () => {
 test("runtime override targets the main renderer instead of macOS avatar surfaces", () => {
   const target = selectRuntimeTarget([
     { type: "page", url: "app://-/index.html?initialRoute=%2Favatar-overlay", webSocketDebuggerUrl: "ws://route" },
-    { type: "page", url: "app://-/avatar-overlay-composition-surface.html?surfaceId=mascot-badge", webSocketDebuggerUrl: "ws://mascot" },
-    { type: "page", url: "app://-/index.html", webSocketDebuggerUrl: "ws://main" }
+    {
+      type: "page",
+      url: "app://-/avatar-overlay-composition-surface.html?surfaceId=mascot-badge",
+      webSocketDebuggerUrl: "ws://mascot",
+    },
+    { type: "page", url: "app://-/index.html", webSocketDebuggerUrl: "ws://main" },
   ]);
 
   assert.equal(target?.webSocketDebuggerUrl, "ws://main");
@@ -34,7 +38,7 @@ test("startup monitoring survives Codex updates without duplicate watchers", asy
   const [watcher, launcher, build] = await Promise.all([
     readFile(new URL("../launcher/Watch-CodexDeck.ps1", import.meta.url), "utf8"),
     readFile(new URL("../launcher/Start-CodexDeck.ps1", import.meta.url), "utf8"),
-    readFile(new URL("../scripts/build-launcher.mjs", import.meta.url), "utf8")
+    readFile(new URL("../scripts/build-launcher.mjs", import.meta.url), "utf8"),
   ]);
 
   assert.match(watcher, /Local\\CodexDeckBridgeWatcher/);
@@ -66,7 +70,13 @@ test("watcher recovery decision self-test passes in PowerShell", async (context)
 
   const watcherPath = fileURLToPath(new URL("../launcher/Watch-CodexDeck.ps1", import.meta.url));
   const { stdout } = await execFileAsync("powershell.exe", [
-    "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", watcherPath, "-SelfTest"
+    "-NoLogo",
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    watcherPath,
+    "-SelfTest",
   ]);
   assert.match(stdout, /self-test passed \(6 cases\)/i);
 });
@@ -94,26 +104,35 @@ test("launcher activates and verifies a native event bus exposed only by app-sha
     handlers: new Map([
       ["codex-micro-device-state-changed", new Set([() => {}])],
       ["codex-micro-hid-event", new Set([() => {}])],
-      ["codex-micro-joystick-event", new Set([() => {}])]
+      ["codex-micro-joystick-event", new Set([() => {}])],
     ]),
-    dispatchHostMessage: (message: unknown) => events.push(message)
+    dispatchHostMessage: (message: unknown) => events.push(message),
   };
   let now = 0;
   const context = {
-    Map, Set,
-    Date: { now: () => now += 1_000 },
+    Map,
+    Set,
+    Date: { now: () => (now += 1_000) },
     setTimeout: (callback: () => void) => callback(),
     __STATSIG__: { firstInstance: { checkGate: () => true } },
     document: { querySelectorAll: () => [], querySelector: () => null },
     performance: { getEntriesByType: () => [{ name: "app://-/assets/app-shared-fixture.js" }] },
-    loadModule: async () => ({ bus })
+    loadModule: async () => ({ bus }),
   };
-  const activate = await runInNewContext(buildRuntimeOverrideExpression().replaceAll("import(", "loadModule("), context);
+  const activate = await runInNewContext(
+    buildRuntimeOverrideExpression().replaceAll("import(", "loadModule("),
+    context,
+  );
   assert.equal(activate.ready, true);
-  assert.deepEqual(JSON.parse(JSON.stringify(events)), [{
-    type: "codex-micro-device-state-changed",
-    state: { status: "connected", error: null, battery: { percentage: 100, isCharging: true } }
-  }]);
-  const verify = await runInNewContext(buildRuntimeVerificationExpression().replaceAll("import(", "loadModule("), context);
+  assert.deepEqual(JSON.parse(JSON.stringify(events)), [
+    {
+      type: "codex-micro-device-state-changed",
+      state: { status: "connected", error: null, battery: { percentage: 100, isCharging: true } },
+    },
+  ]);
+  const verify = await runInNewContext(
+    buildRuntimeVerificationExpression().replaceAll("import(", "loadModule("),
+    context,
+  );
   assert.equal(verify.ready, true);
 });

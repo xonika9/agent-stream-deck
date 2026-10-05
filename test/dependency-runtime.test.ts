@@ -26,7 +26,7 @@ test("bundled ESM actions retain SDK decoration and native press/release behavio
     platform: "node",
     format: "esm",
     target: "node24",
-    banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" }
+    banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" },
   });
   // A bundled SDK instance owns its own cwd-based logger. Keep its rotation
   // separate from SDK instances loaded by other test processes.
@@ -34,18 +34,25 @@ test("bundled ESM actions retain SDK decoration and native press/release behavio
   let actions: { Fast: typeof Fast };
   try {
     process.chdir(directory);
-    actions = await import(pathToFileURL(outfile).href) as { Fast: typeof Fast };
-  } finally { process.chdir(previousDirectory); }
+    actions = (await import(pathToFileURL(outfile).href)) as { Fast: typeof Fast };
+  } finally {
+    process.chdir(previousDirectory);
+  }
   const inputs: Array<[string, number]> = [];
   const controller = {
-    sendMicroAction: async (slot: string, act: number) => { inputs.push([slot, act]); }
+    sendMicroAction: async (slot: string, act: number) => {
+      inputs.push([slot, act]);
+    },
   } as unknown as DeckController;
   const action = new actions.Fast(controller);
   assert.equal(action.manifestId, "com.xonika9.codex-deck.fast");
   const event = { action: { showAlert: async () => assert.fail("native action unexpectedly failed") } };
   await action.onKeyDown(event as never);
   await action.onKeyUp(event as never);
-  assert.deepEqual(inputs, [["ACT06", 1], ["ACT06", 0]]);
+  assert.deepEqual(inputs, [
+    ["ACT06", 1],
+    ["ACT06", 0],
+  ]);
 });
 
 test("ESM launcher verifies the runtime over loopback HTTP and WebSocket CDP", async (context) => {
@@ -53,15 +60,17 @@ test("ESM launcher verifies the runtime over loopback HTTP and WebSocket CDP", a
   const server = createServer((request, response) => {
     assert.equal(request.url, "/json/list");
     response.setHeader("Content-Type", "application/json");
-    response.end(JSON.stringify([
-      { type: "page", url: "app://-/index.html", webSocketDebuggerUrl: `ws://127.0.0.1:${port}/devtools/page/main` }
-    ]));
+    response.end(
+      JSON.stringify([
+        { type: "page", url: "app://-/index.html", webSocketDebuggerUrl: `ws://127.0.0.1:${port}/devtools/page/main` },
+      ]),
+    );
   });
   const sockets = new WebSocketServer({ server });
   context.after(async () => {
     for (const socket of sockets.clients) socket.terminate();
-    await new Promise<void>((resolve, reject) => sockets.close((error) => error ? reject(error) : resolve()));
-    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    await new Promise<void>((resolve, reject) => sockets.close((error) => (error ? reject(error) : resolve())));
+    await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -75,7 +84,11 @@ test("ESM launcher verifies the runtime over loopback HTTP and WebSocket CDP", a
     assert.equal(request.url, "/devtools/page/main");
     closed = once(socket, "close");
     socket.on("message", (raw) => {
-      const message = JSON.parse(String(raw)) as { id: number; method: string; params: { expression: string; awaitPromise: boolean; returnByValue: boolean } };
+      const message = JSON.parse(String(raw)) as {
+        id: number;
+        method: string;
+        params: { expression: string; awaitPromise: boolean; returnByValue: boolean };
+      };
       assert.equal(message.method, "Runtime.evaluate");
       assert.equal(message.params.awaitPromise, true);
       assert.equal(message.params.returnByValue, true);
@@ -100,41 +113,59 @@ for (const failure of ["http", "handshake", "pending", "close"] as const) {
     const server = createServer((_request, response) => {
       if (broken && failure === "http") return;
       response.setHeader("Content-Type", "application/json");
-      response.end(JSON.stringify([{ type: "page", url: "app://-/index.html", webSocketDebuggerUrl: `ws://127.0.0.1:${port}/main` }]));
+      response.end(
+        JSON.stringify([
+          { type: "page", url: "app://-/index.html", webSocketDebuggerUrl: `ws://127.0.0.1:${port}/main` },
+        ]),
+      );
     });
     const peers = new Set<import("node:stream").Duplex>();
-    server.on("connection", socket => { peers.add(socket); socket.once("close", () => peers.delete(socket)); });
+    server.on("connection", (socket) => {
+      peers.add(socket);
+      socket.once("close", () => peers.delete(socket));
+    });
     const sockets = new WebSocketServer({ noServer: true });
     server.on("upgrade", (request, socket, head) => {
       if (broken && failure === "handshake") return;
-      sockets.handleUpgrade(request, socket, head, client => sockets.emit("connection", client));
+      sockets.handleUpgrade(request, socket, head, (client) => sockets.emit("connection", client));
     });
-    sockets.on("connection", socket => socket.on("message", raw => {
-      if (broken) { if (failure === "close") socket.close(); return; }
-      const { id } = JSON.parse(String(raw));
-      socket.send(JSON.stringify({ id, result: { result: { value: { ready: true } } } }));
-    }));
+    sockets.on("connection", (socket) =>
+      socket.on("message", (raw) => {
+        if (broken) {
+          if (failure === "close") socket.close();
+          return;
+        }
+        const { id } = JSON.parse(String(raw));
+        socket.send(JSON.stringify({ id, result: { result: { value: { ready: true } } } }));
+      }),
+    );
     context.after(async () => {
       for (const socket of sockets.clients) socket.terminate();
       for (const peer of peers) peer.destroy();
-      await new Promise<void>(resolve => sockets.close(() => resolve()));
-      await new Promise<void>(resolve => server.close(() => resolve()));
+      await new Promise<void>((resolve) => sockets.close(() => resolve()));
+      await new Promise<void>((resolve) => server.close(() => resolve()));
     });
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
     port = (server.address() as import("node:net").AddressInfo).port;
     let guard: NodeJS.Timeout | undefined;
     try {
-      await assert.rejects(Promise.race([
-        verifyMicroRuntime(port, 120),
-        new Promise((_, reject) => { guard = setTimeout(() => reject(new Error("TEST_GUARD_EXPIRED")), 500); })
-      ]), error => error instanceof Error && !error.message.includes("TEST_GUARD_EXPIRED"));
-    } finally { clearTimeout(guard); }
+      await assert.rejects(
+        Promise.race([
+          verifyMicroRuntime(port, 120),
+          new Promise((_, reject) => {
+            guard = setTimeout(() => reject(new Error("TEST_GUARD_EXPIRED")), 500);
+          }),
+        ]),
+        (error) => error instanceof Error && !error.message.includes("TEST_GUARD_EXPIRED"),
+      );
+    } finally {
+      clearTimeout(guard);
+    }
     broken = false;
     assert.deepEqual(await verifyMicroRuntime(port, 1_000), { ready: true });
   });
 }
-
 
 test("native bridge releases an unowned handshake attempt before retry", async (context) => {
   const directory = await mkdtemp(join(tmpdir(), "codex-handshake-"));
@@ -145,19 +176,28 @@ test("native bridge releases an unowned handshake attempt before retry", async (
   const peers = new Set<import("node:stream").Duplex>();
   const server = createServer((request, response) => {
     response.setHeader("Content-Type", "application/json");
-    response.end(request.url === "/json/version" ? "{}" : JSON.stringify([{ type: "page", url: "app://-/index.html", webSocketDebuggerUrl: `ws://127.0.0.1:${port}/main` }]));
+    response.end(
+      request.url === "/json/version"
+        ? "{}"
+        : JSON.stringify([
+            { type: "page", url: "app://-/index.html", webSocketDebuggerUrl: `ws://127.0.0.1:${port}/main` },
+          ]),
+    );
   });
   server.on("upgrade", (_request, socket) => {
     upgrades++;
     socket.resume();
     socket.once("end", () => socket.end());
     peers.add(socket);
-    socket.once("close", () => { closures++; peers.delete(socket); });
+    socket.once("close", () => {
+      closures++;
+      peers.delete(socket);
+    });
     if (upgrades === 3) socket.end("HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n\r\n");
   });
   context.after(async () => {
     for (const peer of peers) peer.destroy();
-    await new Promise<void>(resolve => server.close(() => resolve()));
+    await new Promise<void>((resolve) => server.close(() => resolve()));
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -166,7 +206,9 @@ test("native bridge releases an unowned handshake attempt before retry", async (
   await mkdir(stateRoot, { recursive: true });
   await writeFile(join(stateRoot, "codex-micro-bridge.json"), JSON.stringify({ port }));
   const script = join(directory, "handshake.mjs");
-  await writeFile(script, `
+  await writeFile(
+    script,
+    `
     import assert from "node:assert/strict";
     import { CodexMicroRendererBridge } from ${JSON.stringify(new URL("../src/codex/index.ts", import.meta.url).href)};
     const bridge = new CodexMicroRendererBridge(() => {});
@@ -178,12 +220,15 @@ test("native bridge releases an unowned handshake attempt before retry", async (
       process.stdout.write("NATIVE_HANDSHAKE_SUCCESS\\n");
     } catch (error) { console.error(error); process.exitCode = 1; }
     finally { bridge.close(); }
-  `);
+  `,
+  );
   const result = await promisify(execFile)(process.execPath, ["--import", import.meta.resolve("tsx"), script], {
-    cwd: directory, env: { ...process.env, HOME: directory, LOCALAPPDATA: directory }, timeout: 8_000
+    cwd: directory,
+    env: { ...process.env, HOME: directory, LOCALAPPDATA: directory },
+    timeout: 8_000,
   });
   assert.match(result.stdout, /NATIVE_HANDSHAKE_SUCCESS/);
-  await new Promise(resolve => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(upgrades, 3);
   assert.equal(closures, 3, "timeout and error attempts must close at their owner boundary");
 });
@@ -194,27 +239,39 @@ test("launcher relinquishes its process handle after a deadline with a peer that
   let port = 0;
   const server = createServer((_request, response) => {
     response.setHeader("Content-Type", "application/json");
-    response.end(JSON.stringify([{ type: "page", url: "app://-/index.html", webSocketDebuggerUrl: `ws://127.0.0.1:${port}/main` }]));
+    response.end(
+      JSON.stringify([
+        { type: "page", url: "app://-/index.html", webSocketDebuggerUrl: `ws://127.0.0.1:${port}/main` },
+      ]),
+    );
   });
   const sockets = new WebSocketServer({ server });
-  sockets.on("connection", socket => socket.once("message", () => {
-    (socket as unknown as { _socket: import("node:net").Socket })._socket.pause();
-  }));
+  sockets.on("connection", (socket) =>
+    socket.once("message", () => {
+      (socket as unknown as { _socket: import("node:net").Socket })._socket.pause();
+    }),
+  );
   context.after(async () => {
     for (const socket of sockets.clients) socket.terminate();
-    await new Promise<void>(resolve => sockets.close(() => resolve()));
-    await new Promise<void>(resolve => server.close(() => resolve()));
+    await new Promise<void>((resolve) => sockets.close(() => resolve()));
+    await new Promise<void>((resolve) => server.close(() => resolve()));
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   port = (server.address() as import("node:net").AddressInfo).port;
   const script = join(directory, "close.mjs");
-  await writeFile(script, `
+  await writeFile(
+    script,
+    `
     import assert from "node:assert/strict";
     import { verifyMicroRuntime } from ${JSON.stringify(new URL("../src/codex/index.ts", import.meta.url).href)};
     await assert.rejects(verifyMicroRuntime(${port}, 120), /Timed out/);
     process.stdout.write("CDP_DEADLINE_RELEASED\\n");
-  `);
-  const result = await promisify(execFile)(process.execPath, ["--import", import.meta.resolve("tsx"), script], { cwd: directory, timeout: 2_000 });
+  `,
+  );
+  const result = await promisify(execFile)(process.execPath, ["--import", import.meta.resolve("tsx"), script], {
+    cwd: directory,
+    timeout: 2_000,
+  });
   assert.match(result.stdout, /CDP_DEADLINE_RELEASED/);
 });

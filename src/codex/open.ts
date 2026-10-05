@@ -13,7 +13,7 @@ export function codexThreadUrl(threadId: string): string {
 export function codexOpenSpec(
   threadId: string,
   targetPlatform = process.platform,
-  systemRoot = process.env.SystemRoot ?? "C:\\Windows"
+  systemRoot = process.env.SystemRoot ?? "C:\\Windows",
 ): CodexOpenSpec {
   const url = codexThreadUrl(threadId);
   if (targetPlatform === "darwin") return { executable: "/usr/bin/open", args: [url], windowsHide: false };
@@ -21,8 +21,16 @@ export function codexOpenSpec(
     const executable = win32.join(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
     return {
       executable,
-      args: ["-NoLogo", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", `Start-Process -FilePath '${url}'`],
-      windowsHide: true
+      args: [
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-WindowStyle",
+        "Hidden",
+        "-Command",
+        `Start-Process -FilePath '${url}'`,
+      ],
+      windowsHide: true,
     };
   }
   throw new Error(`Opening Codex links is unsupported on ${targetPlatform}.`);
@@ -31,9 +39,14 @@ export function codexOpenSpec(
 export function openCodexThread(threadId: string): Promise<void> {
   const spec = codexOpenSpec(threadId);
   return new Promise((resolve, reject) => {
-    const child = spawn(spec.executable, spec.args, { windowsHide: spec.windowsHide, stdio: ["ignore", "ignore", "pipe"] });
+    const child = spawn(spec.executable, spec.args, {
+      windowsHide: spec.windowsHide,
+      stdio: ["ignore", "ignore", "pipe"],
+    });
     let errorOutput = "";
-    child.stderr.on("data", (data) => { errorOutput += String(data); });
+    child.stderr.on("data", (data) => {
+      errorOutput += String(data);
+    });
     child.on("error", reject);
     child.on("exit", (code) => {
       if (code === 0) resolve();

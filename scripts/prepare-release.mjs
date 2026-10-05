@@ -48,17 +48,24 @@ function assertReleaseVersion(version) {
 }
 
 async function sha256(path) {
-  return createHash("sha256").update(await readFile(path)).digest("hex");
+  return createHash("sha256")
+    .update(await readFile(path))
+    .digest("hex");
 }
 
 function packageWindowsLauncher(outputPath) {
   const source = join(root, "release", "codex-deck-launcher");
   if (process.platform === "win32") {
     run("powershell", [
-      "-NoProfile", "-ExecutionPolicy", "Bypass",
-      "-File", join(root, "scripts", "package-windows-release.ps1"),
-      "-SourcePath", source,
-      "-OutputPath", outputPath
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      join(root, "scripts", "package-windows-release.ps1"),
+      "-SourcePath",
+      source,
+      "-OutputPath",
+      outputPath,
     ]);
     return;
   }
@@ -85,7 +92,7 @@ async function main() {
   assertReleaseVersion(version);
   if (version !== expectedReleaseVersion || manifest.Version !== expectedManifestVersion) {
     throw new Error(
-      `Release version mismatch: requested=${version}, package=${packageJson.version}, manifest=${manifest.Version}, expected manifest=${expectedManifestVersion}.`
+      `Release version mismatch: requested=${version}, package=${packageJson.version}, manifest=${manifest.Version}, expected manifest=${expectedManifestVersion}.`,
     );
   }
 
@@ -109,7 +116,7 @@ async function main() {
   const macIncluded = await packageMacLauncher(macArchive, options.macArchive);
   if (!macIncluded) {
     console.warn(
-      "macOS ZIP omitted. Create it on macOS with scripts/package-macos-release.sh, then rerun with --mac-archive."
+      "macOS ZIP omitted. Create it on macOS with scripts/package-macos-release.sh, then rerun with --mac-archive.",
     );
   }
 

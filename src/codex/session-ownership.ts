@@ -25,13 +25,15 @@ export class CodexSessionOwnershipIndex {
 
   constructor(
     private readonly roots = defaultSessionRoots(),
-    private readonly refreshIntervalMs = 5_000
+    private readonly refreshIntervalMs = 5_000,
   ) {}
 
   async annotate(snapshot: MicroSnapshot, now = Date.now()): Promise<MicroSnapshot> {
-    const trackedSessions = new Set(snapshot.slots
-      .map((slot) => sessionIdFromThreadKey(slot.threadKey))
-      .filter((sessionId): sessionId is string => sessionId != null));
+    const trackedSessions = new Set(
+      snapshot.slots
+        .map((slot) => sessionIdFromThreadKey(slot.threadKey))
+        .filter((sessionId): sessionId is string => sessionId != null),
+    );
     const activeSessionId = sessionIdFromThreadKey(snapshot.activeThreadKey ?? null);
     if (activeSessionId) trackedSessions.add(activeSessionId);
     for (const candidate of snapshot.activeCatalog?.candidates ?? []) {
@@ -40,23 +42,31 @@ export class CodexSessionOwnershipIndex {
       }
     }
     await this.refreshIfNeeded(now, trackedSessions);
-    const selectedSessions = new Set(snapshot.slots
-      .filter((slot) => slot.selected)
-      .map((slot) => sessionIdFromThreadKey(slot.threadKey))
-      .filter((sessionId): sessionId is string => sessionId != null));
+    const selectedSessions = new Set(
+      snapshot.slots
+        .filter((slot) => slot.selected)
+        .map((slot) => sessionIdFromThreadKey(slot.threadKey))
+        .filter((sessionId): sessionId is string => sessionId != null),
+    );
     if (activeSessionId) selectedSessions.add(activeSessionId);
     for (const candidate of snapshot.activeCatalog?.candidates ?? []) {
       if (candidate.selected && candidate.conversationId) selectedSessions.add(candidate.conversationId.toLowerCase());
     }
     for (const session of this.trackedSessionPresence.values()) {
-      if (session.status === "complete" && session.completionRevision != null && selectedSessions.has(session.threadId)) {
+      if (
+        session.status === "complete" &&
+        session.completionRevision != null &&
+        selectedSessions.has(session.threadId)
+      ) {
         this.acknowledgedCompletions.set(session.threadId, session.completionRevision);
       }
     }
-    const allVisibleSessions = new Map([...this.trackedSessionPresence.values()].map((session) =>
-      [session.threadId, this.visibleSession(session, now)]));
-    const publicVisibleSessions = this.recentSessions.map((session) =>
-      allVisibleSessions.get(session.threadId) ?? this.visibleSession(session, now));
+    const allVisibleSessions = new Map(
+      [...this.trackedSessionPresence.values()].map((session) => [session.threadId, this.visibleSession(session, now)]),
+    );
+    const publicVisibleSessions = this.recentSessions.map(
+      (session) => allVisibleSessions.get(session.threadId) ?? this.visibleSession(session, now),
+    );
     return {
       ...snapshot,
       hostSessions: publicVisibleSessions,
@@ -67,14 +77,14 @@ export class CodexSessionOwnershipIndex {
           const session = sessionId ? allVisibleSessions.get(sessionId) : undefined;
           const ownedByHost = sessionId != null && this.sessionIds.has(sessionId);
           return { ...candidate, ...ownedSessionFields(candidate.status, session, ownedByHost) };
-        })
+        }),
       },
       slots: snapshot.slots.map((slot) => {
         const sessionId = sessionIdFromThreadKey(slot.threadKey);
         const session = sessionId ? allVisibleSessions.get(sessionId) : undefined;
         const ownedByHost = sessionId != null && this.sessionIds.has(sessionId);
         return { ...slot, ...ownedSessionFields(slot.status, session, ownedByHost) };
-      })
+      }),
     };
   }
 
@@ -82,9 +92,12 @@ export class CodexSessionOwnershipIndex {
   markOpened(threadKey: string, trustedConversationId?: string | null): void {
     if (trustedConversationId === null) return;
     const normalizedTrusted = trustedConversationId?.toLowerCase();
-    const sessionId = normalizedTrusted && sessionIdFromThreadKey(normalizedTrusted) === normalizedTrusted
-      ? normalizedTrusted
-      : trustedConversationId === undefined ? sessionIdFromThreadKey(threadKey) : null;
+    const sessionId =
+      normalizedTrusted && sessionIdFromThreadKey(normalizedTrusted) === normalizedTrusted
+        ? normalizedTrusted
+        : trustedConversationId === undefined
+          ? sessionIdFromThreadKey(threadKey)
+          : null;
     if (!sessionId) return;
     const session = this.trackedSessionPresence.get(sessionId);
     if (session?.status === "complete" && session.completionRevision != null) {
@@ -94,14 +107,18 @@ export class CodexSessionOwnershipIndex {
 
   private async refreshIfNeeded(now: number, trackedSessions: Set<string>): Promise<void> {
     const plannedRefresh = now - this.refreshedAt >= this.refreshIntervalMs;
-    const needsContext = [...trackedSessions].some((sessionId) =>
-      !this.contextParsedSessions.has(sessionId) && !this.attemptedContextSessions.has(sessionId));
+    const needsContext = [...trackedSessions].some(
+      (sessionId) => !this.contextParsedSessions.has(sessionId) && !this.attemptedContextSessions.has(sessionId),
+    );
     if (!plannedRefresh && !needsContext) return;
     if (this.refreshInFlight) return this.refreshInFlight;
     const pending = this.refresh(now, trackedSessions);
     this.refreshInFlight = pending;
-    try { await pending; }
-    finally { if (this.refreshInFlight === pending) this.refreshInFlight = undefined; }
+    try {
+      await pending;
+    } finally {
+      if (this.refreshInFlight === pending) this.refreshInFlight = undefined;
+    }
   }
 
   private async refresh(now: number, trackedSessions: Set<string>): Promise<void> {
@@ -116,58 +133,61 @@ export class CodexSessionOwnershipIndex {
           const sessionId = sessionIdFromRolloutFilename(entry.name);
           if (!sessionId) continue;
           next.add(sessionId);
-          const parentPath = (entry as typeof entry & { parentPath?: string; path?: string }).parentPath
-            ?? (entry as typeof entry & { path?: string }).path;
+          const parentPath =
+            (entry as typeof entry & { parentPath?: string; path?: string }).parentPath ??
+            (entry as typeof entry & { path?: string }).path;
           if (!parentPath) continue;
           sessionFiles.push({ threadId: sessionId, path: join(parentPath, entry.name) });
         }
-      }
-      catch (error) {
+      } catch (error) {
         const code = (error as NodeJS.ErrnoException).code;
         if (code !== "ENOENT") throw error;
       }
     }
     for (let index = 0; index < sessionFiles.length; index += 32) {
       const batch = sessionFiles.slice(index, index + 32);
-      const resolved = await Promise.all(batch.map(async ({ threadId, path }) => {
-        try {
-          const info = await stat(path);
-          return { threadId, path, activityAt: info.mtimeMs };
-        } catch { return null; }
-      }));
+      const resolved = await Promise.all(
+        batch.map(async ({ threadId, path }) => {
+          try {
+            const info = await stat(path);
+            return { threadId, path, activityAt: info.mtimeMs };
+          } catch {
+            return null;
+          }
+        }),
+      );
       files.push(...resolved.filter((value): value is NonNullable<typeof value> => value != null));
     }
     this.sessionIds = next;
-    const uniqueRecent = new Map<string, typeof files[number]>();
+    const uniqueRecent = new Map<string, (typeof files)[number]>();
     for (const file of files.sort((left, right) => right.activityAt - left.activityAt)) {
       if (!uniqueRecent.has(file.threadId)) uniqueRecent.set(file.threadId, file);
     }
     const uniqueFiles = [...uniqueRecent.values()];
     const recent = uniqueFiles.slice(0, 128);
     const recentIds = new Set(recent.map((file) => file.threadId));
-    const trackedExtra = uniqueFiles.filter((file) =>
-      trackedSessions.has(file.threadId) && !recentIds.has(file.threadId));
+    const trackedExtra = uniqueFiles.filter(
+      (file) => trackedSessions.has(file.threadId) && !recentIds.has(file.threadId),
+    );
     const filesToRead = [...recent, ...trackedExtra];
     const contextParsed = new Set<string>();
-    const presence = await Promise.all(filesToRead.map(async ({ threadId, path, activityAt: fileActivityAt }) => {
-      const shouldRead = now - fileActivityAt <= 15 * 60_000 || trackedSessions.has(threadId);
-      const recentStatus = shouldRead
-        ? await readRecentSessionStatus(path)
-        : { status: "idle" as const };
-      if (shouldRead) contextParsed.add(threadId);
-      const { activityAt, ...status } = recentStatus;
-      const observedWorkStart = workStartFields(recentStatus);
-      const prior = this.retainedWorkStarts.get(threadId);
-      if (observedWorkStart &&
-        (prior == null || observedWorkStart.workStartRevision >= prior.workStartRevision)) {
-        this.retainedWorkStarts.set(threadId, { ...observedWorkStart, lastSeenAt: now });
-      }
-      const retained = this.retainedWorkStarts.get(threadId);
-      const workStart = retained && now - retained.lastSeenAt <= WORK_START_RETENTION_MS
-        ? workStartFields(retained)
-        : null;
-      return { threadId, activityAt: activityAt ?? fileActivityAt, ...status, ...(workStart ?? {}) };
-    }));
+    const presence = await Promise.all(
+      filesToRead.map(async ({ threadId, path, activityAt: fileActivityAt }) => {
+        const shouldRead = now - fileActivityAt <= 15 * 60_000 || trackedSessions.has(threadId);
+        const recentStatus = shouldRead ? await readRecentSessionStatus(path) : { status: "idle" as const };
+        if (shouldRead) contextParsed.add(threadId);
+        const { activityAt, ...status } = recentStatus;
+        const observedWorkStart = workStartFields(recentStatus);
+        const prior = this.retainedWorkStarts.get(threadId);
+        if (observedWorkStart && (prior == null || observedWorkStart.workStartRevision >= prior.workStartRevision)) {
+          this.retainedWorkStarts.set(threadId, { ...observedWorkStart, lastSeenAt: now });
+        }
+        const retained = this.retainedWorkStarts.get(threadId);
+        const workStart =
+          retained && now - retained.lastSeenAt <= WORK_START_RETENTION_MS ? workStartFields(retained) : null;
+        return { threadId, activityAt: activityAt ?? fileActivityAt, ...status, ...(workStart ?? {}) };
+      }),
+    );
     this.trackedSessionPresence = new Map(presence.map((session) => [session.threadId, session]));
     this.recentSessions = recent.map((file) => this.trackedSessionPresence.get(file.threadId)!);
     this.contextParsedSessions = contextParsed;
@@ -189,12 +209,14 @@ export class CodexSessionOwnershipIndex {
   }
 
   private visibleSession(session: HostSessionPresence, now: number): HostSessionPresence {
-    const completionIsAcknowledged = session.status === "complete" && session.completionRevision != null &&
+    const completionIsAcknowledged =
+      session.status === "complete" &&
+      session.completionRevision != null &&
       this.acknowledgedCompletions.get(session.threadId) === session.completionRevision;
     const completionIsStale = session.status === "complete" && now - session.activityAt > COMPLETION_FRESHNESS_MS;
     return {
       ...session,
-      status: completionIsAcknowledged || completionIsStale ? "idle" : session.status
+      status: completionIsAcknowledged || completionIsStale ? "idle" : session.status,
     };
   }
 }
@@ -213,10 +235,13 @@ function defaultSessionRoots(): string[] {
 }
 
 async function readRecentSessionStatus(
-  path: string
-): Promise<Pick<HostSessionPresence,
-  "status" | "completionRevision" | "contextUsedPercent" | "workStartedAt" | "workStartRevision"
-> & { activityAt?: number }> {
+  path: string,
+): Promise<
+  Pick<
+    HostSessionPresence,
+    "status" | "completionRevision" | "contextUsedPercent" | "workStartedAt" | "workStartRevision"
+  > & { activityAt?: number }
+> {
   try {
     const handle = await open(path, "r");
     try {
@@ -257,30 +282,39 @@ async function readRecentSessionStatus(
             if (Number.isFinite(eventTime)) activityAt = eventTime;
           } else if (eventType === "turn_aborted") {
             lifecycle = "idle";
-          } else if (["reasoning", "custom_tool_call", "custom_tool_call_output"].includes(responseType ?? "") ||
-            (responseType === "message" && event.payload?.role === "assistant")) {
+          } else if (
+            ["reasoning", "custom_tool_call", "custom_tool_call_output"].includes(responseType ?? "") ||
+            (responseType === "message" && event.payload?.role === "assistant")
+          ) {
             // Current Codex builds record active reasoning and tool work as
             // response_item entries. Long-lived threads can push the original
             // task_started record beyond this bounded tail read.
             lifecycle = "working";
             if (Number.isFinite(eventTime)) activityAt = eventTime;
           }
-        } catch { /* Ignore a truncated first or last JSONL record. */ }
+        } catch {
+          /* Ignore a truncated first or last JSONL record. */
+        }
         if (newline < 0) break;
         lineStart = newline + 1;
       }
       const contextUsedPercent = readContextUsedPercent(tail);
-      const workStart = workStartedAt != null && workStartRevision != null
-        ? { workStartedAt, workStartRevision }
-        : {};
-      if (lifecycle === "working") return {
-        status: "working", ...(activityAt != null ? { activityAt } : {}),
-        ...(contextUsedPercent != null ? { contextUsedPercent } : {}), ...workStart
-      };
-      if (lifecycle === "complete" && completionRevision != null) return {
-        status: "complete", completionRevision, ...(activityAt != null ? { activityAt } : {}),
-        ...(contextUsedPercent != null ? { contextUsedPercent } : {}), ...workStart
-      };
+      const workStart = workStartedAt != null && workStartRevision != null ? { workStartedAt, workStartRevision } : {};
+      if (lifecycle === "working")
+        return {
+          status: "working",
+          ...(activityAt != null ? { activityAt } : {}),
+          ...(contextUsedPercent != null ? { contextUsedPercent } : {}),
+          ...workStart,
+        };
+      if (lifecycle === "complete" && completionRevision != null)
+        return {
+          status: "complete",
+          completionRevision,
+          ...(activityAt != null ? { activityAt } : {}),
+          ...(contextUsedPercent != null ? { contextUsedPercent } : {}),
+          ...workStart,
+        };
       return { status: "idle", ...(contextUsedPercent != null ? { contextUsedPercent } : {}), ...workStart };
     } finally {
       await handle.close();
@@ -290,9 +324,14 @@ async function readRecentSessionStatus(
   }
 }
 
-function workStartFields(value: {
-  workStartedAt?: number; workStartRevision?: number
-} | undefined): WorkStartPair | null {
+function workStartFields(
+  value:
+    | {
+        workStartedAt?: number;
+        workStartRevision?: number;
+      }
+    | undefined,
+): WorkStartPair | null {
   return value?.workStartedAt != null && value.workStartRevision != null
     ? { workStartedAt: value.workStartedAt, workStartRevision: value.workStartRevision }
     : null;
@@ -301,7 +340,7 @@ function workStartFields(value: {
 function ownedSessionFields(
   status: string,
   session: HostSessionPresence | undefined,
-  ownedByHost: boolean
+  ownedByHost: boolean,
 ): {
   ownedByHost: boolean;
   status: string;
@@ -315,16 +354,15 @@ function ownedSessionFields(
     workStartedAt: undefined,
     workStartRevision: undefined,
     ...(session?.contextUsedPercent != null ? { contextUsedPercent: session.contextUsedPercent } : {}),
-    ...(workStartFields(session) ?? {})
+    ...(workStartFields(session) ?? {}),
   };
 }
 
 function reconcileOwnedStatus(nativeStatus: string, sessionStatus: HostSessionPresence["status"]): string {
   if (["approval", "awaiting-approval", "awaiting-response", "error"].includes(nativeStatus)) return nativeStatus;
   if (sessionStatus === "working") return "working";
-  if (sessionStatus === "complete") return ["unread", "complete", "completed", "done"].includes(nativeStatus)
-    ? nativeStatus
-    : "complete";
+  if (sessionStatus === "complete")
+    return ["unread", "complete", "completed", "done"].includes(nativeStatus) ? nativeStatus : "complete";
   return "idle";
 }
 
@@ -344,12 +382,21 @@ function readContextUsedPercent(tail: string): number | null {
       };
       const total = event.payload?.info?.last_token_usage?.total_tokens;
       const window = event.payload?.info?.model_context_window;
-      if (event.type === "event_msg" && event.payload?.type === "token_count" &&
-        typeof total === "number" && Number.isFinite(total) && total >= 0 &&
-        typeof window === "number" && Number.isFinite(window) && window > 0) {
-        return Math.max(0, Math.min(100, Math.round(total / window * 100)));
+      if (
+        event.type === "event_msg" &&
+        event.payload?.type === "token_count" &&
+        typeof total === "number" &&
+        Number.isFinite(total) &&
+        total >= 0 &&
+        typeof window === "number" &&
+        Number.isFinite(window) &&
+        window > 0
+      ) {
+        return Math.max(0, Math.min(100, Math.round((total / window) * 100)));
       }
-    } catch { /* Ignore a truncated first or last JSONL record. */ }
+    } catch {
+      /* Ignore a truncated first or last JSONL record. */
+    }
     offset = tail.lastIndexOf('"type":"token_count"', start - 1);
   }
   return null;

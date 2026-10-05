@@ -6,12 +6,20 @@ import type { MicroSnapshot, UsageSnapshot, UsageWindow } from "#agents";
 import { composeMacUsage, parseUsageLimitMode, selectUsageWindow, usageTheme, usageWindowKind } from "#usage";
 
 const fiveHour: UsageWindow = {
-  id: "five-hour", kind: "five-hour", usedPercent: 26, remainingPercent: 74,
-  windowDurationMins: 300, resetsAt: 1_800_000_000_000
+  id: "five-hour",
+  kind: "five-hour",
+  usedPercent: 26,
+  remainingPercent: 74,
+  windowDurationMins: 300,
+  resetsAt: 1_800_000_000_000,
 };
 const weekly: UsageWindow = {
-  id: "weekly", kind: "weekly", usedPercent: 88, remainingPercent: 12,
-  windowDurationMins: 10_080, resetsAt: 1_800_000_000_000
+  id: "weekly",
+  kind: "weekly",
+  usedPercent: 88,
+  remainingPercent: 12,
+  windowDurationMins: 10_080,
+  resetsAt: 1_800_000_000_000,
 };
 
 function usage(windows: UsageWindow[]): UsageSnapshot {
@@ -37,12 +45,19 @@ test("usage rendering falls back to light without overriding an available theme"
   const health = { state: "ready", changedAt: 1 } as const;
   assert.equal(usageTheme({ health, usage: usage([weekly]) }), "light");
   assert.equal(usageTheme({ health, usage: usage([weekly]), theme: "dark" }), "dark");
-  assert.equal(usageTheme({
-    health,
-    snapshot: {
-      slots: [], layout: { slots: {} }, agentSource: "priority", lightingAutoOff: false, theme: "dark"
-    } as unknown as MicroSnapshot
-  }), "dark");
+  assert.equal(
+    usageTheme({
+      health,
+      snapshot: {
+        slots: [],
+        layout: { slots: {} },
+        agentSource: "priority",
+        lightingAutoOff: false,
+        theme: "dark",
+      } as unknown as MicroSnapshot,
+    }),
+    "dark",
+  );
 });
 
 test("macOS never falls back to renderer quota windows", () => {
@@ -56,11 +71,14 @@ test("macOS never falls back to renderer quota windows", () => {
   assert.deepEqual(combined?.windows, [weekly]);
   assert.equal(combined?.resetCreditsAvailable, 2);
 
-  assert.equal(composeMacUsage(undefined, {
-    ...bridge,
-    resetCreditsAvailable: null,
-    resetCreditsApplicable: null
-  }), undefined);
+  assert.equal(
+    composeMacUsage(undefined, {
+      ...bridge,
+      resetCreditsAvailable: null,
+      resetCreditsApplicable: null,
+    }),
+    undefined,
+  );
 });
 
 test("renderer refreshes stale account usage without waiting for application focus", async () => {
@@ -97,7 +115,7 @@ test("overview renders independent 5-hour and weekly progress bars", () => {
 });
 
 test("reset key keeps the count in the fixed circle center and exposes hold progress", () => {
-  const svg = decode(renderRateLimitResetKey(2, .5, "dark"));
+  const svg = decode(renderRateLimitResetKey(2, 0.5, "dark"));
   assert.match(svg, /data-reset-credits="2" x="72" y="78" text-anchor="middle"/);
   assert.match(svg, /data-reset-hold="50"/);
   assert.doesNotMatch(svg, /cx="106" cy="40"/);
@@ -111,11 +129,14 @@ test("usage actions and property inspector are packaged without official keycap 
   const [manifestSource, inspector, bridge] = await Promise.all([
     readFile(new URL("../static/manifest.json", import.meta.url), "utf8"),
     readFile(new URL("../static/property-inspector/usage-limit.html", import.meta.url), "utf8"),
-    readFile(new URL("../src/codex/bridge.ts", import.meta.url), "utf8")
+    readFile(new URL("../src/codex/bridge.ts", import.meta.url), "utf8"),
   ]);
   const manifest = JSON.parse(manifestSource) as { Actions: Array<{ UUID: string; PropertyInspectorPath?: string }> };
   const actions = new Map(manifest.Actions.map((action) => [action.UUID, action]));
-  assert.equal(actions.get("com.xonika9.codex-deck.usage-limit")?.PropertyInspectorPath, "static/property-inspector/usage-limit.html");
+  assert.equal(
+    actions.get("com.xonika9.codex-deck.usage-limit")?.PropertyInspectorPath,
+    "static/property-inspector/usage-limit.html",
+  );
   assert.equal(actions.has("com.xonika9.codex-deck.usage-overview"), true);
   assert.equal(actions.has("com.xonika9.codex-deck.rate-limit-reset"), true);
   assert.match(inspector, /value="auto"/);

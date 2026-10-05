@@ -5,15 +5,8 @@ import { relative, resolve } from "node:path";
 
 const PLUGIN_UUID = "com.xonika9.codex-deck";
 const WATCH_ROOTS = ["src", "static"];
-const GENERATED_FILES = new Set([
-  "static/imgs/plugin-icon.png",
-  "static/imgs/plugin-icon@2x.png"
-]);
-const streamDeckCli = resolve(
-  "node_modules",
-  ".bin",
-  process.platform === "win32" ? "streamdeck.cmd" : "streamdeck"
-);
+const GENERATED_FILES = new Set(["static/imgs/plugin-icon.png", "static/imgs/plugin-icon@2x.png"]);
+const streamDeckCli = resolve("node_modules", ".bin", process.platform === "win32" ? "streamdeck.cmd" : "streamdeck");
 
 let building = false;
 let queued = false;
@@ -33,7 +26,7 @@ function run(command, args) {
     const child = spawn(command, args, {
       cwd: process.cwd(),
       stdio: "inherit",
-      shell: process.platform === "win32"
+      shell: process.platform === "win32",
     });
     child.once("error", rejectRun);
     child.once("exit", (code, signal) => {
@@ -87,10 +80,12 @@ async function main() {
 
   await rebuild("initial build");
   for (const root of WATCH_ROOTS) {
-    watchers.push(watch(root, { recursive: true }, (_event, filename) => {
-      if (!shouldRebuildWatchEvent(root, filename)) return;
-      scheduleRebuild(normalizeWatchEventPath(root, filename));
-    }));
+    watchers.push(
+      watch(root, { recursive: true }, (_event, filename) => {
+        if (!shouldRebuildWatchEvent(root, filename)) return;
+        scheduleRebuild(normalizeWatchEventPath(root, filename));
+      }),
+    );
   }
 }
 

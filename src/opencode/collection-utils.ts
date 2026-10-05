@@ -8,17 +8,23 @@ export function taskIdentity(connectionId: string, sessionId: string): string {
   return `${connectionId}\0${sessionId}`;
 }
 
-export async function mapConcurrent<T, R>(values: readonly T[], concurrency: number, operation: (value: T) => Promise<R>): Promise<R[]> {
+export async function mapConcurrent<T, R>(
+  values: readonly T[],
+  concurrency: number,
+  operation: (value: T) => Promise<R>,
+): Promise<R[]> {
   const results = new Array<R>(values.length);
   let next = 0;
-  await Promise.all(Array.from({ length: Math.min(concurrency, values.length) }, async () => {
-    while (true) {
-      const index = next++;
-      const value = values[index];
-      if (value === undefined) return;
-      results[index] = await operation(value);
-    }
-  }));
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, values.length) }, async () => {
+      while (true) {
+        const index = next++;
+        const value = values[index];
+        if (value === undefined) return;
+        results[index] = await operation(value);
+      }
+    }),
+  );
   return results;
 }
 
@@ -30,4 +36,3 @@ export function compareTasks(left: OpenCodeTask, right: OpenCodeTask): number {
 export function normalizeTime(value: number, now: number): number {
   return Math.min(value, now);
 }
-

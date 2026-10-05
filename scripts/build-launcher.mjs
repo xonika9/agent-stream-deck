@@ -17,7 +17,7 @@ await build({
   platform: "node",
   format: "esm",
   target: "node24",
-  minify: false
+  minify: false,
 });
 
 // Copy the runtime package from an explicit allowlist. Cloud-sync conflict
@@ -29,10 +29,19 @@ for (const filename of ["LICENSE", "package.json", "browser.js", "index.js", "wr
   await cp(resolve(wsSource, filename), resolve(wsOutput, filename));
 }
 for (const filename of [
-  "buffer-util.js", "constants.js", "event-target.js", "extension.js",
-  "limiter.js", "permessage-deflate.js", "receiver.js", "sender.js",
-  "stream.js", "subprotocol.js", "validation.js", "websocket.js",
-  "websocket-server.js"
+  "buffer-util.js",
+  "constants.js",
+  "event-target.js",
+  "extension.js",
+  "limiter.js",
+  "permessage-deflate.js",
+  "receiver.js",
+  "sender.js",
+  "stream.js",
+  "subprotocol.js",
+  "validation.js",
+  "websocket.js",
+  "websocket-server.js",
 ]) {
   await cp(resolve(wsSource, "lib", filename), resolve(wsOutput, "lib", filename));
 }
@@ -54,7 +63,9 @@ await build({
   format: "esm",
   target: "node24",
   minify: false,
-  banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" }
+  banner: {
+    js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);",
+  },
 });
 
 for (const filename of ["start-codex-deck.sh", "Start Codex Deck.command"]) {

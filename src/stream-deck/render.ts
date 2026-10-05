@@ -5,13 +5,21 @@ export type BuiltinIconName = "back" | "forward" | "sidebar" | "home" | "navigat
 
 export const SIGNAL_COLORS: Record<ThemeMode, Record<AgentVisualStatus, string>> = {
   light: {
-    empty: "#606B75", idle: "#FFFFFF", thinking: "#006BFF",
-    complete: "#21D653", input: "#FF7A1A", error: "#FF2447"
+    empty: "#606B75",
+    idle: "#FFFFFF",
+    thinking: "#006BFF",
+    complete: "#21D653",
+    input: "#FF7A1A",
+    error: "#FF2447",
   },
   dark: {
-    empty: "#707B85", idle: "#F2F2EE", thinking: "#1683FF",
-    complete: "#35D86B", input: "#FF9A3D", error: "#FF4B61"
-  }
+    empty: "#707B85",
+    idle: "#F2F2EE",
+    thinking: "#1683FF",
+    complete: "#35D86B",
+    input: "#FF9A3D",
+    error: "#FF4B61",
+  },
 };
 
 type SurfacePalette = {
@@ -30,19 +38,59 @@ type SurfacePalette = {
 
 const SURFACES: Record<ThemeMode, SurfacePalette> = {
   light: {
-    outer: "#C7CDD1", keyTop: "#FFFFFF", keyMiddle: "#F0F3F4", keyBottom: "#D6DBDE",
-    border: "#FFFFFF", innerBorder: "#C4C9CD", frostTop: "#FFFFFF", frostEnd: "#AAB3BA",
-    title: "#171C20", sheen: "#FFFFFF", selected: "#42E2C1"
+    outer: "#C7CDD1",
+    keyTop: "#FFFFFF",
+    keyMiddle: "#F0F3F4",
+    keyBottom: "#D6DBDE",
+    border: "#FFFFFF",
+    innerBorder: "#C4C9CD",
+    frostTop: "#FFFFFF",
+    frostEnd: "#AAB3BA",
+    title: "#171C20",
+    sheen: "#FFFFFF",
+    selected: "#42E2C1",
   },
   dark: {
-    outer: "#45484B", keyTop: "#343638", keyMiddle: "#2A2C2E", keyBottom: "#222426",
-    border: "#55585B", innerBorder: "#3D4043", frostTop: "#FFFFFF", frostEnd: "#1C1E20",
-    title: "#F2F2EF", sheen: "#FFFFFF", selected: "#4CE0C2"
-  }
+    outer: "#45484B",
+    keyTop: "#343638",
+    keyMiddle: "#2A2C2E",
+    keyBottom: "#222426",
+    border: "#55585B",
+    innerBorder: "#3D4043",
+    frostTop: "#FFFFFF",
+    frostEnd: "#1C1E20",
+    title: "#F2F2EF",
+    sheen: "#FFFFFF",
+    selected: "#4CE0C2",
+  },
 };
 
-export function renderAgentKey(slot: number, title: string, status: AgentVisualStatus, selected = false, phase = 0, theme: ThemeMode = "light", hostBadge?: string, hostHealth: HostHealthState = "ready", contextUsedPercent?: number, showContextRing = true): string {
-  return toDataUrl(renderAgentSvg(slot, title, status, selected, phase, theme, hostBadge, hostHealth, contextUsedPercent, showContextRing));
+export function renderAgentKey(
+  slot: number,
+  title: string,
+  status: AgentVisualStatus,
+  selected = false,
+  phase = 0,
+  theme: ThemeMode = "light",
+  hostBadge?: string,
+  hostHealth: HostHealthState = "ready",
+  contextUsedPercent?: number,
+  showContextRing = true,
+): string {
+  return toDataUrl(
+    renderAgentSvg(
+      slot,
+      title,
+      status,
+      selected,
+      phase,
+      theme,
+      hostBadge,
+      hostHealth,
+      contextUsedPercent,
+      showContextRing,
+    ),
+  );
 }
 
 export function renderAgentBlackKey(): string {
@@ -53,40 +101,78 @@ export function renderAgentBlackSvg(): string {
   return '<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144"><rect width="144" height="144" fill="#000000"/></svg>';
 }
 
-export function renderAgentSvg(slot: number, title: string, status: AgentVisualStatus, selected = false, phase = 0, theme: ThemeMode = "light", hostBadge?: string, hostHealth: HostHealthState = "ready", contextUsedPercent?: number, showContextRing = true): string {
+export function renderAgentSvg(
+  slot: number,
+  title: string,
+  status: AgentVisualStatus,
+  selected = false,
+  phase = 0,
+  theme: ThemeMode = "light",
+  hostBadge?: string,
+  hostHealth: HostHealthState = "ready",
+  contextUsedPercent?: number,
+  showContextRing = true,
+): string {
   const surface = SURFACES[theme];
   const color = SIGNAL_COLORS[theme][status];
   const [line1, line2, line3] = splitTitle(title);
-  const statusPhase = status === "thinking" ? (phase + (slot * 7) % 12) % 12 : phase;
-  const pulse = 0.70 + 0.30 * ((Math.sin((statusPhase / 12) * Math.PI * 2) + 1) / 2);
+  const statusPhase = status === "thinking" ? (phase + ((slot * 7) % 12)) % 12 : phase;
+  const pulse = 0.7 + 0.3 * ((Math.sin((statusPhase / 12) * Math.PI * 2) + 1) / 2);
   const glowColor = status === "idle" ? (theme === "dark" ? "#D5D9DC" : "#AAB4BB") : color;
-  const themeBoost = theme === "dark" ? .08 : 0;
-  const glowOpacity = Math.min(1, (status === "empty" ? .12 : status === "idle" ? .18 : status === "thinking" ? .50 + pulse * .16 : status === "input" ? .42 + pulse * .12 : .52) + themeBoost);
-  const surfaceOpacity = (status === "empty" ? .04 : status === "idle" ? .06 : status === "thinking" ? .30 + pulse * .12 : status === "input" ? .24 + pulse * .08 : .28) + (theme === "dark" && status !== "empty" ? .06 : 0);
+  const themeBoost = theme === "dark" ? 0.08 : 0;
+  const glowOpacity = Math.min(
+    1,
+    (status === "empty"
+      ? 0.12
+      : status === "idle"
+        ? 0.18
+        : status === "thinking"
+          ? 0.5 + pulse * 0.16
+          : status === "input"
+            ? 0.42 + pulse * 0.12
+            : 0.52) + themeBoost,
+  );
+  const surfaceOpacity =
+    (status === "empty"
+      ? 0.04
+      : status === "idle"
+        ? 0.06
+        : status === "thinking"
+          ? 0.3 + pulse * 0.12
+          : status === "input"
+            ? 0.24 + pulse * 0.08
+            : 0.28) + (theme === "dark" && status !== "empty" ? 0.06 : 0);
   const statusMark = hostHealth === "ready" ? renderAgentStatusMark(status, glowColor, statusPhase, pulse, theme) : "";
   let titleLayout: Array<{ value: string; y: number; maximum: number; minimum?: number; letterSpacing: string }>;
   if (line3) {
     titleLayout = [line1, line2, line3].map((value, index) => ({
-      value, y: 62 + index * 29, maximum: 24, minimum: 17, letterSpacing: ".03"
+      value,
+      y: 62 + index * 29,
+      maximum: 24,
+      minimum: 17,
+      letterSpacing: ".03",
     }));
   } else if (line2) {
     titleLayout = [
       { value: line1, y: 73, maximum: 26, minimum: 17, letterSpacing: ".04" },
-      { value: line2, y: 107, maximum: 26, minimum: 17, letterSpacing: ".04" }
+      { value: line2, y: 107, maximum: 26, minimum: 17, letterSpacing: ".04" },
     ];
   } else {
     titleLayout = [{ value: line1, y: 90, maximum: 27, letterSpacing: ".04" }];
   }
-  const titleMarkup = titleLayout.map(({ value, y, maximum, minimum, letterSpacing }) =>
-    `<text x="72" y="${y}" text-anchor="middle" font-size="${fitTitleFont(value, maximum, minimum)}" font-weight="650" letter-spacing="${letterSpacing}" fill="${surface.title}">${escapeXml(value)}</text>`
-  ).join("");
+  const titleMarkup = titleLayout
+    .map(
+      ({ value, y, maximum, minimum, letterSpacing }) =>
+        `<text x="72" y="${y}" text-anchor="middle" font-size="${fitTitleFont(value, maximum, minimum)}" font-weight="650" letter-spacing="${letterSpacing}" fill="${surface.title}">${escapeXml(value)}</text>`,
+    )
+    .join("");
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
     <defs>
       <linearGradient id="keycap" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${surface.keyTop}"/><stop offset=".48" stop-color="${surface.keyMiddle}"/><stop offset="1" stop-color="${surface.keyBottom}"/></linearGradient>
       <linearGradient id="frost" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${surface.frostTop}" stop-opacity="${theme === "dark" ? ".12" : ".74"}"/><stop offset=".5" stop-color="${surface.frostTop}" stop-opacity="${theme === "dark" ? ".035" : ".12"}"/><stop offset="1" stop-color="${surface.frostEnd}" stop-opacity="${theme === "dark" ? ".28" : ".16"}"/></linearGradient>
-      <linearGradient id="stateWash" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${glowColor}" stop-opacity="0"/><stop offset=".48" stop-color="${glowColor}" stop-opacity="${(surfaceOpacity * .28).toFixed(3)}"/><stop offset="1" stop-color="${glowColor}" stop-opacity="${surfaceOpacity.toFixed(3)}"/></linearGradient>
-      <radialGradient id="stateBloom" cx="50%" cy="100%" r="82%"><stop stop-color="${glowColor}" stop-opacity="${(surfaceOpacity * 1.22).toFixed(3)}"/><stop offset=".55" stop-color="${glowColor}" stop-opacity="${(surfaceOpacity * .35).toFixed(3)}"/><stop offset="1" stop-color="${glowColor}" stop-opacity="0"/></radialGradient>
+      <linearGradient id="stateWash" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${glowColor}" stop-opacity="0"/><stop offset=".48" stop-color="${glowColor}" stop-opacity="${(surfaceOpacity * 0.28).toFixed(3)}"/><stop offset="1" stop-color="${glowColor}" stop-opacity="${surfaceOpacity.toFixed(3)}"/></linearGradient>
+      <radialGradient id="stateBloom" cx="50%" cy="100%" r="82%"><stop stop-color="${glowColor}" stop-opacity="${(surfaceOpacity * 1.22).toFixed(3)}"/><stop offset=".55" stop-color="${glowColor}" stop-opacity="${(surfaceOpacity * 0.35).toFixed(3)}"/><stop offset="1" stop-color="${glowColor}" stop-opacity="0"/></radialGradient>
       <radialGradient id="selectedBloom" cx="8%" cy="8%" r="90%"><stop stop-color="${surface.selected}" stop-opacity="${theme === "dark" ? ".32" : ".25"}"/><stop offset=".54" stop-color="${surface.selected}" stop-opacity=".06"/><stop offset="1" stop-color="${surface.selected}" stop-opacity="0"/></radialGradient>
       <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="4.2"/></filter>
     </defs>
@@ -119,7 +205,8 @@ export function renderImportedKeycap(svg: string, theme: ThemeMode = "light"): s
   const values = viewBox.trim().split(/\s+/).map(Number);
   if (values.length !== 4) throw new Error("The imported SVG viewBox is invalid.");
   const [minX = 0, minY = 0, width = 0, height = 0] = values;
-  if (![minX, minY, width, height].every(Number.isFinite) || width <= 0 || height <= 0) throw new Error("The imported SVG dimensions are invalid.");
+  if (![minX, minY, width, height].every(Number.isFinite) || width <= 0 || height <= 0)
+    throw new Error("The imported SVG dimensions are invalid.");
 
   const surface = SURFACES[theme];
   const glyphColor = theme === "dark" ? "#F2F2EE" : "#24292D";
@@ -131,7 +218,9 @@ export function renderImportedKeycap(svg: string, theme: ThemeMode = "light"): s
     .replaceAll("currentColor", glyphColor)
     .replace(/#(?:000000|000|ffffff|fff)\b/gi, glyphColor)
     .replace(/\b(?:black|white)\b/gi, glyphColor);
-  const inheritedFill = rootAttributes.match(/\bfill=["'](?:currentColor|#000(?:000)?|#fff(?:fff)?|black|white)["']/i) ? glyphColor : "none";
+  const inheritedFill = rootAttributes.match(/\bfill=["'](?:currentColor|#000(?:000)?|#fff(?:fff)?|black|white)["']/i)
+    ? glyphColor
+    : "none";
 
   return toDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
     <defs><linearGradient id="keycap" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${surface.keyTop}"/><stop offset=".52" stop-color="${surface.keyMiddle}"/><stop offset="1" stop-color="${surface.keyBottom}"/></linearGradient></defs>
@@ -150,7 +239,7 @@ export function renderBuiltinKeycap(name: BuiltinIconName, theme: ThemeMode = "l
     forward: `<path d="M56 36l30 26-30 26M44 62h41"/>`,
     sidebar: `<rect x="39" y="34" width="66" height="56" rx="10"/><path d="M64 34v56M48 48h8M48 61h8M48 74h8"/>`,
     home: `<path d="M40 60l32-27 32 27M50 56v35h44V56M65 91V70h14v21"/>`,
-    navigation: `<circle cx="58" cy="48" r="6"/><circle cx="86" cy="48" r="6"/><circle cx="58" cy="76" r="6"/><circle cx="86" cy="76" r="6"/>`
+    navigation: `<circle cx="58" cy="48" r="6"/><circle cx="86" cy="48" r="6"/><circle cx="58" cy="76" r="6"/><circle cx="86" cy="76" r="6"/>`,
   };
   return toDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
     <defs><linearGradient id="keycap" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${surface.keyTop}"/><stop offset=".52" stop-color="${surface.keyMiddle}"/><stop offset="1" stop-color="${surface.keyBottom}"/></linearGradient></defs>
@@ -175,10 +264,16 @@ export function renderFallbackKeycap(keycapId: string, theme: ThemeMode = "light
 
 export function renderHostTargetKey(label: "WIN" | "MAC", health: HostHealthState, theme: ThemeMode = "dark"): string {
   const surface = SURFACES[theme];
-  const signal = health === "ready" ? "#35D86B" : health === "degraded" ? SIGNAL_COLORS[theme].input
-    : health === "offline" ? SIGNAL_COLORS[theme].error : SIGNAL_COLORS[theme].empty;
-  const status = health === "ready" ? "READY" : health === "degraded" ? "DEGRADED"
-    : health === "offline" ? "OFFLINE" : "CONNECT";
+  const signal =
+    health === "ready"
+      ? "#35D86B"
+      : health === "degraded"
+        ? SIGNAL_COLORS[theme].input
+        : health === "offline"
+          ? SIGNAL_COLORS[theme].error
+          : SIGNAL_COLORS[theme].empty;
+  const status =
+    health === "ready" ? "READY" : health === "degraded" ? "DEGRADED" : health === "offline" ? "OFFLINE" : "CONNECT";
   return toDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
     <defs>
       <linearGradient id="keycap" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${surface.keyTop}"/><stop offset=".52" stop-color="${surface.keyMiddle}"/><stop offset="1" stop-color="${surface.keyBottom}"/></linearGradient>
@@ -194,14 +289,19 @@ export function renderHostTargetKey(label: "WIN" | "MAC", health: HostHealthStat
   </svg>`);
 }
 
-export function renderUsageLimitKey(window: UsageWindow | undefined, requestedKind: UsageWindowKind, theme: ThemeMode = "dark", health: HostHealthState = "ready"): string {
+export function renderUsageLimitKey(
+  window: UsageWindow | undefined,
+  requestedKind: UsageWindowKind,
+  theme: ThemeMode = "dark",
+  health: HostHealthState = "ready",
+): string {
   const surface = SURFACES[theme];
   const remaining = window ? Math.round(clampPercent(window.remainingPercent)) : null;
   const used = window ? Math.round(clampPercent(window.usedPercent)) : null;
   const signal = usageSignal(remaining, health, theme);
   const track = theme === "dark" ? "#45494C" : "#AAB2B8";
   const circumference = 2 * Math.PI * 40;
-  const dash = used == null ? 0 : circumference * used / 100;
+  const dash = used == null ? 0 : (circumference * used) / 100;
   const label = usageLabel(window?.kind ?? requestedKind);
   const digits = used == null ? 0 : String(used).length;
   const numberX = digits >= 3 ? 61 : digits === 2 ? 65 : 69;
@@ -218,14 +318,20 @@ export function renderUsageLimitKey(window: UsageWindow | undefined, requestedKi
     <circle cx="72" cy="70" r="40" fill="none" stroke="${track}" stroke-width="7"/>
     ${used == null ? "" : `<circle data-usage-used="${used}" cx="72" cy="70" r="40" fill="none" stroke="${signal}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${dash.toFixed(2)} ${circumference.toFixed(2)}" transform="rotate(-90 72 70)"/>`}
     ${health === "degraded" || health === "offline" ? `<circle cx="72" cy="70" r="48" fill="none" stroke="${signal}" stroke-width="4" stroke-opacity=".13" filter="url(#usageGlow)"/>` : ""}
-    ${used == null
-      ? `<text x="72" y="80" text-anchor="middle" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="31" font-weight="700" fill="${signal}">—</text>`
-      : `<text data-usage-value="${used}" x="${numberX}" y="80" text-anchor="middle" fill="${surface.title}" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="${fontSize}" font-weight="700">${used}</text><g data-usage-percent="vector" transform="translate(87 57)" fill="none" stroke="${signal}" stroke-width="2.4" stroke-linecap="round"><circle cx="2.5" cy="2.5" r="1.7"/><circle cx="10" cy="12" r="1.7"/><path d="M11 1L1.5 13.5"/></g>`}
+    ${
+      used == null
+        ? `<text x="72" y="80" text-anchor="middle" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="31" font-weight="700" fill="${signal}">—</text>`
+        : `<text data-usage-value="${used}" x="${numberX}" y="80" text-anchor="middle" fill="${surface.title}" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="${fontSize}" font-weight="700">${used}</text><g data-usage-percent="vector" transform="translate(87 57)" fill="none" stroke="${signal}" stroke-width="2.4" stroke-linecap="round"><circle cx="2.5" cy="2.5" r="1.7"/><circle cx="10" cy="12" r="1.7"/><path d="M11 1L1.5 13.5"/></g>`
+    }
     <text x="72" y="126" text-anchor="middle" fill="${surface.title}" fill-opacity=".62" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.2">${label}</text>
   </svg>`);
 }
 
-export function renderUsageOverviewKey(usageWindows: UsageWindow[], theme: ThemeMode = "dark", health: HostHealthState = "ready"): string {
+export function renderUsageOverviewKey(
+  usageWindows: UsageWindow[],
+  theme: ThemeMode = "dark",
+  health: HostHealthState = "ready",
+): string {
   const surface = SURFACES[theme];
   const fiveHour = usageWindows.find((window) => window.kind === "five-hour");
   const weekly = usageWindows.find((window) => window.kind === "weekly");
@@ -242,7 +348,7 @@ export function renderRateLimitResetKey(
   available: number | null,
   holdProgress = 0,
   theme: ThemeMode = "dark",
-  health: HostHealthState = "ready"
+  health: HostHealthState = "ready",
 ): string {
   const surface = SURFACES[theme];
   const count = available == null ? null : Math.max(0, Math.floor(available));
@@ -250,7 +356,7 @@ export function renderRateLimitResetKey(
   const glyph = enabled ? (theme === "dark" ? "#F2F2EE" : "#24292D") : SIGNAL_COLORS[theme].empty;
   const countColor = enabled ? SIGNAL_COLORS[theme].thinking : SIGNAL_COLORS[theme].empty;
   const progress = clampPercent(holdProgress * 100);
-  const progressDash = 2 * Math.PI * 51 * progress / 100;
+  const progressDash = (2 * Math.PI * 51 * progress) / 100;
   const healthColor = usageSignal(null, health, theme);
   return toDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
     <defs>
@@ -269,12 +375,19 @@ export function renderRateLimitResetKey(
   </svg>`);
 }
 
-function renderUsageBar(label: string, window: UsageWindow | undefined, y: number, surface: SurfacePalette, theme: ThemeMode, health: HostHealthState): string {
+function renderUsageBar(
+  label: string,
+  window: UsageWindow | undefined,
+  y: number,
+  surface: SurfacePalette,
+  theme: ThemeMode,
+  health: HostHealthState,
+): string {
   const remaining = window ? Math.round(clampPercent(window.remainingPercent)) : null;
   const used = window ? Math.round(clampPercent(window.usedPercent)) : null;
   const signal = usageSignal(remaining, health, theme);
   const track = theme === "dark" ? "#45494C" : "#AAB2B8";
-  const width = used == null ? 0 : 96 * used / 100;
+  const width = used == null ? 0 : (96 * used) / 100;
   return `<g data-usage-window="${label}">
     <text x="24" y="${y}" fill="${surface.title}" fill-opacity=".72" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing=".8">${label}</text>
     <text x="120" y="${y}" text-anchor="end" fill="${used == null ? signal : surface.title}" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">${used == null ? "—" : `${used}%`}</text>
@@ -291,9 +404,17 @@ function usageSignal(remaining: number | null, health: HostHealthState, theme: T
 }
 
 export function escapeXml(value: string): string {
-  return value.replace(/[&<>'"]/g, (character) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&apos;", "\"": "&quot;"
-  })[character] ?? character);
+  return value.replace(
+    /[&<>'"]/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&apos;",
+        '"': "&quot;",
+      })[character] ?? character,
+  );
 }
 
 function splitTitle(value: string): [string, string, string] {
@@ -323,25 +444,35 @@ function splitTitle(value: string): [string, string, string] {
 function fitTitleFont(value: string, maximum: number, minimum = 15.5): string {
   let units = 0;
   for (const character of value) {
-    if (/\s/.test(character)) units += .32;
-    else if (/[ilI1.,:;'|!]/.test(character)) units += .3;
-    else if (/[MW@%&]/.test(character)) units += .88;
-    else if (/[A-ZÄÖÜ]/.test(character)) units += .63;
-    else units += .54;
+    if (/\s/.test(character)) units += 0.32;
+    else if (/[ilI1.,:;'|!]/.test(character)) units += 0.3;
+    else if (/[MW@%&]/.test(character)) units += 0.88;
+    else if (/[A-ZÄÖÜ]/.test(character)) units += 0.63;
+    else units += 0.54;
   }
   return Math.max(minimum, Math.min(maximum, 108 / Math.max(units, 1))).toFixed(2);
 }
 
-function renderAgentStatusMark(status: AgentVisualStatus, color: string, phase: number, pulse: number, theme: ThemeMode): string {
+function renderAgentStatusMark(
+  status: AgentVisualStatus,
+  color: string,
+  phase: number,
+  pulse: number,
+  theme: ThemeMode,
+): string {
   const contrastInk = theme === "dark" ? "#FFFFFF" : "#15202A";
   if (status === "thinking") {
     const x = 15 + (phase % 12) * 1.2;
     return `<g data-agent-motion="working"><rect x="13" y="19" width="26" height="11" rx="5.5" fill="${contrastInk}" fill-opacity=".16" stroke="${contrastInk}" stroke-width="1.5" stroke-opacity=".42"/><rect x="${x.toFixed(2)}" y="21" width="10" height="7" rx="3.5" fill="${contrastInk}" fill-opacity=".98" stroke="${color}" stroke-width="1"/><rect x="${(x - 2).toFixed(2)}" y="19" width="14" height="11" rx="5.5" fill="${color}" fill-opacity=".38" filter="url(#softGlow)"/></g>`;
   }
-  if (status === "input") return `<g data-agent-motion="input" fill="${color}" fill-opacity="${(.72 + pulse * .24).toFixed(3)}"><rect x="19" y="17" width="4" height="17" rx="2"/><rect x="27" y="17" width="4" height="17" rx="2"/><circle cx="25" cy="25" r="14" fill="${color}" fill-opacity="${(.04 + pulse * .06).toFixed(3)}" filter="url(#softGlow)"/></g>`;
-  if (status === "complete") return `<g data-agent-motion="complete" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle cx="25" cy="25" r="11"/><path d="M19 25l4 4 8-9"/></g>`;
-  if (status === "error") return `<g data-agent-motion="error" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round"><circle cx="25" cy="25" r="11"/><path d="M20 20l10 10M30 20L20 30"/></g>`;
-  if (status === "empty") return `<rect data-agent-motion="empty" x="18" y="23" width="14" height="4" rx="2" fill="${color}" fill-opacity=".32"/>`;
+  if (status === "input")
+    return `<g data-agent-motion="input" fill="${color}" fill-opacity="${(0.72 + pulse * 0.24).toFixed(3)}"><rect x="19" y="17" width="4" height="17" rx="2"/><rect x="27" y="17" width="4" height="17" rx="2"/><circle cx="25" cy="25" r="14" fill="${color}" fill-opacity="${(0.04 + pulse * 0.06).toFixed(3)}" filter="url(#softGlow)"/></g>`;
+  if (status === "complete")
+    return `<g data-agent-motion="complete" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle cx="25" cy="25" r="11"/><path d="M19 25l4 4 8-9"/></g>`;
+  if (status === "error")
+    return `<g data-agent-motion="error" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round"><circle cx="25" cy="25" r="11"/><path d="M20 20l10 10M30 20L20 30"/></g>`;
+  if (status === "empty")
+    return `<rect data-agent-motion="empty" x="18" y="23" width="14" height="4" rx="2" fill="${color}" fill-opacity=".32"/>`;
   return `<circle data-agent-motion="idle" cx="25" cy="25" r="6" fill="${contrastInk}" fill-opacity=".98" stroke="${color}" stroke-width="2"/><circle cx="25" cy="25" r="11" fill="none" stroke="${contrastInk}" stroke-width="2" stroke-opacity=".42"/>`;
 }
 
@@ -358,11 +489,7 @@ function renderHostHealthMark(health: HostHealthState, theme: ThemeMode): string
   return `<g data-agent-host-health="connecting" fill="${SIGNAL_COLORS[theme].empty}"><circle cx="18" cy="25" r="2.5"/><circle cx="25" cy="25" r="2.5"/><circle cx="32" cy="25" r="2.5"/></g>`;
 }
 
-function renderContextRing(
-  value: number | undefined,
-  theme: ThemeMode,
-  surface: SurfacePalette
-): string {
+function renderContextRing(value: number | undefined, theme: ThemeMode, surface: SurfacePalette): string {
   if (value == null || !Number.isFinite(value)) {
     return `<g data-context-used="unknown" aria-label="Context usage pending">
       <circle cx="116" cy="25" r="9" fill="${surface.keyMiddle}" fill-opacity=".58" stroke="${surface.title}" stroke-width="3" stroke-opacity=".18"/>
@@ -371,10 +498,8 @@ function renderContextRing(
   const percent = Math.max(0, Math.min(100, value));
   const radius = 9;
   const circumference = 2 * Math.PI * radius;
-  const dash = circumference * percent / 100;
-  const color = percent >= 92
-    ? SIGNAL_COLORS[theme].error
-    : percent >= 80 ? SIGNAL_COLORS[theme].input : surface.title;
+  const dash = (circumference * percent) / 100;
+  const color = percent >= 92 ? SIGNAL_COLORS[theme].error : percent >= 80 ? SIGNAL_COLORS[theme].input : surface.title;
   return `<g data-context-used="${Math.round(percent)}" aria-label="Context usage ${Math.round(percent)} percent">
     <circle cx="116" cy="25" r="${radius}" fill="${surface.keyMiddle}" fill-opacity=".58" stroke="${surface.title}" stroke-width="3" stroke-opacity=".14"/>
     <circle cx="116" cy="25" r="${radius}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-dasharray="${dash.toFixed(2)} ${circumference.toFixed(2)}" transform="rotate(-90 116 25)"/>

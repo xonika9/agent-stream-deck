@@ -51,7 +51,7 @@ export class ActiveQueueRankIndex {
   }
 
   observe(slots: readonly RoutedAgentSlot[], now = Date.now()): void {
-    const present = new Set(slots.flatMap((slot) => slot.threadKey ? [queueIdentity(slot)] : []));
+    const present = new Set(slots.flatMap((slot) => (slot.threadKey ? [queueIdentity(slot)] : [])));
     this.prune(now, present);
     const trustedEvents: Array<{
       identity: string;
@@ -70,7 +70,7 @@ export class ActiveQueueRankIndex {
       if (!record) {
         record = {
           firstSeenOrdinal: this.nextFirstSeenOrdinal++,
-          previousState: state
+          previousState: state,
         };
         this.records.set(identity, record);
         if (trusted) trustedEvents.push({ identity, slot, ...trusted, firstKnown: true });
@@ -89,8 +89,11 @@ export class ActiveQueueRankIndex {
         }
       }
 
-      if (state === "working" && record.trustedRank == null &&
-          (record.previousState === "idle" || record.previousState === "completion")) {
+      if (
+        state === "working" &&
+        record.trustedRank == null &&
+        (record.previousState === "idle" || record.previousState === "completion")
+      ) {
         record.inferredRank = this.nextInferredRank++;
       }
       record.previousState = state;
@@ -104,8 +107,10 @@ export class ActiveQueueRankIndex {
 
       // The epoch seed keeps timestamp order at rank zero. Later first-known starts
       // advance only when they are newer than every trusted event already observed.
-      if (!this.observed || (item.firstKnown &&
-          (priorTrustedMaximum == null || item.startedAt > priorTrustedMaximum))) {
+      if (
+        !this.observed ||
+        (item.firstKnown && (priorTrustedMaximum == null || item.startedAt > priorTrustedMaximum))
+      ) {
         if (!this.observed) record.trustedRank = 0;
         else frontEvents.push(item);
       } else if (!item.firstKnown) {
@@ -124,8 +129,7 @@ export class ActiveQueueRankIndex {
 
     // Assign oldest first so the decreasing ranks put the newest event first.
     // Reverse identity ties make the final ascending identity order stable.
-    frontEvents.sort((left, right) =>
-      left.startedAt - right.startedAt || compareText(right.identity, left.identity));
+    frontEvents.sort((left, right) => left.startedAt - right.startedAt || compareText(right.identity, left.identity));
     for (const item of frontEvents) {
       this.records.get(item.identity)!.trustedRank = this.nextTrustedFront--;
     }
@@ -162,7 +166,7 @@ export function projectActiveQueue(
   routedSlots: readonly RoutedAgentSlot[],
   inputs: readonly HostSnapshot[],
   rankIndex = new ActiveQueueRankIndex(),
-  now = Date.now()
+  now = Date.now(),
 ): RoutedAgentSlot[] {
   // Observe the full routed catalog before filtering and the six-item projection.
   rankIndex.observe(routedSlots, now);
@@ -174,23 +178,24 @@ export function projectActiveQueue(
       const group = queueGroup(slot.status);
       if (group == null) return [];
       const identity = threadIdentity(slot.threadKey);
-      const sessionActivity = group === "completion"
-        ? newestMatchingSessionActivity(sessionsByHost.get(slot.host.hostId), identity)
-        : null;
-      return [{
-        slot,
-        group,
-        activityAt: sessionActivity ?? validTimestamp(slot.activityAt),
-        identity,
-        rank: group === "working" ? rankIndex.rank(slot) : undefined
-      }];
+      const sessionActivity =
+        group === "completion" ? newestMatchingSessionActivity(sessionsByHost.get(slot.host.hostId), identity) : null;
+      return [
+        {
+          slot,
+          group,
+          activityAt: sessionActivity ?? validTimestamp(slot.activityAt),
+          identity,
+          rank: group === "working" ? rankIndex.rank(slot) : undefined,
+        },
+      ];
     })
     .sort(compareCandidates)
     .slice(0, 6)
     .map(({ slot }, id) => ({
       ...slot,
       id,
-      sourceSlot: slot.catalogIndex != null && slot.nativeSlot == null ? id : slot.sourceSlot
+      sourceSlot: slot.catalogIndex != null && slot.nativeSlot == null ? id : slot.sourceSlot,
     }));
 }
 
@@ -238,15 +243,19 @@ function compareWorking(left: QueueCandidate, right: QueueCandidate): number {
     const firstSeen = (left.rank?.firstSeenOrdinal ?? 0) - (right.rank?.firstSeenOrdinal ?? 0);
     if (firstSeen) return firstSeen;
   }
-  return compareText(queueIdentity(left.slot), queueIdentity(right.slot)) ||
-    compareText(left.slot.host.hostId, right.slot.host.hostId);
+  return (
+    compareText(queueIdentity(left.slot), queueIdentity(right.slot)) ||
+    compareText(left.slot.host.hostId, right.slot.host.hostId)
+  );
 }
 
 function compareLegacyTies(left: QueueCandidate, right: QueueCandidate): number {
-  return (left.slot.catalogIndex ?? left.slot.sourceSlot) - (right.slot.catalogIndex ?? right.slot.sourceSlot) ||
+  return (
+    (left.slot.catalogIndex ?? left.slot.sourceSlot) - (right.slot.catalogIndex ?? right.slot.sourceSlot) ||
     left.slot.sourceSlot - right.slot.sourceSlot ||
     compareText(left.identity, right.identity) ||
-    compareText(left.slot.host.hostId, right.slot.host.hostId);
+    compareText(left.slot.host.hostId, right.slot.host.hostId)
+  );
 }
 
 function queueIdentity(slot: RoutedAgentSlot): string {
@@ -266,13 +275,13 @@ function trustedStart(slot: RoutedAgentSlot): { startedAt: number; revision: num
 
 function newestMatchingSessionActivity(
   sessions: readonly { threadId: string; activityAt: number }[] | undefined,
-  identity: string
+  identity: string,
 ): number | null {
   let newest: number | null = null;
   for (const session of sessions ?? []) {
     const activityAt = validTimestamp(session.activityAt);
-    if (threadIdentity(session.threadId) === identity && activityAt != null &&
-      (newest == null || activityAt > newest)) newest = activityAt;
+    if (threadIdentity(session.threadId) === identity && activityAt != null && (newest == null || activityAt > newest))
+      newest = activityAt;
   }
   return newest;
 }

@@ -5,11 +5,23 @@ import { createContext, runInContext, runInNewContext, type Context } from "node
 import {
   ACTIVE_CATALOG_RETRY_DELAY_MS,
   buildActiveCatalogDiscoveryExpression,
-  buildSnapshotPayloadExpression
+  buildSnapshotPayloadExpression,
 } from "#codex";
 import {
-  buildEnsureThreadActivatedExpression, canonicalThreadId, CodexMicroRendererBridge, CodexNotRunningError, hasMacCodexExecutable, localBridgeFailureReason, macCodexExecutablePathFromWatcherState, nativeActionKey, REASONING_ENCODER_KEYS, resolveAgentDispatch,
-  retainEvaluationPromise, selectCodexMainTarget, selectSidebarThreadId, threadKeysEquivalent
+  buildEnsureThreadActivatedExpression,
+  canonicalThreadId,
+  CodexMicroRendererBridge,
+  CodexNotRunningError,
+  hasMacCodexExecutable,
+  localBridgeFailureReason,
+  macCodexExecutablePathFromWatcherState,
+  nativeActionKey,
+  REASONING_ENCODER_KEYS,
+  resolveAgentDispatch,
+  retainEvaluationPromise,
+  selectCodexMainTarget,
+  selectSidebarThreadId,
+  threadKeysEquivalent,
 } from "#codex";
 import { ADDITIONAL_KEYCAPS, OFFICIAL_KEYCAP_IDS } from "#codex";
 import { visualStatusFromMicro } from "#agents";
@@ -35,14 +47,20 @@ test("only an explicit stopped-Codex marker suppresses local bridge diagnostics"
 
 test("macOS watcher state excludes CodexBar false positives before bridge discovery", () => {
   const codexExecutable = "/Applications/ChatGPT.app/Contents/MacOS/ChatGPT";
-  assert.equal(macCodexExecutablePathFromWatcherState(`{"lastGeneration":"123:Sat Aug 22 16:03:23 2026:${codexExecutable}"}`), codexExecutable);
+  assert.equal(
+    macCodexExecutablePathFromWatcherState(`{"lastGeneration":"123:Sat Aug 22 16:03:23 2026:${codexExecutable}"}`),
+    codexExecutable,
+  );
   assert.equal(macCodexExecutablePathFromWatcherState('{"lastGeneration":null}'), null);
   assert.equal(macCodexExecutablePathFromWatcherState('{"lastGeneration":123}'), undefined);
   assert.equal(hasMacCodexExecutable(["/Applications/CodexBar.app/Contents/MacOS/CodexBar"], codexExecutable), false);
   assert.equal(hasMacCodexExecutable([codexExecutable], codexExecutable), true);
   assert.equal(
-    hasMacCodexExecutable([`${codexExecutable} --remote-debugging-address=127.0.0.1 --remote-debugging-port=43123`], codexExecutable),
-    true
+    hasMacCodexExecutable(
+      [`${codexExecutable} --remote-debugging-address=127.0.0.1 --remote-debugging-port=43123`],
+      codexExecutable,
+    ),
+    true,
   );
 });
 
@@ -106,33 +124,40 @@ type CatalogHarness = {
   poll: () => Promise<Record<string, unknown>>;
 };
 
-const catalogKey = (index: number): string =>
-  `local:10000000-0000-4000-8000-${index.toString(16).padStart(12, "0")}`;
+const catalogKey = (index: number): string => `local:10000000-0000-4000-8000-${index.toString(16).padStart(12, "0")}`;
 
 function createCatalogHarness(initialKeys: string[], sidebarShape: "legacy" | "split" = "legacy"): CatalogHarness {
   const descriptorCalls: string[] = [];
   const descriptors = new Map<string, unknown>();
   const state = {
-    allSidebar: { allSidebarThreadKeys: [] as string[], pinnedThreadKeys: [] as string[], unpinnedThreadKeys: [] as string[] },
-    readable: {} as Record<string, unknown>
+    allSidebar: {
+      allSidebarThreadKeys: [] as string[],
+      pinnedThreadKeys: [] as string[],
+      unpinnedThreadKeys: [] as string[],
+    },
+    readable: {} as Record<string, unknown>,
   };
   const atoms = new Map<unknown, unknown>();
   const allSidebarResolver = { resolve: () => "all-sidebar", createSubscriberAtom: () => null };
   const readableFamily = {
-    resolve: (_node: unknown, _chain: unknown, key: string) => ({ resolve: () => key === "codex" ? "readable" : "missing" })
+    resolve: (_node: unknown, _chain: unknown, key: string) => ({
+      resolve: () => (key === "codex" ? "readable" : "missing"),
+    }),
   };
   const taskFamily = {
     resolve: (_node: unknown, _chain: unknown, key: string) => {
       if (key !== "codex") descriptorCalls.push(key);
       return { resolve: () => `task:${key}` };
-    }
+    },
   };
   const lightweightFamily = {
-    resolve: (_node: unknown, _chain: unknown, key: string) => ({ resolve: () => `metadata:${key}` })
+    resolve: (_node: unknown, _chain: unknown, key: string) => ({ resolve: () => `metadata:${key}` }),
   };
   const validNamespace: Record<string, unknown> = {
     ...(sidebarShape === "split" ? { lightweightFamily } : {}),
-    allSidebarResolver, readableFamily, taskFamily
+    allSidebarResolver,
+    readableFamily,
+    taskFamily,
   };
   let namespace = validNamespace;
   let loaderCalls = 0;
@@ -145,10 +170,19 @@ function createCatalogHarness(initialKeys: string[], sidebarShape: "legacy" | "s
     now: 1_000,
     urls: ["app://-/assets/app-initial-a.js"],
     slots: Array.from({ length: 6 }, (_, id) => ({
-      id, threadKey: null, title: `Native ${id}`, status: "idle", selected: false
+      id,
+      threadKey: null,
+      title: `Native ${id}`,
+      status: "idle",
+      selected: false,
     })),
-    loadModule: async () => { loaderCalls += 1; return namespace; },
-    get loaderCalls() { return loaderCalls; },
+    loadModule: async () => {
+      loaderCalls += 1;
+      return namespace;
+    },
+    get loaderCalls() {
+      return loaderCalls;
+    },
     storeGet: (atom: unknown) => {
       if (atom === "all-sidebar") return state.allSidebar;
       if (atom === "readable") return state.readable;
@@ -158,27 +192,37 @@ function createCatalogHarness(initialKeys: string[], sidebarShape: "legacy" | "s
         return descriptors.has(key) ? { kind: "local", key, conversationId: key.slice(-36) } : null;
       }
       return atoms.get(atom);
-    }
+    },
   }) as Context & Record<string | symbol, unknown>;
 
   const setKeys = (keys: string[]): void => {
     state.allSidebar = {
       allSidebarThreadKeys: [...keys],
       pinnedThreadKeys: keys.slice(0, 1),
-      unpinnedThreadKeys: keys.slice(1)
+      unpinnedThreadKeys: keys.slice(1),
     };
-    state.readable = sidebarShape === "split" ? {
-      threadKeys: [...keys], threadStateKeys: [...keys], navigationThreadKeys: [...keys]
-    } : {
-      threadKeys: [...keys],
-      threadAttentionStateByKey: new Map(keys.map((key, index) => [key, index === 1 ? "waiting" : "idle"])),
-      threadRecencyAtByKey: new Map(keys.map((key, index) => [key, 1_000 + index]))
-    };
+    state.readable =
+      sidebarShape === "split"
+        ? {
+            threadKeys: [...keys],
+            threadStateKeys: [...keys],
+            navigationThreadKeys: [...keys],
+          }
+        : {
+            threadKeys: [...keys],
+            threadAttentionStateByKey: new Map(keys.map((key, index) => [key, index === 1 ? "waiting" : "idle"])),
+            threadRecencyAtByKey: new Map(keys.map((key, index) => [key, 1_000 + index])),
+          };
     descriptors.clear();
     for (const [index, key] of keys.entries()) {
       descriptors.set(key, {
-        kind: "local", key,
-        conversation: { id: key.slice(-36), title: `Task ${index}`, threadRuntimeStatus: { type: index === 0 ? "active" : "idle" } }
+        kind: "local",
+        key,
+        conversation: {
+          id: key.slice(-36),
+          title: `Task ${index}`,
+          threadRuntimeStatus: { type: index === 0 ? "active" : "idle" },
+        },
       });
     }
   };
@@ -198,19 +242,28 @@ function createCatalogHarness(initialKeys: string[], sidebarShape: "legacy" | "s
     descriptors,
     descriptorCalls,
     setKeys,
-    setNamespace: (value) => { namespace = value; },
-    useValidNamespace: () => { namespace = validNamespace; },
-    poll: () => runInContext(expression, context) as Promise<Record<string, unknown>>
+    setNamespace: (value) => {
+      namespace = value;
+    },
+    useValidNamespace: () => {
+      namespace = validNamespace;
+    },
+    poll: () => runInContext(expression, context) as Promise<Record<string, unknown>>,
   };
 }
 
 test("active catalog discovery executes semantic normalization and preserves native status priority", async () => {
   const keys = [catalogKey(1), catalogKey(2), catalogKey(3)];
   const harness = createCatalogHarness(keys);
-  const result = await harness.poll() as { activeCatalog?: { complete: boolean; candidates: Array<Record<string, unknown>> } };
+  const result = (await harness.poll()) as {
+    activeCatalog?: { complete: boolean; candidates: Array<Record<string, unknown>> };
+  };
 
   assert.equal(result.activeCatalog?.complete, true);
-  assert.deepEqual(Array.from(result.activeCatalog?.candidates ?? [], ({ threadKey }) => threadKey), [keys[1], keys[0], keys[2]]);
+  assert.deepEqual(
+    Array.from(result.activeCatalog?.candidates ?? [], ({ threadKey }) => threadKey),
+    [keys[1], keys[0], keys[2]],
+  );
   assert.equal(result.activeCatalog?.candidates[0]?.status, "awaiting-response");
   assert.equal(result.activeCatalog?.candidates[1]?.status, "working");
 });
@@ -220,32 +273,48 @@ test("split sidebar state keeps working chats beyond the six native slots with t
   const harness = createCatalogHarness(keys, "split");
   for (const [index, key] of keys.entries()) {
     harness.descriptors.set(key, {
-      kind: "local", key,
+      kind: "local",
+      key,
       summary: {
-        conversationId: key.slice(-36), hostId: index === 6 ? "remote-host" : "local",
-        title: `Task ${index}`, recencyAt: 2_000 + index,
+        conversationId: key.slice(-36),
+        hostId: index === 6 ? "remote-host" : "local",
+        title: `Task ${index}`,
+        recencyAt: 2_000 + index,
         threadRuntimeStatus: { type: index === 0 || index === 6 ? "active" : "idle" },
-        hasUnreadTurn: index === 7
-      }
+        hasUnreadTurn: index === 7,
+      },
     });
   }
   (harness.context.slots as Array<Record<string, unknown>>)[0] = {
-    id: 0, threadKey: keys[0], title: "Native task", status: "awaiting-approval", selected: true
+    id: 0,
+    threadKey: keys[0],
+    title: "Native task",
+    status: "awaiting-approval",
+    selected: true,
   };
   for (let poll = 0; poll < 3; poll += 1) {
     if (poll === 2) {
       // Installing the new plugin must not inherit the old renderer's failure
       // entry, even though the Codex app bundle itself has not changed.
       harness.context[Symbol.for("codex-deck-active-catalog-resolvers")] = {
-        url: (harness.context.urls as string[])[0], failure: true, retryAt: 1_000_000
+        url: (harness.context.urls as string[])[0],
+        failure: true,
+        retryAt: 1_000_000,
       };
     }
-    const result = await harness.poll() as { activeCatalog?: { complete: boolean; candidates: Array<Record<string, unknown>> } };
+    const result = (await harness.poll()) as {
+      activeCatalog?: { complete: boolean; candidates: Array<Record<string, unknown>> };
+    };
     assert.equal(result.activeCatalog?.complete, true);
     const candidates = result.activeCatalog!.candidates;
     assert.equal(candidates.length, 8);
-    assert.deepEqual(Array.from(candidates.filter((item) => item.status !== "idle"), (item) => item.threadKey),
-      [keys[7], keys[6], keys[0]]);
+    assert.deepEqual(
+      Array.from(
+        candidates.filter((item) => item.status !== "idle"),
+        (item) => item.threadKey,
+      ),
+      [keys[7], keys[6], keys[0]],
+    );
     const outsideNative = candidates.find((item) => item.threadKey === keys[6])!;
     assert.equal(outsideNative.status, "working");
     assert.equal(outsideNative.title, "Task 6");
@@ -258,7 +327,7 @@ test("split sidebar state keeps working chats beyond the six native slots with t
 
 test("more than 256 exact keys fail closed before per-key descriptor resolution", async () => {
   const harness = createCatalogHarness(Array.from({ length: 257 }, (_, index) => catalogKey(index)));
-  const result = await harness.poll() as { slots: unknown[]; activeCatalog?: unknown; marker?: string };
+  const result = (await harness.poll()) as { slots: unknown[]; activeCatalog?: unknown; marker?: string };
 
   assert.equal(result.activeCatalog, undefined);
   assert.equal(result.slots.length, 6);
@@ -291,7 +360,7 @@ test("resolver failure retries after the deadline and success clears the failure
 
   harness.context.now = 1_000 + ACTIVE_CATALOG_RETRY_DELAY_MS;
   harness.useValidNamespace();
-  const result = await harness.poll() as { activeCatalog?: unknown };
+  const result = (await harness.poll()) as { activeCatalog?: unknown };
 
   assert.ok(result.activeCatalog);
   const cache = harness.context[Symbol.for("codex-deck-active-catalog-resolvers")] as { failure?: boolean };
@@ -306,13 +375,15 @@ test("a transient descriptor miss omits one poll, retains success cache, and ret
   const successCache = harness.context[cacheKey];
 
   harness.descriptors.delete(keys[1]!);
-  const missed = await harness.poll() as { slots: unknown[]; activeCatalog?: unknown };
+  const missed = (await harness.poll()) as { slots: unknown[]; activeCatalog?: unknown };
   assert.equal(missed.activeCatalog, undefined);
   assert.equal(missed.slots.length, 6);
   assert.equal(harness.context[cacheKey], successCache);
 
   harness.descriptors.set(keys[1]!, {
-    kind: "local", key: keys[1], conversation: { id: keys[1]!.slice(-36), title: "Restored" }
+    kind: "local",
+    key: keys[1],
+    conversation: { id: keys[1]!.slice(-36), title: "Restored" },
   });
   assert.ok((await harness.poll()).activeCatalog, "next poll should retry without resolver backoff");
 });
@@ -324,7 +395,7 @@ test("64 KiB snapshot budget omits the optional catalog without truncating the b
     (descriptor as { conversation: { title: string } }).conversation.title = "🚀".repeat(120);
     harness.descriptors.set(key, descriptor);
   }
-  const result = await harness.poll() as { slots: unknown[]; marker?: string; activeCatalog?: unknown };
+  const result = (await harness.poll()) as { slots: unknown[]; marker?: string; activeCatalog?: unknown };
 
   assert.equal(result.activeCatalog, undefined);
   assert.equal(result.marker, "base-six");
@@ -334,9 +405,17 @@ test("64 KiB snapshot budget omits the optional catalog without truncating the b
 test("renderer bridge prefers the main index document over macOS avatar surfaces", () => {
   const target = selectCodexMainTarget([
     { type: "page", url: "app://-/index.html?initialRoute=%2Favatar-overlay", webSocketDebuggerUrl: "ws://route" },
-    { type: "page", url: "app://-/avatar-overlay-composition-surface.html?surfaceId=mascot-badge", webSocketDebuggerUrl: "ws://mascot" },
-    { type: "page", url: "app://-/avatar-overlay-composition-surface.html?surfaceId=activity-slot-0", webSocketDebuggerUrl: "ws://slot" },
-    { type: "page", url: "app://-/index.html", webSocketDebuggerUrl: "ws://main" }
+    {
+      type: "page",
+      url: "app://-/avatar-overlay-composition-surface.html?surfaceId=mascot-badge",
+      webSocketDebuggerUrl: "ws://mascot",
+    },
+    {
+      type: "page",
+      url: "app://-/avatar-overlay-composition-surface.html?surfaceId=activity-slot-0",
+      webSocketDebuggerUrl: "ws://slot",
+    },
+    { type: "page", url: "app://-/index.html", webSocketDebuggerUrl: "ws://main" },
   ]);
 
   assert.equal(target?.webSocketDebuggerUrl, "ws://main");
@@ -344,7 +423,11 @@ test("renderer bridge prefers the main index document over macOS avatar surfaces
 
 test("renderer bridge rejects auxiliary-only renderer lists", () => {
   const target = selectCodexMainTarget([
-    { type: "page", url: "app://-/avatar-overlay-composition-surface.html?surfaceId=mascot-badge", webSocketDebuggerUrl: "ws://mascot" }
+    {
+      type: "page",
+      url: "app://-/avatar-overlay-composition-surface.html?surfaceId=mascot-badge",
+      webSocketDebuggerUrl: "ws://mascot",
+    },
   ]);
 
   assert.equal(target, undefined);
@@ -383,15 +466,16 @@ async function evaluateThreadActivation(
   sidebarThreadIds: string[],
   activeSidebarThreadId: string | null,
   composerThreadId: string | null,
-  composerVisible = true
+  composerVisible = true,
 ): Promise<unknown> {
   const element = (id: string) => ({
-    getAttribute: (name: string) => name === "data-app-action-sidebar-thread-id" || name === "data-above-composer-conversation-id" ? id : null,
-    getClientRects: () => composerVisible ? [{}] : [],
+    getAttribute: (name: string) =>
+      name === "data-app-action-sidebar-thread-id" || name === "data-above-composer-conversation-id" ? id : null,
+    getClientRects: () => (composerVisible ? [{}] : []),
     matches: () => false,
     querySelector: () => null,
     closest: () => null,
-    click: () => {}
+    click: () => {},
   });
   const sidebarElements = sidebarThreadIds.map(element);
   let now = 0;
@@ -408,13 +492,17 @@ async function evaluateThreadActivation(
         }
         return null;
       },
-      querySelectorAll: (selector: string) => selector.includes("data-above-composer")
-        ? composerThreadId ? [element(composerThreadId)] : [] : sidebarElements
+      querySelectorAll: (selector: string) =>
+        selector.includes("data-above-composer")
+          ? composerThreadId
+            ? [element(composerThreadId)]
+            : []
+          : sidebarElements,
     },
     setTimeout: (callback: () => void, duration: number) => {
       now += duration;
       queueMicrotask(callback);
-    }
+    },
   }) as Promise<unknown>;
 }
 
@@ -440,12 +528,14 @@ test("native action 5 maps the combined layout slot to Codex push-to-talk", () =
 test("remote MIC keycaps use the native push-to-talk press/release sequence", async () => {
   const bridge = new CodexMicroRendererBridge(() => {});
   const actions: Array<Parameters<CodexMicroRendererBridge["sendAction"]>> = [];
-  bridge.sendAction = async (...args) => { actions.push(args); };
+  bridge.sendAction = async (...args) => {
+    actions.push(args);
+  };
 
   await bridge.runKeycap("MIC");
   assert.deepEqual(actions, [
     ["ACT10_ACT11", 1],
-    ["ACT10_ACT11", 0]
+    ["ACT10_ACT11", 0],
   ]);
 });
 
@@ -456,28 +546,35 @@ test("agent routing follows the stable thread identity when a cross-host slot is
       threadKey: `local:00000000-0000-4000-8000-00000000000${id}`,
       title: `Task ${id}`,
       status: "idle",
-      selected: false
+      selected: false,
     })),
     layout: {
       version: 1,
       slots: {
-        ACT06: { keycapId: "FAST" }, ACT07: { keycapId: "APPR" },
-        ACT08: { keycapId: "REJ" }, ACT09: { keycapId: "SPLIT" },
-        ACT10_ACT11: { keycapId: "CODEX" }, ACT12: { keycapId: "CODEX" }
+        ACT06: { keycapId: "FAST" },
+        ACT07: { keycapId: "APPR" },
+        ACT08: { keycapId: "REJ" },
+        ACT09: { keycapId: "SPLIT" },
+        ACT10_ACT11: { keycapId: "CODEX" },
+        ACT12: { keycapId: "CODEX" },
       },
-      analogStick: { up: {}, right: {}, down: {}, left: {} }
+      analogStick: { up: {}, right: {}, down: {}, left: {} },
     },
     agentSource: "priority",
     lightingAutoOff: "3-minutes",
-    theme: "dark"
+    theme: "dark",
   } as MicroSnapshot;
   const movedThread = snapshot.slots[4]!.threadKey!;
   assert.deepEqual(resolveAgentDispatch(snapshot, 2, movedThread), {
-    kind: "native", slot: 4, threadKey: movedThread
+    kind: "native",
+    slot: 4,
+    threadKey: movedThread,
   });
   const offDeckThread = "local:10000000-0000-4000-8000-000000000099";
   assert.deepEqual(resolveAgentDispatch(snapshot, 2, offDeckThread), {
-    kind: "direct", slot: 2, threadKey: offDeckThread
+    kind: "direct",
+    slot: 2,
+    threadKey: offDeckThread,
   });
 });
 
@@ -485,14 +582,27 @@ test("direct off-six and pinned dispatch send exact thread keys and release rema
   const bridge = new CodexMicroRendererBridge(() => {});
   const base = {
     slots: Array.from({ length: 6 }, (_, id) => ({
-      id, threadKey: `local:00000000-0000-4000-8000-00000000000${id}`,
-      title: `Task ${id}`, status: "idle", selected: false
+      id,
+      threadKey: `local:00000000-0000-4000-8000-00000000000${id}`,
+      title: `Task ${id}`,
+      status: "idle",
+      selected: false,
     })),
-    layout: { version: 1, slots: {
-      ACT06: { keycapId: "FAST" }, ACT07: { keycapId: "APPR" }, ACT08: { keycapId: "REJ" },
-      ACT09: { keycapId: "SPLIT" }, ACT10_ACT11: { keycapId: "CODEX" }, ACT12: { keycapId: "CODEX" }
-    }, analogStick: { up: {}, right: {}, down: {}, left: {} } },
-    agentSource: "recent", lightingAutoOff: "3-minutes", theme: "dark"
+    layout: {
+      version: 1,
+      slots: {
+        ACT06: { keycapId: "FAST" },
+        ACT07: { keycapId: "APPR" },
+        ACT08: { keycapId: "REJ" },
+        ACT09: { keycapId: "SPLIT" },
+        ACT10_ACT11: { keycapId: "CODEX" },
+        ACT12: { keycapId: "CODEX" },
+      },
+      analogStick: { up: {}, right: {}, down: {}, left: {} },
+    },
+    agentSource: "recent",
+    lightingAutoOff: "3-minutes",
+    theme: "dark",
   } as MicroSnapshot;
   const events: unknown[] = [];
   const internal = bridge as unknown as {
@@ -501,8 +611,12 @@ test("direct off-six and pinned dispatch send exact thread keys and release rema
     ensureThreadActivated: () => Promise<void>;
   };
   internal.refresh = async () => base;
-  internal.dispatch = async (_type, payload) => { events.push(payload); };
-  internal.ensureThreadActivated = async () => { throw new Error("DOM fallback must not run"); };
+  internal.dispatch = async (_type, payload) => {
+    events.push(payload);
+  };
+  internal.ensureThreadActivated = async () => {
+    throw new Error("DOM fallback must not run");
+  };
   const exact = "local:client-new-thread:10000000-0000-4000-8000-000000000099";
 
   await bridge.sendAgent(5, 1, exact);
@@ -514,14 +628,14 @@ test("direct off-six and pinned dispatch send exact thread keys and release rema
   await bridge.sendAgent(2, 0, pinned);
   assert.deepEqual(events, [
     { event: { key: "AG05", act: 1, slot: 5, threadKey: exact } },
-    { event: { key: "AG02", act: 1, slot: 2, threadKey: pinned } }
+    { event: { key: "AG02", act: 1, slot: 2, threadKey: pinned } },
   ]);
 });
 
 test("reasoning controls use the official native encoder rotation events", async () => {
   assert.deepEqual(REASONING_ENCODER_KEYS, {
     decrease: "ENC_CW",
-    increase: "ENC_CC"
+    increase: "ENC_CC",
   });
   const source = await readFile(new URL("../src/codex/bridge.ts", import.meta.url), "utf8");
   assert.match(source, /act: 2/);
@@ -529,7 +643,10 @@ test("reasoning controls use the official native encoder rotation events", async
 });
 
 test("manifest exposes both dedicated reasoning adjustment buttons", async () => {
-  const manifest = JSON.parse(await readFile(new URL("../static/manifest.json", import.meta.url), "utf8")) as { Actions: Array<{ UUID: string }>; OS: Array<{ Platform: string }> };
+  const manifest = JSON.parse(await readFile(new URL("../static/manifest.json", import.meta.url), "utf8")) as {
+    Actions: Array<{ UUID: string }>;
+    OS: Array<{ Platform: string }>;
+  };
   const actions = new Set(manifest.Actions.map((action) => action.UUID));
   assert.equal(actions.has("com.xonika9.codex-deck.reasoning-down"), true);
   assert.equal(actions.has("com.xonika9.codex-deck.reasoning-up"), true);
@@ -538,7 +655,9 @@ test("manifest exposes both dedicated reasoning adjustment buttons", async () =>
 });
 
 test("all official keycaps are covered by standalone or native actions", async () => {
-  const manifest = JSON.parse(await readFile(new URL("../static/manifest.json", import.meta.url), "utf8")) as { Actions: Array<{ UUID: string }> };
+  const manifest = JSON.parse(await readFile(new URL("../static/manifest.json", import.meta.url), "utf8")) as {
+    Actions: Array<{ UUID: string }>;
+  };
   const actions = new Set(manifest.Actions.map((action) => action.UUID));
   for (const keycap of ADDITIONAL_KEYCAPS) {
     assert.equal(actions.has(`com.xonika9.codex-deck.keycap-${keycap.slug}`), true, `missing ${keycap.id}`);
@@ -583,76 +702,116 @@ test("renderer snapshot uses live pinned rows, caches collapsed pins and ignores
     evaluate: (expression: string) => Promise<MicroSnapshot>;
   };
   internal.ensureConnected = async () => {};
-  internal.evaluate = async (value) => { expression = value; throw new Error("snapshot captured"); };
+  internal.evaluate = async (value) => {
+    expression = value;
+    throw new Error("snapshot captured");
+  };
   await assert.rejects(bridge.refresh(), /snapshot captured/);
 
   const nativeSlots = Array.from({ length: 6 }, (_, id) => ({
-    id, threadKey: catalogKey(id), title: `Old pin ${id}`, status: "idle", selected: false, activityAt: 42
+    id,
+    threadKey: catalogKey(id),
+    title: `Old pin ${id}`,
+    status: "idle",
+    selected: false,
+    activityAt: 42,
   }));
   const definitions = {
     layout: { key: "codex-micro-layout", default: { version: 1, slots: {} } },
-    agentSource: { key: "codex-micro-agent-source", default: "pinned" }
+    agentSource: { key: "codex-micro-agent-source", default: "pinned" },
   };
   const slotResolver = { resolve: () => "slots", createSubscriberAtom: () => null };
   let semanticPinsEmpty = false;
-  const store = { get: (atom: unknown) => atom === "slots" ? nativeSlots
-    : semanticPinsEmpty && atom === "sidebar" ? { allSidebarThreadKeys: [], pinnedThreadKeys: [], unpinnedThreadKeys: [] }
-    : semanticPinsEmpty && atom === "readable" ? { threadKeys: [], threadStateKeys: [], navigationThreadKeys: [] }
-    : null };
+  const store = {
+    get: (atom: unknown) =>
+      atom === "slots"
+        ? nativeSlots
+        : semanticPinsEmpty && atom === "sidebar"
+          ? { allSidebarThreadKeys: [], pinnedThreadKeys: [], unpinnedThreadKeys: [] }
+          : semanticPinsEmpty && atom === "readable"
+            ? { threadKeys: [], threadStateKeys: [], navigationThreadKeys: [] }
+            : null,
+  };
   const root = { __reactContainer$test: { memoizedProps: { value: new Map([["node", { store }]]) } } };
   const row = (key: string, status: object) => ({
-    getAttribute: (name: string) => ({
-      "data-app-action-sidebar-thread-id": key,
-      "data-app-action-sidebar-thread-title": `Live ${key}`,
-      "data-app-action-sidebar-thread-active": key === active ? "true" : "false"
-    } as Record<string, string>)[name] ?? null,
-    __reactFiber$test: { return: { memoizedProps: { statusState: status } } }
+    getAttribute: (name: string) =>
+      (
+        ({
+          "data-app-action-sidebar-thread-id": key,
+          "data-app-action-sidebar-thread-title": `Live ${key}`,
+          "data-app-action-sidebar-thread-active": key === active ? "true" : "false",
+        }) as Record<string, string>
+      )[name] ?? null,
+    __reactFiber$test: { return: { memoizedProps: { statusState: status } } },
   });
   let rows: ReturnType<typeof row>[] = [];
   let active: string | null = null;
   let composers = [
     { getAttribute: () => catalogKey(90), getClientRects: () => [] },
-    { getAttribute: () => catalogKey(91), getClientRects: () => [{}] }
+    { getAttribute: () => catalogKey(91), getClientRects: () => [{}] },
   ];
   const resources = [{ name: "app://-/assets/codex-micro-slot-signals-test.js" }];
   const context = createContext({
-    Map, Set, Symbol, TextEncoder,
+    Map,
+    Set,
+    Symbol,
+    TextEncoder,
     document: {
       getElementById: () => root,
       documentElement: { dataset: {}, className: "" },
       body: { dataset: {}, className: "" },
-      querySelectorAll: (selector: string) => selector.includes("thread-pinned") ? rows
-        : selector.includes("data-above-composer") ? composers : [],
-      querySelector: (selector: string) => selector.includes('thread-active="true"') && active
-        ? { getAttribute: () => active } : selector.includes("data-above-composer") ? composers[0] : null
+      querySelectorAll: (selector: string) =>
+        selector.includes("thread-pinned") ? rows : selector.includes("data-above-composer") ? composers : [],
+      querySelector: (selector: string) =>
+        selector.includes('thread-active="true"') && active
+          ? { getAttribute: () => active }
+          : selector.includes("data-above-composer")
+            ? composers[0]
+            : null,
     },
     performance: { getEntriesByType: () => resources },
     getComputedStyle: () => ({ colorScheme: "dark", backgroundColor: "rgb(0,0,0)" }),
-    loadModule: async () => ({ definitions, slotResolver,
+    loadModule: async () => ({
+      definitions,
+      slotResolver,
       allSidebarResolver: { resolve: () => "sidebar", createSubscriberAtom: () => null },
       readableFamily: { resolve: () => ({ resolve: () => "readable" }) },
       bus: {
-        handlers: new Map([["codex-micro-hid-event", new Set([() => {}])]]), dispatchHostMessage: () => {}
-      } })
+        handlers: new Map([["codex-micro-hid-event", new Set([() => {}])]]),
+        dispatchHostMessage: () => {},
+      },
+    }),
   });
-  const poll = async (): Promise<MicroSnapshot> => JSON.parse(JSON.stringify(
-    await runInContext(expression.replaceAll("import(", "loadModule("), context)
-  ));
+  const poll = async (): Promise<MicroSnapshot> =>
+    JSON.parse(JSON.stringify(await runInContext(expression.replaceAll("import(", "loadModule("), context)));
   // Older sidebar markup has no pinned rows: native slots still work.
   let snapshot = await poll();
-  assert.deepEqual(snapshot.slots.map(slot => slot.threadKey), nativeSlots.map(slot => slot.threadKey));
+  assert.deepEqual(
+    snapshot.slots.map((slot) => slot.threadKey),
+    nativeSlots.map((slot) => slot.threadKey),
+  );
 
   const states = [
-    { type: "loading" }, { type: "error" }, { type: "approval" },
-    { type: "response" }, { type: "idle", unread: true }, { type: "idle" }
+    { type: "loading" },
+    { type: "error" },
+    { type: "approval" },
+    { type: "response" },
+    { type: "idle", unread: true },
+    { type: "idle" },
   ];
   rows = states.map((state, index) => row(catalogKey(5 - index), state));
   rows.splice(1, 0, rows[0]!);
   rows.push(row(catalogKey(7), { type: "loading" }));
   active = catalogKey(5);
   snapshot = await poll();
-  assert.deepEqual(snapshot.slots.map(slot => slot.threadKey), states.map((_, index) => catalogKey(5 - index)));
-  assert.deepEqual(snapshot.slots.map(slot => slot.status), ["working", "error", "awaiting-approval", "awaiting-response", "unread", "idle"]);
+  assert.deepEqual(
+    snapshot.slots.map((slot) => slot.threadKey),
+    states.map((_, index) => catalogKey(5 - index)),
+  );
+  assert.deepEqual(
+    snapshot.slots.map((slot) => slot.status),
+    ["working", "error", "awaiting-approval", "awaiting-response", "unread", "idle"],
+  );
   assert.equal(snapshot.slots[0]?.title, `Live ${catalogKey(5)}`);
   assert.equal(snapshot.slots[0]?.activityAt, 42_000);
   assert.equal(snapshot.activeThreadKey, active);
@@ -662,12 +821,21 @@ test("renderer snapshot uses live pinned rows, caches collapsed pins and ignores
   active = catalogKey(91);
   const collapsed = await poll();
   assert.equal(collapsed.activeThreadKey, active);
-  assert.deepEqual(collapsed.slots, snapshot.slots.map(slot => ({ ...slot, selected: false })));
+  assert.deepEqual(
+    collapsed.slots,
+    snapshot.slots.map((slot) => ({ ...slot, selected: false })),
+  );
   definitions.agentSource.default = "recent";
-  assert.deepEqual((await poll()).slots.map(slot => slot.threadKey), nativeSlots.map(slot => slot.threadKey));
+  assert.deepEqual(
+    (await poll()).slots.map((slot) => slot.threadKey),
+    nativeSlots.map((slot) => slot.threadKey),
+  );
   definitions.agentSource.default = "pinned";
   rows = [row(catalogKey(8), { type: "loading" })];
-  assert.deepEqual((await poll()).slots.map(slot => slot.threadKey), [catalogKey(8), null, null, null, null, null]);
+  assert.deepEqual(
+    (await poll()).slots.map((slot) => slot.threadKey),
+    [catalogKey(8), null, null, null, null, null],
+  );
   active = null;
   composers = composers.slice(0, 1);
   assert.equal((await poll()).activeThreadKey, undefined);
@@ -677,5 +845,8 @@ test("renderer snapshot uses live pinned rows, caches collapsed pins and ignores
   resources.push({ name: "app://-/assets/app-initial-test.js" });
   snapshot = await poll();
   assert.deepEqual(snapshot.activeCatalog?.candidates, []);
-  assert.deepEqual(snapshot.slots.map(slot => slot.status), Array(6).fill("off"));
+  assert.deepEqual(
+    snapshot.slots.map((slot) => slot.status),
+    Array(6).fill("off"),
+  );
 });

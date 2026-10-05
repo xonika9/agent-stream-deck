@@ -13,4 +13,3 @@ export const POLL_INTERVAL_MS = 5_000;
 export const IDENTITY_PATHS = ["/api/info", "/api/status"] as const;
 export const ID_PATTERN = /^[A-Za-z0-9._:-]{1,256}$/u;
 export const SSH_EXECUTABLE = "/usr/bin/ssh";
-

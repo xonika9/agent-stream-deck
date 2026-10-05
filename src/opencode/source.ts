@@ -13,7 +13,10 @@ export class OpenCodeSource {
   private localHost?: CodexHost;
   private demanded = false;
 
-  constructor(private readonly log: (message: string) => void, private readonly foreground = foregroundOpenCode) {}
+  constructor(
+    private readonly log: (message: string) => void,
+    private readonly foreground = foregroundOpenCode,
+  ) {}
 
   stop(): void {
     this.demanded = false;
@@ -27,7 +30,8 @@ export class OpenCodeSource {
     const collector = this.openCodeCollector;
     const generation = this.openCodeDemandGeneration;
     await this.foreground();
-    if (signal.aborted || generation !== this.openCodeDemandGeneration || collector !== this.openCodeCollector) return false;
+    if (signal.aborted || generation !== this.openCodeDemandGeneration || collector !== this.openCodeCollector)
+      return false;
     const separator = assignment.threadKey?.indexOf("\0") ?? -1;
     if (!collector || separator <= 0 || !assignment.threadKey || assignment.activityAt === undefined) return false;
     const connectionId = assignment.threadKey.slice(0, separator);
@@ -83,7 +87,9 @@ export class OpenCodeSource {
 
   private applyOpenCodeSnapshot(snapshot: OpenCodeCollectorSnapshot): void {
     if (!this.localHost) return;
-    const healthy = snapshot.connections.some((connection) => connection.health === "ready" || connection.health === "capacity-exceeded");
+    const healthy = snapshot.connections.some(
+      (connection) => connection.health === "ready" || connection.health === "capacity-exceeded",
+    );
     const observedAt = snapshot.observedAt || Date.now();
     this.openCodeHealth = healthy
       ? { state: "ready", changedAt: observedAt }
@@ -91,29 +97,32 @@ export class OpenCodeSource {
     this.openCodeSlots = snapshot.connections
       .flatMap((connection) => connection.tasks.map((task) => ({ task, observedAt: connection.observedAt })))
       .map(({ task, observedAt: connectionObservedAt }, sourceSlot) =>
-        openCodeTaskSlot(task, sourceSlot, connectionObservedAt, this.localHost!));
+        openCodeTaskSlot(task, sourceSlot, connectionObservedAt, this.localHost!),
+      );
   }
-
-
-
 }
 
-export function openCodeTaskSlot(task: OpenCodeTask, sourceSlot: number, observedAt: number, host: CodexHost): RoutedAgentSlot {
-    const identity = taskIdentity(task.connectionId, task.sessionId);
-    return {
-      id: sourceSlot,
-      sourceSlot,
-      catalogIndex: sourceSlot,
-      taskSource: "opencode",
-      host,
-      threadKey: identity,
-      conversationId: identity,
-      title: task.displayTitle ?? task.label,
-      status: task.status,
-      selected: false,
-      activityAt: task.terminalAt ?? task.workStartedAt,
-      workStartedAt: task.workStartedAt,
-      workStartRevision: task.workStartRevision,
-      observedAt
-    };
-  }
+export function openCodeTaskSlot(
+  task: OpenCodeTask,
+  sourceSlot: number,
+  observedAt: number,
+  host: CodexHost,
+): RoutedAgentSlot {
+  const identity = taskIdentity(task.connectionId, task.sessionId);
+  return {
+    id: sourceSlot,
+    sourceSlot,
+    catalogIndex: sourceSlot,
+    taskSource: "opencode",
+    host,
+    threadKey: identity,
+    conversationId: identity,
+    title: task.displayTitle ?? task.label,
+    status: task.status,
+    selected: false,
+    activityAt: task.terminalAt ?? task.workStartedAt,
+    workStartedAt: task.workStartedAt,
+    workStartRevision: task.workStartRevision,
+    observedAt,
+  };
+}

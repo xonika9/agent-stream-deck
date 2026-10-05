@@ -1,15 +1,25 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { renderAgentBlackKey, renderAgentBlackSvg, renderAgentKey, renderAgentSvg, renderBuiltinKeycap, renderFallbackKeycap, renderHostTargetKey, renderImportedKeycap, SIGNAL_COLORS } from "#stream-deck";
+import {
+  renderAgentBlackKey,
+  renderAgentBlackSvg,
+  renderAgentKey,
+  renderAgentSvg,
+  renderBuiltinKeycap,
+  renderFallbackKeycap,
+  renderHostTargetKey,
+  renderImportedKeycap,
+  SIGNAL_COLORS,
+} from "#stream-deck";
 
 test("healthy empty queue positions use a dedicated solid-black data URI", () => {
   const svg = renderAgentBlackSvg();
-  assert.equal(svg, '<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144"><rect width="144" height="144" fill="#000000"/></svg>');
   assert.equal(
-    decodeURIComponent(renderAgentBlackKey().replace(/^data:image\/svg\+xml;charset=utf8,/, "")),
-    svg
+    svg,
+    '<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144"><rect width="144" height="144" fill="#000000"/></svg>',
   );
+  assert.equal(decodeURIComponent(renderAgentBlackKey().replace(/^data:image\/svg\+xml;charset=utf8,/, "")), svg);
   assert.doesNotMatch(svg, /text|stroke|data-agent|animate|context|host|status/i);
 });
 
@@ -102,8 +112,11 @@ test("agent title wrapping preserves Unicode code points", () => {
 });
 
 test("user-local monochrome SVGs normalize to an off-white dark glyph", () => {
-  const input = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M2 2h20v20H2z" stroke="#000"/></svg>';
-  const output = decodeURIComponent(renderImportedKeycap(input, "dark").replace(/^data:image\/svg\+xml;charset=utf8,/, ""));
+  const input =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M2 2h20v20H2z" stroke="#000"/></svg>';
+  const output = decodeURIComponent(
+    renderImportedKeycap(input, "dark").replace(/^data:image\/svg\+xml;charset=utf8,/, ""),
+  );
   assert.match(output, /data-theme="dark"/);
   assert.match(output, /fill="#F2F2EE"/);
   assert.match(output, /stroke="#F2F2EE"/);
@@ -113,7 +126,9 @@ test("user-local monochrome SVGs normalize to an off-white dark glyph", () => {
 
 test("original navigation icons use the same dark keycap system", () => {
   for (const icon of ["back", "forward", "sidebar", "home", "navigation"] as const) {
-    const output = decodeURIComponent(renderBuiltinKeycap(icon, "dark").replace(/^data:image\/svg\+xml;charset=utf8,/, ""));
+    const output = decodeURIComponent(
+      renderBuiltinKeycap(icon, "dark").replace(/^data:image\/svg\+xml;charset=utf8,/, ""),
+    );
     assert.match(output, /data-theme="dark"/);
     assert.match(output, /data-icon-source="codex-deck-original"/);
     assert.match(output, /stroke="#F2F2EE"/);
@@ -133,7 +148,9 @@ test("dark title contrast stays above WCAG AA for small text", () => {
 });
 
 test("missing local assets receive a readable themed fallback", () => {
-  const output = decodeURIComponent(renderFallbackKeycap("TERM", "dark").replace(/^data:image\/svg\+xml;charset=utf8,/, ""));
+  const output = decodeURIComponent(
+    renderFallbackKeycap("TERM", "dark").replace(/^data:image\/svg\+xml;charset=utf8,/, ""),
+  );
   assert.match(output, /data-icon-source="fallback-label"/);
   assert.match(output, /font-size="34"/);
   assert.match(output, /font-weight="700"/);
@@ -142,7 +159,9 @@ test("missing local assets receive a readable themed fallback", () => {
 });
 
 test("host target and affected agent keys expose degraded and offline state", () => {
-  const target = decodeURIComponent(renderHostTargetKey("MAC", "degraded", "dark").replace(/^data:image\/svg\+xml;charset=utf8,/, ""));
+  const target = decodeURIComponent(
+    renderHostTargetKey("MAC", "degraded", "dark").replace(/^data:image\/svg\+xml;charset=utf8,/, ""),
+  );
   assert.match(target, /data-host-health="degraded"/);
   assert.match(target, />DEGRADED<\/text>/);
   assert.match(target, new RegExp(SIGNAL_COLORS.dark.input, "i"));
@@ -159,11 +178,13 @@ test("host target and affected agent keys expose degraded and offline state", ()
 
 function contrast(foreground: string, background: string): number {
   const [lighter, darker] = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
-  return (lighter! + .05) / (darker! + .05);
+  return (lighter! + 0.05) / (darker! + 0.05);
 }
 
 function luminance(hex: string): number {
-  const channels = hex.match(/[0-9a-f]{2}/gi)!.map((value) => Number.parseInt(value, 16) / 255)
-    .map((value) => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
-  return .2126 * channels[0]! + .7152 * channels[1]! + .0722 * channels[2]!;
+  const channels = hex
+    .match(/[0-9a-f]{2}/gi)!
+    .map((value) => Number.parseInt(value, 16) / 255)
+    .map((value) => (value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!;
 }

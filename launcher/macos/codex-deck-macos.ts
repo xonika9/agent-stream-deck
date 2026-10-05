@@ -2,7 +2,17 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
-  chmod, copyFile, mkdir, mkdtemp, open, readFile, readdir, rename, rm, stat, writeFile
+  chmod,
+  copyFile,
+  mkdir,
+  mkdtemp,
+  open,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  stat,
+  writeFile,
 } from "node:fs/promises";
 import { createServer } from "node:net";
 import { homedir, hostname, platform, tmpdir } from "node:os";
@@ -13,7 +23,7 @@ import {
   createWatcherPolicyState,
   evaluateWatcherPolicy,
   resumeWatcherPolicyState,
-  type WatcherPolicyState
+  type WatcherPolicyState,
 } from "./watcher-policy.js";
 
 const CODEX_BUNDLE_ID = "com.openai.codex";
@@ -71,8 +81,11 @@ function plistValue(infoPath: string, key: string): string {
 }
 
 async function isDirectory(path: string): Promise<boolean> {
-  try { return (await stat(path)).isDirectory(); }
-  catch { return false; }
+  try {
+    return (await stat(path)).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 function parseProcessRows(output: string): Array<{ pid: number; ppid: number; startedAt: string; command: string }> {
@@ -110,9 +123,11 @@ async function installationFromApp(appPath: string): Promise<CodexInstallation |
       version: plistValue(infoPath, "CFBundleShortVersionString"),
       buildVersion: plistValue(infoPath, "CFBundleVersion"),
       executableName,
-      executablePath
+      executablePath,
     };
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 async function standardAppCandidates(): Promise<string[]> {
@@ -123,7 +138,9 @@ async function standardAppCandidates(): Promise<string[]> {
       for (const entry of await readdir(root, { withFileTypes: true })) {
         if (entry.isDirectory() && entry.name.endsWith(".app")) found.push(join(root, entry.name));
       }
-    } catch { /* The optional app directory may not exist. */ }
+    } catch {
+      /* The optional app directory may not exist. */
+    }
   }
   return found;
 }
@@ -139,13 +156,15 @@ export async function discoverCodexInstallation(): Promise<CodexInstallation> {
     if (appPath) candidates.push(appPath);
   }
 
-  const spotlight = run("/usr/bin/mdfind", [`kMDItemCFBundleIdentifier == '${CODEX_BUNDLE_ID}'`], { allowFailure: true });
+  const spotlight = run("/usr/bin/mdfind", [`kMDItemCFBundleIdentifier == '${CODEX_BUNDLE_ID}'`], {
+    allowFailure: true,
+  });
   if (spotlight) candidates.push(...spotlight.split("\n").filter((path) => path.endsWith(".app")));
-  candidates.push(...await standardAppCandidates());
+  candidates.push(...(await standardAppCandidates()));
 
   const installations: CodexInstallation[] = [];
   for (const candidate of [...new Set(candidates)]) {
-    if (!await isDirectory(candidate)) continue;
+    if (!(await isDirectory(candidate))) continue;
     const installation = await installationFromApp(candidate);
     if (installation) installations.push(installation);
   }
@@ -153,7 +172,11 @@ export async function discoverCodexInstallation(): Promise<CodexInstallation> {
     throw new Error(`No installed Codex app with bundle identifier ${CODEX_BUNDLE_ID} was found.`);
   }
 
-  const runningPaths = new Set(processRows().filter((row) => row.ppid === 1).map((row) => appPathFromExecutable(row.command)));
+  const runningPaths = new Set(
+    processRows()
+      .filter((row) => row.ppid === 1)
+      .map((row) => appPathFromExecutable(row.command)),
+  );
   installations.sort((left, right) => {
     const running = Number(runningPaths.has(right.appPath)) - Number(runningPaths.has(left.appPath));
     return running || right.version.localeCompare(left.version, undefined, { numeric: true });
@@ -162,15 +185,17 @@ export async function discoverCodexInstallation(): Promise<CodexInstallation> {
 }
 
 function findMainProcess(installation: CodexInstallation): MainProcess | null {
-  const row = processRows().find((candidate) =>
-    candidate.ppid === 1 &&
-    (candidate.command === installation.executablePath || candidate.command.startsWith(`${installation.executablePath} `))
+  const row = processRows().find(
+    (candidate) =>
+      candidate.ppid === 1 &&
+      (candidate.command === installation.executablePath ||
+        candidate.command.startsWith(`${installation.executablePath} `)),
   );
   if (!row) return null;
   return {
     ...row,
     generation: `${row.pid}:${row.startedAt}:${installation.executablePath}`,
-    installation
+    installation,
   };
 }
 
@@ -186,7 +211,7 @@ function hasLoopbackDebugAddress(command: string): boolean {
 async function fetchJson<T>(url: string, timeout = 1_000): Promise<T> {
   const response = await fetch(url, { signal: AbortSignal.timeout(timeout) });
   if (!response.ok) throw new Error(`${url} returned HTTP ${response.status}.`);
-  return await response.json() as T;
+  return (await response.json()) as T;
 }
 
 async function healthyDebugPort(main: MainProcess | null): Promise<number | null> {
@@ -197,7 +222,9 @@ async function healthyDebugPort(main: MainProcess | null): Promise<number | null
     await fetchJson(`http://127.0.0.1:${port}/json/version`, 750);
     const targets = await fetchJson<Array<{ type?: string; url?: string }>>(`http://127.0.0.1:${port}/json/list`, 750);
     return targets.some((target) => target.type === "page" && target.url?.startsWith("app://")) ? port : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 async function chooseLoopbackPort(): Promise<number> {
@@ -207,7 +234,7 @@ async function chooseLoopbackPort(): Promise<number> {
     server.listen(0, "127.0.0.1", () => {
       const address = server.address();
       const port = typeof address === "object" && address ? address.port : 0;
-      server.close((error) => error ? reject(error) : resolvePort(port));
+      server.close((error) => (error ? reject(error) : resolvePort(port)));
     });
   });
 }
@@ -225,8 +252,11 @@ async function atomicWriteJson(path: string, value: unknown): Promise<void> {
 }
 
 async function readJson<T>(path: string): Promise<T | null> {
-  try { return JSON.parse(await readFile(path, "utf8")) as T; }
-  catch { return null; }
+  try {
+    return JSON.parse(await readFile(path, "utf8")) as T;
+  } catch {
+    return null;
+  }
 }
 
 async function computerName(): Promise<string> {
@@ -236,11 +266,11 @@ async function computerName(): Promise<string> {
 
 async function hostState(): Promise<HostState> {
   const existing = await readJson<Partial<HostState>>(HOST_STATE_PATH);
-  const hostId = typeof existing?.hostId === "string" && /^[0-9a-f-]{36}$/i.test(existing.hostId)
-    ? existing.hostId
-    : randomUUID();
+  const hostId =
+    typeof existing?.hostId === "string" && /^[0-9a-f-]{36}$/i.test(existing.hostId) ? existing.hostId : randomUUID();
   const value = { hostId, hostName: await computerName() };
-  if (existing?.hostId !== value.hostId || existing.hostName !== value.hostName) await atomicWriteJson(HOST_STATE_PATH, value);
+  if (existing?.hostId !== value.hostId || existing.hostName !== value.hostName)
+    await atomicWriteJson(HOST_STATE_PATH, value);
   return value;
 }
 
@@ -251,7 +281,7 @@ async function writeBridgeState(port: number, installation: CodexInstallation): 
     updatedAt: new Date().toISOString(),
     platform: "darwin",
     ...host,
-    codexVersion: installation.version
+    codexVersion: installation.version,
   };
   await atomicWriteJson(BRIDGE_STATE_PATH, state);
   return state;
@@ -262,7 +292,10 @@ export function isBridgeStateStale(statePort: unknown, activePort: number | null
   return !Number.isInteger(port) || port < 1 || port > 65_535 || activePort == null || port !== activePort;
 }
 
-async function removeStaleBridgeState(activePort: number | null, log?: (message: string) => Promise<void>): Promise<boolean> {
+async function removeStaleBridgeState(
+  activePort: number | null,
+  log?: (message: string) => Promise<void>,
+): Promise<boolean> {
   const removed = await removeStaleBridgeStateFile(BRIDGE_STATE_PATH, activePort);
   if (removed && log) await log("Removed stale bridge state.");
   return removed;
@@ -276,7 +309,10 @@ export async function removeStaleBridgeStateFile(path: string, activePort: numbe
   return true;
 }
 
-export function buildCodexLaunchSpec(installation: Pick<CodexInstallation, "appPath">, port: number): { command: string; args: string[] } {
+export function buildCodexLaunchSpec(
+  installation: Pick<CodexInstallation, "appPath">,
+  port: number,
+): { command: string; args: string[] } {
   if (!Number.isInteger(port) || port < 1 || port > 65_535) throw new Error(`Invalid debugging port: ${port}`);
   return {
     command: "/usr/bin/open",
@@ -286,8 +322,8 @@ export function buildCodexLaunchSpec(installation: Pick<CodexInstallation, "appP
       installation.appPath,
       "--args",
       "--remote-debugging-address=127.0.0.1",
-      `--remote-debugging-port=${port}`
-    ]
+      `--remote-debugging-port=${port}`,
+    ],
   };
 }
 
@@ -303,8 +339,11 @@ async function terminateCodex(main: MainProcess): Promise<void> {
   process.kill(main.pid, "SIGTERM");
   const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
-    try { process.kill(main.pid, 0); }
-    catch { return; }
+    try {
+      process.kill(main.pid, 0);
+    } catch {
+      return;
+    }
     await delay(250);
   }
   throw new Error(`Codex main process ${main.pid} did not exit after SIGTERM; it was not force-killed.`);
@@ -312,7 +351,10 @@ async function terminateCodex(main: MainProcess): Promise<void> {
 
 const delay = (milliseconds: number) => new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
 
-async function enableBridge(installation: CodexInstallation, port: number): Promise<{ override: unknown; verification: unknown }> {
+async function enableBridge(
+  installation: CodexInstallation,
+  port: number,
+): Promise<{ override: unknown; verification: unknown }> {
   await writeBridgeState(port, installation);
   const override = await applyRuntimeOverride(port, 30_000);
   const verification = await verifyMicroRuntime(port, 30_000);
@@ -323,10 +365,20 @@ async function enableBridge(installation: CodexInstallation, port: number): Prom
 async function rotateLog(): Promise<void> {
   try {
     if ((await stat(WATCHER_LOG_PATH)).size < LOG_LIMIT_BYTES) return;
-  } catch { return; }
+  } catch {
+    return;
+  }
   await rm(`${WATCHER_LOG_PATH}.3`, { force: true });
-  for (const [from, to] of [[`${WATCHER_LOG_PATH}.2`, `${WATCHER_LOG_PATH}.3`], [`${WATCHER_LOG_PATH}.1`, `${WATCHER_LOG_PATH}.2`], [WATCHER_LOG_PATH, `${WATCHER_LOG_PATH}.1`]] as const) {
-    try { await rename(from, to); } catch { /* A rotation source may not exist. */ }
+  for (const [from, to] of [
+    [`${WATCHER_LOG_PATH}.2`, `${WATCHER_LOG_PATH}.3`],
+    [`${WATCHER_LOG_PATH}.1`, `${WATCHER_LOG_PATH}.2`],
+    [WATCHER_LOG_PATH, `${WATCHER_LOG_PATH}.1`],
+  ] as const) {
+    try {
+      await rename(from, to);
+    } catch {
+      /* A rotation source may not exist. */
+    }
   }
 }
 
@@ -334,8 +386,11 @@ async function log(message: string): Promise<void> {
   await mkdir(STATE_ROOT, { recursive: true, mode: 0o700 });
   await rotateLog();
   const file = await open(WATCHER_LOG_PATH, "a", 0o600);
-  try { await file.write(`${new Date().toISOString()} [${process.pid}] ${message}\n`); }
-  finally { await file.close(); }
+  try {
+    await file.write(`${new Date().toISOString()} [${process.pid}] ${message}\n`);
+  } finally {
+    await file.close();
+  }
 }
 
 function safeLog(message: string): void {
@@ -351,18 +406,30 @@ export async function acquirePidLock(lockPath = WATCHER_LOCK_PATH): Promise<(() 
   } catch {
     const existing = Number((await readFile(join(lockPath, "pid"), "utf8").catch(() => "")).trim());
     if (Number.isInteger(existing)) {
-      try { process.kill(existing, 0); return null; }
-      catch { /* Reclaim a stale lock below. */ }
+      try {
+        process.kill(existing, 0);
+        return null;
+      } catch {
+        /* Reclaim a stale lock below. */
+      }
     }
     const stale = `${lockPath}.stale.${process.pid}.${Date.now()}`;
-    try { await rename(lockPath, stale); }
-    catch { return null; }
+    try {
+      await rename(lockPath, stale);
+    } catch {
+      return null;
+    }
     await rm(stale, { recursive: true, force: true });
-    try { await mkdir(lockPath, { mode: 0o700 }); }
-    catch { return null; }
+    try {
+      await mkdir(lockPath, { mode: 0o700 });
+    } catch {
+      return null;
+    }
   }
   await writeFile(join(lockPath, "pid"), `${process.pid}\n`, { mode: 0o600 });
-  return async () => { await rm(lockPath, { recursive: true, force: true }); };
+  return async () => {
+    await rm(lockPath, { recursive: true, force: true });
+  };
 }
 
 async function runWatcher(): Promise<number> {
@@ -373,11 +440,22 @@ async function runWatcher(): Promise<number> {
   }
   let released = false;
   const cleanup = async () => {
-    if (!released) { released = true; await release(); }
+    if (!released) {
+      released = true;
+      await release();
+    }
   };
-  process.once("SIGTERM", () => { safeLog("Watcher received SIGTERM."); void cleanup().finally(() => process.exit(0)); });
-  process.once("SIGINT", () => { safeLog("Watcher received SIGINT."); void cleanup().finally(() => process.exit(0)); });
-  process.on("unhandledRejection", (reason) => { safeLog(`Unhandled watcher rejection: ${String(reason)}`); });
+  process.once("SIGTERM", () => {
+    safeLog("Watcher received SIGTERM.");
+    void cleanup().finally(() => process.exit(0));
+  });
+  process.once("SIGINT", () => {
+    safeLog("Watcher received SIGINT.");
+    void cleanup().finally(() => process.exit(0));
+  });
+  process.on("unhandledRejection", (reason) => {
+    safeLog(`Unhandled watcher rejection: ${String(reason)}`);
+  });
 
   await log("Watcher started.");
   let policy = resumeWatcherPolicyState(await readJson<WatcherPolicyState>(WATCHER_STATE_PATH));
@@ -389,7 +467,9 @@ async function runWatcher(): Promise<number> {
         const main = findMainProcess(installation);
         const port = await healthyDebugPort(main);
         const decision = evaluateWatcherPolicy(policy, {
-          now: Date.now(), generation: main?.generation ?? null, bridgeHealthy: port != null
+          now: Date.now(),
+          generation: main?.generation ?? null,
+          bridgeHealthy: port != null,
         });
         policy = decision.state;
         await atomicWriteJson(WATCHER_STATE_PATH, policy);
@@ -482,17 +562,29 @@ export function buildLaunchAgentPlist(watcherLauncherPath = WATCHER_LAUNCHER_PAT
 function builtRuntimeSource(): string {
   const current = resolve(process.argv[1]!);
   if (current.endsWith(".mjs")) return current;
-  return resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "release", "codex-deck-launcher-macos", "codex-deck-macos.mjs");
+  return resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "..",
+    "release",
+    "codex-deck-launcher-macos",
+    "codex-deck-macos.mjs",
+  );
 }
 
 function currentUserId(): number {
-  if (typeof process.getuid !== "function") throw new Error("A POSIX user ID is required to manage the macOS LaunchAgent.");
+  if (typeof process.getuid !== "function")
+    throw new Error("A POSIX user ID is required to manage the macOS LaunchAgent.");
   return process.getuid();
 }
 
 async function installLaunchAgent(): Promise<void> {
   const source = builtRuntimeSource();
-  if (!await stat(source).then((value) => value.isFile()).catch(() => false)) {
+  if (
+    !(await stat(source)
+      .then((value) => value.isFile())
+      .catch(() => false))
+  ) {
     throw new Error("Build the macOS launcher first with `npm run build`.");
   }
   await mkdir(STATE_ROOT, { recursive: true, mode: 0o700 });
@@ -528,8 +620,12 @@ async function installLaunchAgent(): Promise<void> {
       const pid = Number(status.match(/\bpid = (\d+)/)?.[1]);
       const lockPid = Number((await readFile(join(WATCHER_LOCK_PATH, "pid"), "utf8").catch(() => "")).trim());
       const logText = await readFile(WATCHER_LOG_PATH, "utf8").catch(() => "");
-      if (pid > 0 && pid === lockPid && /\bstate = running\b/.test(status) &&
-          logText.includes(`[${pid}] Watcher started.`)) {
+      if (
+        pid > 0 &&
+        pid === lockPid &&
+        /\bstate = running\b/.test(status) &&
+        logText.includes(`[${pid}] Watcher started.`)
+      ) {
         ready = true;
         break;
       }
@@ -540,7 +636,9 @@ async function installLaunchAgent(): Promise<void> {
     console.log("An already-running normal Codex session is recorded and left untouched.");
   } catch (error) {
     if (oldWatcherStopped) {
-      throw new Error(`Watcher update partially failed after stopping the old service; the old remote listener was not restored. ${String(error)}`);
+      throw new Error(
+        `Watcher update partially failed after stopping the old service; the old remote listener was not restored. ${String(error)}`,
+      );
     }
     throw error;
   } finally {
@@ -553,9 +651,15 @@ async function uninstallLaunchAgent(): Promise<void> {
   run("/bin/launchctl", ["bootout", `gui/${currentUserId()}`, LAUNCH_AGENT_PATH], { allowFailure: true });
   await rm(LAUNCH_AGENT_PATH, { force: true });
   for (const path of [
-    INSTALLED_RUNTIME_PATH, WATCHER_LAUNCHER_PATH, BRIDGE_STATE_PATH, WATCHER_STATE_PATH,
-    WATCHER_LOG_PATH, `${WATCHER_LOG_PATH}.1`, `${WATCHER_LOG_PATH}.2`, `${WATCHER_LOG_PATH}.3`,
-    WATCHER_STDERR_PATH
+    INSTALLED_RUNTIME_PATH,
+    WATCHER_LAUNCHER_PATH,
+    BRIDGE_STATE_PATH,
+    WATCHER_STATE_PATH,
+    WATCHER_LOG_PATH,
+    `${WATCHER_LOG_PATH}.1`,
+    `${WATCHER_LOG_PATH}.2`,
+    `${WATCHER_LOG_PATH}.3`,
+    WATCHER_STDERR_PATH,
   ]) {
     await rm(path, { force: true });
   }
@@ -586,7 +690,9 @@ async function startOnce(allowRestart: boolean): Promise<number> {
   let port = await healthyDebugPort(main);
   if (main && !port && !allowRestart) {
     console.error("Codex is already running without a reusable loopback bridge.");
-    console.error("A restart requires explicit permission. Re-run with --restart only after saving unsent composer text.");
+    console.error(
+      "A restart requires explicit permission. Re-run with --restart only after saving unsent composer text.",
+    );
     return 2;
   }
   if (main && !port) {
@@ -633,13 +739,21 @@ async function selfTest(): Promise<void> {
   assert.equal(result.action.type, "wait", "a replacement process must remain stable before recovery");
   state = result.state;
   result = evaluateWatcherPolicy(state, { now: 30_000, generation: "B", bridgeHealthy: false });
-  assert.equal(result.action.type, "restart-for-recovery", "a previous healthy bridge recovers after a stable replacement");
+  assert.equal(
+    result.action.type,
+    "restart-for-recovery",
+    "a previous healthy bridge recovers after a stable replacement",
+  );
 
   state = createWatcherPolicyState(0);
   result = evaluateWatcherPolicy(state, { now: 0, generation: null, bridgeHealthy: false });
   state = result.state;
   result = evaluateWatcherPolicy(state, { now: 2_000, generation: "RACE", bridgeHealthy: false });
-  assert.equal(result.action.type, "preserve-initial-session", "LaunchAgent startup race preserves the first normal session");
+  assert.equal(
+    result.action.type,
+    "preserve-initial-session",
+    "LaunchAgent startup race preserves the first normal session",
+  );
 
   const temporaryRoot = await mkdtemp(join(tmpdir(), "codex-deck-self-test-"));
   const lockPath = join(temporaryRoot, "watcher.lock");
@@ -654,32 +768,59 @@ async function selfTest(): Promise<void> {
   const staleStatePath = join(temporaryRoot, "codex-micro-bridge.json");
   await writeFile(staleStatePath, `${JSON.stringify({ port: 70_000 })}\n`);
   assert.equal(await removeStaleBridgeStateFile(staleStatePath, null), true, "stale port state is removed");
-  assert.equal(await stat(staleStatePath).then(() => true).catch(() => false), false, "stale state file no longer exists");
+  assert.equal(
+    await stat(staleStatePath)
+      .then(() => true)
+      .catch(() => false),
+    false,
+    "stale state file no longer exists",
+  );
   await rm(temporaryRoot, { recursive: true, force: true });
 
   assert.equal(isBridgeStateStale(70_000, null), true, "stale/invalid port state is rejected");
   assert.equal(isBridgeStateStale(43123, 43123), false, "the active bridge state is retained");
-  console.log("macOS self-test passed: safe recovery, circuit-breaker, race, stale-state, and single-instance scenarios.");
+  console.log(
+    "macOS self-test passed: safe recovery, circuit-breaker, race, stale-state, and single-instance scenarios.",
+  );
 }
 
 async function main(): Promise<number> {
   const command = process.argv[2] ?? "start";
-  if (command === "--dry-run" || command === "dry-run") { await dryRun(); return 0; }
-  if (command === "--self-test" || command === "self-test") { await selfTest(); return 0; }
-  if (command === "--print-launch-agent" || command === "print-launch-agent") {
-    process.stdout.write(buildLaunchAgentPlist()); return 0;
+  if (command === "--dry-run" || command === "dry-run") {
+    await dryRun();
+    return 0;
   }
-  if (command === "install") { await installLaunchAgent(); return 0; }
-  if (command === "uninstall") { await uninstallLaunchAgent(); return 0; }
+  if (command === "--self-test" || command === "self-test") {
+    await selfTest();
+    return 0;
+  }
+  if (command === "--print-launch-agent" || command === "print-launch-agent") {
+    process.stdout.write(buildLaunchAgentPlist());
+    return 0;
+  }
+  if (command === "install") {
+    await installLaunchAgent();
+    return 0;
+  }
+  if (command === "uninstall") {
+    await uninstallLaunchAgent();
+    return 0;
+  }
   if (command === "watch") return await runWatcher();
   if (command === "start") return await startOnce(process.argv.includes("--restart"));
   if (command === "--restart") return await startOnce(true);
-  throw new Error("Usage: start-codex-deck.sh [start [--restart]|dry-run|self-test|install|uninstall|watch|print-launch-agent]");
+  throw new Error(
+    "Usage: start-codex-deck.sh [start [--restart]|dry-run|self-test|install|uninstall|watch|print-launch-agent]",
+  );
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().then((code) => { process.exitCode = code; }).catch((error) => {
-    console.error(`Codex Deck: ${error instanceof Error ? error.message : String(error)}`);
-    process.exitCode = 1;
-  });
+  main()
+    .then((code) => {
+      process.exitCode = code;
+    })
+    .catch((error) => {
+      console.error(`Codex Deck: ${error instanceof Error ? error.message : String(error)}`);
+      process.exitCode = 1;
+    });
 }

@@ -41,14 +41,11 @@ export function createWatcherPolicyState(now = Date.now()): WatcherPolicyState {
     recoveryCooldownUntil: 0,
     unbridgedGeneration: null,
     unbridgedSince: null,
-    recoveryAttempts: []
+    recoveryAttempts: [],
   };
 }
 
-export function resumeWatcherPolicyState(
-  stored: WatcherPolicyState | null,
-  now = Date.now()
-): WatcherPolicyState {
+export function resumeWatcherPolicyState(stored: WatcherPolicyState | null, now = Date.now()): WatcherPolicyState {
   if (!stored) return createWatcherPolicyState(now);
   return {
     ...stored,
@@ -58,17 +55,17 @@ export function resumeWatcherPolicyState(
     recoveryCooldownUntil: Number(stored.recoveryCooldownUntil) || 0,
     unbridgedGeneration: null,
     unbridgedSince: null,
-    recoveryAttempts: [...(stored.recoveryAttempts ?? [])].slice(-16)
+    recoveryAttempts: [...(stored.recoveryAttempts ?? [])].slice(-16),
   };
 }
 
 export function evaluateWatcherPolicy(
   state: WatcherPolicyState,
-  observation: WatcherObservation
+  observation: WatcherObservation,
 ): { state: WatcherPolicyState; action: WatcherAction } {
   const next: WatcherPolicyState = {
     ...state,
-    recoveryAttempts: [...state.recoveryAttempts]
+    recoveryAttempts: [...state.recoveryAttempts],
   };
   const { now, generation, bridgeHealthy } = observation;
 
@@ -121,7 +118,12 @@ export function evaluateWatcherPolicy(
     return { state: next, action: { type: "wait", reason: "bridge-startup-pending" } };
   }
 
-  if (previousGeneration == null && next.suppressedInitialGeneration == null && !next.hadHealthyBridge && now < next.startupGraceUntil) {
+  if (
+    previousGeneration == null &&
+    next.suppressedInitialGeneration == null &&
+    !next.hadHealthyBridge &&
+    now < next.startupGraceUntil
+  ) {
     next.suppressedInitialGeneration = generation;
     return { state: next, action: { type: "preserve-initial-session" } };
   }
@@ -146,7 +148,8 @@ export function evaluateWatcherPolicy(
     return { state: next, action: { type: "wait", reason: "confirm-stable-unbridged-generation" } };
   }
 
-  const shouldRecover = generationChanged || observedStoppedInterval || next.hadHealthyBridge || now >= next.startupGraceUntil;
+  const shouldRecover =
+    generationChanged || observedStoppedInterval || next.hadHealthyBridge || now >= next.startupGraceUntil;
   if (!shouldRecover) {
     return { state: next, action: { type: "wait", reason: "launch-agent-startup-grace" } };
   }

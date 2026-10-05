@@ -4,7 +4,9 @@ import { foregroundOpenCode } from "#opencode";
 
 test("foregrounds OpenCode Desktop by bundle id without a shell", async () => {
   const calls: Array<{ file: string; args: readonly string[] }> = [];
-  await foregroundOpenCode("darwin", async (file, args) => { calls.push({ file, args }); });
+  await foregroundOpenCode("darwin", async (file, args) => {
+    calls.push({ file, args });
+  });
   assert.deepEqual(calls, [{ file: "/usr/bin/open", args: ["-b", "ai.opencode.desktop"] }]);
 });
 

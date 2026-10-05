@@ -16,9 +16,13 @@ export class LocalActivityIndex {
       const key = `${input.host.hostId}:${threadIdentity(slot.threadKey)}`;
       const signature = `${slot.status}:${slot.selected}:${slot.title ?? ""}`;
       return {
-        ...slot, ...derivedConversationIdentity(slot.threadKey), id,
+        ...slot,
+        ...derivedConversationIdentity(slot.threadKey),
+        id,
         activityAt: this.observeActivity(key, signature, slot.activityAt, input.observedAt, now),
-        host: input.host, sourceSlot: slot.id, observedAt: input.observedAt
+        host: input.host,
+        sourceSlot: slot.id,
+        observedAt: input.observedAt,
       };
     });
     this.pruneActivity(now);
@@ -38,16 +42,15 @@ export class LocalActivityIndex {
           threadKey: slot.threadKey ?? "",
           ...derivedConversationIdentity(slot.threadKey),
           catalogIndex: slot.id,
-          nativeSlot: slot.id as 0 | 1 | 2 | 3 | 4 | 5
+          nativeSlot: slot.id as 0 | 1 | 2 | 3 | 4 | 5,
         }));
     for (const candidate of candidates) {
       if (!candidate.threadKey) continue;
-      const identity = candidate.conversationId?.toLowerCase()
-        ?? `${input.host.hostId}:exact:${candidate.threadKey.toLowerCase()}`;
+      const identity =
+        candidate.conversationId?.toLowerCase() ?? `${input.host.hostId}:exact:${candidate.threadKey.toLowerCase()}`;
       const key = `${input.host.hostId}:catalog:${identity}`;
       const signature = `${candidate.status}:${candidate.selected}:${candidate.title ?? ""}`;
-      const activityAt = this.observeActivity(
-        key, signature, candidate.activityAt, input.observedAt, now);
+      const activityAt = this.observeActivity(key, signature, candidate.activityAt, input.observedAt, now);
       routed.push({
         id: candidate.nativeSlot ?? 0,
         threadKey: candidate.threadKey,
@@ -64,15 +67,15 @@ export class LocalActivityIndex {
         workStartRevision: candidate.workStartRevision,
         host: input.host,
         sourceSlot: candidate.nativeSlot ?? 0,
-        observedAt: input.observedAt
+        observedAt: input.observedAt,
       });
     }
     this.pruneActivity(now);
 
     const mirrors = new Map<string, RoutedAgentSlot[]>();
     for (const slot of routed) {
-      const identity = slot.conversationId?.toLowerCase()
-        ?? `${slot.host.hostId}:exact:${slot.threadKey!.toLowerCase()}`;
+      const identity =
+        slot.conversationId?.toLowerCase() ?? `${slot.host.hostId}:exact:${slot.threadKey!.toLowerCase()}`;
       const candidates = mirrors.get(identity) ?? [];
       candidates.push(slot);
       mirrors.set(identity, candidates);
@@ -80,13 +83,19 @@ export class LocalActivityIndex {
     const sessionOwners = sessionOwnerIndex(input);
     const activeThreads = new Set([
       ...(input.snapshot.activeThreadKey ? [threadIdentity(input.snapshot.activeThreadKey)] : []),
-      ...routed.filter((slot) => slot.selected)
-        .map((slot) => slot.conversationId?.toLowerCase() ?? threadIdentity(slot.threadKey!))
+      ...routed
+        .filter((slot) => slot.selected)
+        .map((slot) => slot.conversationId?.toLowerCase() ?? threadIdentity(slot.threadKey!)),
     ]);
     return [...mirrors.entries()].map(([identity, candidates]) => {
       const sessionOwner = sessionOwners.get(identity);
-      return mergeMirrors(identity, candidates, sessionOwner, this.acknowledgedCompletions,
-        activeThreads.has(identity));
+      return mergeMirrors(
+        identity,
+        candidates,
+        sessionOwner,
+        this.acknowledgedCompletions,
+        activeThreads.has(identity),
+      );
     });
   }
 
@@ -95,16 +104,14 @@ export class LocalActivityIndex {
     signature: string,
     explicitValue: unknown,
     observedAt: number,
-    now: number
+    now: number,
   ): number {
     const prior = this.activity.get(key);
     const explicit = validTimestamp(explicitValue);
     const changed = prior != null && prior.signature !== signature;
     // Snapshot receipt is not task activity. Only an explicit renderer time or
     // an actually observed state change may advance task recency.
-    const activityAt = changed
-      ? Math.max(explicit ?? 0, observedAt)
-      : explicit ?? prior?.activityAt ?? 0;
+    const activityAt = changed ? Math.max(explicit ?? 0, observedAt) : (explicit ?? prior?.activityAt ?? 0);
     this.activity.set(key, { activityAt, signature, lastSeenAt: now });
     return activityAt;
   }
@@ -138,7 +145,7 @@ function mergeMirrors(
   candidates: RoutedAgentSlot[],
   sessionOwner: SessionOwner | undefined,
   acknowledgedCompletions: Map<string, number>,
-  activeLocally: boolean
+  activeLocally: boolean,
 ): RoutedAgentSlot {
   const newestObservation = Math.max(...candidates.map((candidate) => candidate.observedAt));
   const statusCandidates = candidates;
@@ -151,9 +158,10 @@ function mergeMirrors(
       if (compareOwnership(candidate, owner) < 0) owner = candidate;
     }
   }
-  const strongest = [...statusCandidates].sort((left, right) =>
-    mirrorStatusPriority(right.status) - mirrorStatusPriority(left.status) ||
-    Number(right.selected) - Number(left.selected)
+  const strongest = [...statusCandidates].sort(
+    (left, right) =>
+      mirrorStatusPriority(right.status) - mirrorStatusPriority(left.status) ||
+      Number(right.selected) - Number(left.selected),
   )[0]!;
   const ownedCandidates = candidates.filter((candidate) => candidate.ownedByHost === true);
   const recencyCandidates = ownedCandidates.length ? ownedCandidates : candidates;
@@ -161,13 +169,16 @@ function mergeMirrors(
   const completionRevision = statusSessionOwner?.session.completionRevision;
   const completionKey = statusSessionOwner ? `${statusSessionOwner.input.host.hostId}:${identity}` : identity;
   const strongestIsWorking = ["working", "thinking"].includes(strongest.status);
-  if (sessionStatus === "complete" && completionRevision != null &&
-    activeLocally && !strongestIsWorking) {
+  if (sessionStatus === "complete" && completionRevision != null && activeLocally && !strongestIsWorking) {
     acknowledgedCompletions.set(completionKey, completionRevision);
   }
-  const completionAcknowledged = sessionStatus === "complete" && completionRevision != null &&
+  const completionAcknowledged =
+    sessionStatus === "complete" &&
+    completionRevision != null &&
     acknowledgedCompletions.get(completionKey) === completionRevision;
-  const completionIsRecent = sessionStatus === "complete" && statusSessionOwner != null &&
+  const completionIsRecent =
+    sessionStatus === "complete" &&
+    statusSessionOwner != null &&
     newestObservation - statusSessionOwner.session.activityAt <= SESSION_COMPLETION_FALLBACK_MS;
   const attention = ["approval", "awaiting-approval", "awaiting-response", "error"];
   const attentionStatus = attention.find((status) => statusCandidates.some((candidate) => candidate.status === status));
@@ -177,34 +188,45 @@ function mergeMirrors(
     : strongestIsWorking
       ? strongest.status
       : sessionStatus === "working"
-      ? "working"
-      : sessionStatus === "complete" && completionIsRecent && !completionAcknowledged
-        ? (completionLike.includes(strongest.status) || strongest.status === "unread" ? strongest.status : "complete")
-        : completionAcknowledged
-          ? "idle"
-          : strongest.status;
+        ? "working"
+        : sessionStatus === "complete" && completionIsRecent && !completionAcknowledged
+          ? completionLike.includes(strongest.status) || strongest.status === "unread"
+            ? strongest.status
+            : "complete"
+          : completionAcknowledged
+            ? "idle"
+            : strongest.status;
   const routedOwner = sessionOwner?.input.host ?? owner.host;
-  const contextCandidate = candidates.find((candidate) =>
-    candidate.ownedByHost === true && candidate.contextUsedPercent != null)
-    ?? candidates.find((candidate) => candidate.contextUsedPercent != null);
-  const workStartOwner = sessionOwner?.session ?? candidates.find((candidate) =>
-    candidate.ownedByHost === true && !candidate.threadKey?.includes("client-new-thread") &&
-    (candidate.conversationId?.toLowerCase() === identity || threadIdentity(candidate.threadKey!) === identity) &&
-    candidate.workStartedAt != null && candidate.workStartRevision != null);
+  const contextCandidate =
+    candidates.find((candidate) => candidate.ownedByHost === true && candidate.contextUsedPercent != null) ??
+    candidates.find((candidate) => candidate.contextUsedPercent != null);
+  const workStartOwner =
+    sessionOwner?.session ??
+    candidates.find(
+      (candidate) =>
+        candidate.ownedByHost === true &&
+        !candidate.threadKey?.includes("client-new-thread") &&
+        (candidate.conversationId?.toLowerCase() === identity || threadIdentity(candidate.threadKey!) === identity) &&
+        candidate.workStartedAt != null &&
+        candidate.workStartRevision != null,
+    );
   const titleCandidate = candidates.find((candidate) => normalizedTitle(candidate.title));
   return {
     ...owner,
     host: routedOwner,
     ownedByHost: sessionOwner ? true : owner.ownedByHost,
-    title: normalizedTitle(owner.title) ? owner.title : titleCandidate?.title ?? null,
+    title: normalizedTitle(owner.title) ? owner.title : (titleCandidate?.title ?? null),
     status,
     selected: statusCandidates.some((candidate) => candidate.selected),
     contextUsedPercent: sessionOwner?.session.contextUsedPercent ?? contextCandidate?.contextUsedPercent,
     workStartedAt: workStartOwner?.workStartedAt,
     workStartRevision: workStartOwner?.workStartRevision,
     // Local session ownership supplies activity independently of renderer selection.
-    activityAt: Math.max(sessionOwner?.session.activityAt ?? 0, ...recencyCandidates.map((candidate) => candidate.activityAt ?? 0)),
-    observedAt: newestObservation
+    activityAt: Math.max(
+      sessionOwner?.session.activityAt ?? 0,
+      ...recencyCandidates.map((candidate) => candidate.activityAt ?? 0),
+    ),
+    observedAt: newestObservation,
   };
 }
 

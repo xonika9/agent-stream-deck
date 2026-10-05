@@ -9,11 +9,16 @@ export class CodexSource {
   localHealth: HostHealth = { state: "connecting", reason: "awaiting-snapshot", changedAt: Date.now() };
   private lastError = "";
 
-  constructor(log: (message: string) => void, private readonly warn: (message: string) => void = log) {
+  constructor(
+    log: (message: string) => void,
+    private readonly warn: (message: string) => void = log,
+  ) {
     this.microBridge = new CodexMicroRendererBridge(log);
   }
 
-  async start(): Promise<void> { this.localHost = await getOrCreateHostIdentity(); }
+  async start(): Promise<void> {
+    this.localHost = await getOrCreateHostIdentity();
+  }
 
   async refresh(): Promise<void> {
     try {
@@ -32,5 +37,7 @@ export class CodexSource {
     }
   }
 
-  stop(): void { this.microBridge.close(); }
+  stop(): void {
+    this.microBridge.close();
+  }
 }

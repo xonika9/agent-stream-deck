@@ -18,25 +18,32 @@ type DebugTarget = {
 };
 
 export function selectCodexMainTarget(targets: DebugTarget[]): DebugTarget | undefined {
-  const candidates = targets.filter((target) =>
-    target.type === "page" && target.webSocketDebuggerUrl && target.url.startsWith("app://")
+  const candidates = targets.filter(
+    (target) => target.type === "page" && target.webSocketDebuggerUrl && target.url.startsWith("app://"),
   );
   const isIndexDocument = (target: DebugTarget): boolean => {
-    try { return new URL(target.url).pathname === "/index.html"; }
-    catch { return false; }
+    try {
+      return new URL(target.url).pathname === "/index.html";
+    } catch {
+      return false;
+    }
   };
-  const isAuxiliarySurface = (target: DebugTarget): boolean =>
-    /avatar-overlay|composition-surface/i.test(target.url);
+  const isAuxiliarySurface = (target: DebugTarget): boolean => /avatar-overlay|composition-surface/i.test(target.url);
 
-  return candidates.find((target) => isIndexDocument(target) && !new URL(target.url).search)
-    ?? candidates.find(isIndexDocument)
-    ?? candidates.find((target) => !isAuxiliarySurface(target) && !target.url.includes("initialRoute="))
-    ?? candidates.find((target) => !isAuxiliarySurface(target));
+  return (
+    candidates.find((target) => isIndexDocument(target) && !new URL(target.url).search) ??
+    candidates.find(isIndexDocument) ??
+    candidates.find((target) => !isAuxiliarySurface(target) && !target.url.includes("initialRoute=")) ??
+    candidates.find((target) => !isAuxiliarySurface(target))
+  );
 }
 
 type CdpResponse = {
   id?: number;
-  result?: { result?: { value?: unknown; description?: string }; exceptionDetails?: { text?: string; exception?: { description?: string } } };
+  result?: {
+    result?: { value?: unknown; description?: string };
+    exceptionDetails?: { text?: string; exception?: { description?: string } };
+  };
   error?: { message?: string };
 };
 
@@ -55,8 +62,9 @@ export function canonicalThreadId(threadKey: string): string {
 /** Bare renderer IDs may match one prefixed host ID; two different host prefixes never do. */
 export function threadKeysEquivalent(left: string, right: string): boolean {
   if (left.toLowerCase() === right.toLowerCase()) return true;
-  return canonicalThreadId(left) === canonicalThreadId(right) &&
-    (BARE_THREAD_ID.test(left) || BARE_THREAD_ID.test(right));
+  return (
+    canonicalThreadId(left) === canonicalThreadId(right) && (BARE_THREAD_ID.test(left) || BARE_THREAD_ID.test(right))
+  );
 }
 
 /** Prefer an exact host identity and use a canonical fallback only when it is unambiguous. */
@@ -74,7 +82,7 @@ export function nativeActionKey(slot: MicroActionSlot): string {
 export function resolveAgentDispatch(
   snapshot: MicroSnapshot,
   requestedSlot: number,
-  expectedThreadKey?: string
+  expectedThreadKey?: string,
 ): AgentDispatchPlan {
   const requested = snapshot.slots.find((item) => item.id === requestedSlot);
   const threadKey = expectedThreadKey ?? requested?.threadKey ?? null;
@@ -90,12 +98,12 @@ const PORT_FILE = join(codexDeckStateRoot(), "codex-micro-bridge.json");
 const WATCHER_STATE_FILE = join(codexDeckStateRoot(), "watcher-state.json");
 const DEVICE_STATE = {
   type: "codex-micro-device-state-changed",
-  state: { status: "connected", error: null, battery: { percentage: 100, isCharging: true } }
+  state: { status: "connected", error: null, battery: { percentage: 100, isCharging: true } },
 };
 
 export const REASONING_ENCODER_KEYS: Record<ReasoningAdjustment, "ENC_CW" | "ENC_CC"> = {
   decrease: "ENC_CW",
-  increase: "ENC_CC"
+  increase: "ENC_CC",
 };
 
 const SNAPSHOT_EXPRESSION = `(async () => {
@@ -426,7 +434,10 @@ export function buildEnsureThreadActivatedExpression(threadKey: string): string 
 export class CodexMicroRendererBridge {
   private socket?: WebSocket;
   private nextId = 0;
-  private pending = new Map<number, { resolve: (value: CdpResponse) => void; reject: (error: Error) => void; timer: NodeJS.Timeout }>();
+  private pending = new Map<
+    number,
+    { resolve: (value: CdpResponse) => void; reject: (error: Error) => void; timer: NodeJS.Timeout }
+  >();
   private connecting?: Promise<void>;
   private lastSnapshot?: MicroSnapshot;
   private readonly agentPresses = new WeakMap<AbortSignal, AgentDispatchPlan>();
@@ -454,69 +465,101 @@ export class CodexMicroRendererBridge {
       const pressed = this.agentPresses.get(signal);
       this.agentPresses.delete(signal);
       if (pressed?.kind !== "native" || signal.aborted) return;
-      await this.dispatch("codex-micro-hid-event", {
-        event: { key: `AG0${pressed.slot}`, act: 0, slot: pressed.slot, threadKey: pressed.threadKey }
-      }, "codex-micro-hid-event");
+      await this.dispatch(
+        "codex-micro-hid-event",
+        {
+          event: { key: `AG0${pressed.slot}`, act: 0, slot: pressed.slot, threadKey: pressed.threadKey },
+        },
+        "codex-micro-hid-event",
+      );
       return;
     }
-    const snapshot = act === 1 ? await this.refresh() : this.lastSnapshot ?? await this.refresh();
+    const snapshot = act === 1 ? await this.refresh() : (this.lastSnapshot ?? (await this.refresh()));
     if (signal?.aborted) return;
     const plan = resolveAgentDispatch(snapshot, slot, expectedThreadKey);
     if (plan.kind === "native") {
       if (plan.slot !== slot) {
         this.log(`Agent slot ${slot + 1} changed before dispatch; using current native slot ${plan.slot + 1}.`);
       }
-      await this.dispatch("codex-micro-hid-event", {
-        event: { key: `AG0${plan.slot}`, act, slot: plan.slot, threadKey: plan.threadKey }
-      }, "codex-micro-hid-event");
+      await this.dispatch(
+        "codex-micro-hid-event",
+        {
+          event: { key: `AG0${plan.slot}`, act, slot: plan.slot, threadKey: plan.threadKey },
+        },
+        "codex-micro-hid-event",
+      );
       if (act === 0) return;
       if (signal) this.agentPresses.set(signal, plan);
     } else {
       if (act === 0) return;
       this.log(`Selecting Codex task ${plan.threadKey} by its exact native thread identity.`);
-      await this.dispatch("codex-micro-hid-event", {
-        event: { key: `AG0${plan.slot}`, act: 1, slot: plan.slot, threadKey: plan.threadKey }
-      }, "codex-micro-hid-event");
+      await this.dispatch(
+        "codex-micro-hid-event",
+        {
+          event: { key: `AG0${plan.slot}`, act: 1, slot: plan.slot, threadKey: plan.threadKey },
+        },
+        "codex-micro-hid-event",
+      );
       const conversationId = snapshot.activeCatalog?.candidates.find(
-        (candidate) => candidate.threadKey === plan.threadKey)?.conversationId;
+        (candidate) => candidate.threadKey === plan.threadKey,
+      )?.conversationId;
       this.sessionOwnership.markOpened(plan.threadKey, conversationId ?? null);
       return;
     }
     await this.ensureThreadActivated(plan.threadKey);
     const conversationId = snapshot.activeCatalog?.candidates.find(
-      (candidate) => candidate.threadKey === plan.threadKey)?.conversationId;
+      (candidate) => candidate.threadKey === plan.threadKey,
+    )?.conversationId;
     this.sessionOwnership.markOpened(plan.threadKey, conversationId);
   }
 
   private async ensureThreadActivated(threadKey: string): Promise<void> {
     const result = await this.evaluate<"active" | "opened" | "missing" | "failed">(
-      buildEnsureThreadActivatedExpression(threadKey)
+      buildEnsureThreadActivatedExpression(threadKey),
     );
     if (result === "active" || result === "opened") return;
     if (result === "missing") {
-      throw new Error("The exact Codex task is not present in this host's loaded sidebar. Open or pin it once in Codex, then retry.");
+      throw new Error(
+        "The exact Codex task is not present in this host's loaded sidebar. Open or pin it once in Codex, then retry.",
+      );
     }
     throw new Error("Codex received the task selection but did not activate the requested thread.");
   }
 
   async sendAction(slot: MicroActionSlot, act: 0 | 1): Promise<void> {
     const key = nativeActionKey(slot);
-    await this.dispatch("codex-micro-hid-event", { event: { key, act, slot: null, threadKey: null } }, "codex-micro-hid-event");
+    await this.dispatch(
+      "codex-micro-hid-event",
+      { event: { key, act, slot: null, threadKey: null } },
+      "codex-micro-hid-event",
+    );
   }
 
   async sendJoystick(direction: MicroDirection, distance: 0 | 1): Promise<void> {
     const angle: Record<MicroDirection, number> = { up: 0.75, right: 0, down: 0.25, left: 0.5 };
-    await this.dispatch("codex-micro-joystick-event", { event: { angle: angle[direction], distance } }, "codex-micro-joystick-event");
+    await this.dispatch(
+      "codex-micro-joystick-event",
+      { event: { angle: angle[direction], distance } },
+      "codex-micro-joystick-event",
+    );
   }
 
   async sendEncoder(act: 0 | 1): Promise<void> {
-    await this.dispatch("codex-micro-hid-event", { event: { key: "ENC", act, slot: null, threadKey: null } }, "codex-micro-hid-event");
+    await this.dispatch(
+      "codex-micro-hid-event",
+      { event: { key: "ENC", act, slot: null, threadKey: null } },
+      "codex-micro-hid-event",
+    );
   }
 
   async adjustReasoning(direction: ReasoningAdjustment): Promise<void> {
-    await this.dispatch("codex-micro-hid-event", {
-      event: { key: REASONING_ENCODER_KEYS[direction], act: 2, slot: null, threadKey: null }
-    }, "codex-micro-hid-event");
+    await this.dispatch(
+      "codex-micro-hid-event",
+      {
+        event: { key: REASONING_ENCODER_KEYS[direction], act: 2, slot: null, threadKey: null },
+      },
+      "codex-micro-hid-event",
+    );
   }
 
   async runKeycap(keycapId: OfficialKeycapId): Promise<void> {
@@ -718,8 +761,11 @@ export class CodexMicroRendererBridge {
     if (this.socket?.readyState === WebSocket.OPEN) return;
     if (this.connecting) return this.connecting;
     this.connecting = this.connect();
-    try { await this.connecting; }
-    finally { this.connecting = undefined; }
+    try {
+      await this.connecting;
+    } finally {
+      this.connecting = undefined;
+    }
   }
 
   private async connect(): Promise<void> {
@@ -736,7 +782,10 @@ export class CodexMicroRendererBridge {
         socket.removeListener("error", failed);
         socket.removeListener("close", closed);
       };
-      const opened = () => { cleanup(); resolve(); };
+      const opened = () => {
+        cleanup();
+        resolve();
+      };
       const failed = (error: Error) => {
         cleanup();
         // ws emits an error when terminating a CONNECTING handshake.
@@ -759,7 +808,8 @@ export class CodexMicroRendererBridge {
 
   private evaluate<T = unknown>(expression: string): Promise<T> {
     const socket = this.socket;
-    if (!socket || socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error("Codex-Micro-Brücke ist nicht verbunden."));
+    if (!socket || socket.readyState !== WebSocket.OPEN)
+      return Promise.reject(new Error("Codex-Micro-Brücke ist nicht verbunden."));
     const id = ++this.nextId;
     // CDP may garbage-collect an awaited Runtime.evaluate promise while a
     // renderer handler or dynamic import is still pending. Keep the exact
@@ -776,18 +826,34 @@ export class CodexMicroRendererBridge {
         resolve: (message) => {
           if (message.error) return reject(new Error(message.error.message ?? "Unbekannter CDP-Fehler."));
           const result = message.result;
-          if (result?.exceptionDetails) return reject(new Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text ?? "Codex-Auswertung fehlgeschlagen."));
+          if (result?.exceptionDetails)
+            return reject(
+              new Error(
+                result.exceptionDetails.exception?.description ??
+                  result.exceptionDetails.text ??
+                  "Codex-Auswertung fehlgeschlagen.",
+              ),
+            );
           resolve(result?.result?.value as T);
-        }
+        },
       });
-      socket.send(JSON.stringify({ id, method: "Runtime.evaluate", params: { expression: retainedExpression, awaitPromise: true, returnByValue: true } }));
+      socket.send(
+        JSON.stringify({
+          id,
+          method: "Runtime.evaluate",
+          params: { expression: retainedExpression, awaitPromise: true, returnByValue: true },
+        }),
+      );
     });
   }
 
   private handleMessage(raw: string): void {
     let message: CdpResponse;
-    try { message = JSON.parse(raw) as CdpResponse; }
-    catch { return; }
+    try {
+      message = JSON.parse(raw) as CdpResponse;
+    } catch {
+      return;
+    }
     if (message.id == null) return;
     const pending = this.pending.get(message.id);
     if (!pending) return;
@@ -836,8 +902,9 @@ export function macCodexExecutablePathFromWatcherState(state: string): string | 
 export function hasMacCodexExecutable(commands: Iterable<string>, executablePath: string): boolean {
   for (const line of commands) {
     const command = line.trimStart();
-    const exactExecutable = command.startsWith(executablePath)
-      && (command.length === executablePath.length || /\s/.test(command[executablePath.length] ?? ""));
+    const exactExecutable =
+      command.startsWith(executablePath) &&
+      (command.length === executablePath.length || /\s/.test(command[executablePath.length] ?? ""));
     if (exactExecutable) return true;
   }
   return false;
@@ -857,30 +924,36 @@ export function retainEvaluationPromise(expression: string, id: string | number)
 async function discoverDebugPort(): Promise<number> {
   if (process.platform === "darwin") {
     const fromFile = await readPortFile();
-    if (fromFile && await isDebugPort(fromFile)) return fromFile;
+    if (fromFile && (await isDebugPort(fromFile))) return fromFile;
     const executablePath = await readMacCodexExecutablePath();
     if (executablePath === null) throw new CodexNotRunningError();
     if (executablePath === undefined) throw new Error("Codex launcher state is unavailable.");
     const { stdout } = await execFileAsync("/bin/ps", ["-axo", "command="], { timeout: 4000 });
     const commands = stdout.split("\n");
     for (const line of commands) {
-      if (!hasMacCodexExecutable([line], executablePath) || !line.includes("--remote-debugging-address=127.0.0.1")) continue;
+      if (!hasMacCodexExecutable([line], executablePath) || !line.includes("--remote-debugging-address=127.0.0.1"))
+        continue;
       const port = Number.parseInt(line.match(/--remote-debugging-port(?:=|\s+)(\d+)/)?.[1] ?? "", 10);
-      if (Number.isInteger(port) && await isDebugPort(port)) return port;
+      if (Number.isInteger(port) && (await isDebugPort(port))) return port;
     }
     throw new Error("Codex wurde nicht über den macOS-Micro-Aktivierungsstarter geöffnet.");
   }
   const fromFile = await readPortFile();
-  if (fromFile && await isDebugPort(fromFile)) return fromFile;
-  if (process.platform !== "win32") throw new Error("Die native Codex-Micro-Brücke wird auf dieser Plattform nicht unterstützt.");
+  if (fromFile && (await isDebugPort(fromFile))) return fromFile;
+  if (process.platform !== "win32")
+    throw new Error("Die native Codex-Micro-Brücke wird auf dieser Plattform nicht unterstützt.");
 
-  const command = "$processes = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'ChatGPT.exe' -and $_.CommandLine -notmatch '--type=' }); if ($processes.Count -eq 0) { '__CODEX_DECK_NOT_RUNNING__' } else { $processes | Where-Object { $_.CommandLine -match '--remote-debugging-port=(\\d+)' } | ForEach-Object { if ($_.CommandLine -match '--remote-debugging-port=(\\d+)') { $Matches[1] } } | Select-Object -Unique }";
-  const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", command], { windowsHide: true, timeout: 4000 });
+  const command =
+    "$processes = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'ChatGPT.exe' -and $_.CommandLine -notmatch '--type=' }); if ($processes.Count -eq 0) { '__CODEX_DECK_NOT_RUNNING__' } else { $processes | Where-Object { $_.CommandLine -match '--remote-debugging-port=(\\d+)' } | ForEach-Object { if ($_.CommandLine -match '--remote-debugging-port=(\\d+)') { $Matches[1] } } | Select-Object -Unique }";
+  const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", command], {
+    windowsHide: true,
+    timeout: 4000,
+  });
   const values = stdout.split(/\s+/);
   if (values.includes("__CODEX_DECK_NOT_RUNNING__")) throw new CodexNotRunningError();
   for (const value of values) {
     const port = Number.parseInt(value, 10);
-    if (Number.isInteger(port) && await isDebugPort(port)) return port;
+    if (Number.isInteger(port) && (await isDebugPort(port))) return port;
   }
   throw new Error("Codex wurde nicht über den Micro-Aktivierungsstarter geöffnet.");
 }
@@ -890,7 +963,9 @@ async function readPortFile(): Promise<number | null> {
     const data = JSON.parse(await readFile(PORT_FILE, "utf8")) as { port?: unknown };
     const port = Number(data.port);
     return Number.isInteger(port) && port > 0 && port <= 65535 ? port : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 async function readMacCodexExecutablePath(): Promise<string | null | undefined> {
@@ -905,11 +980,13 @@ async function isDebugPort(port: number): Promise<boolean> {
   try {
     const response = await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(750) });
     return response.ok;
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { signal: AbortSignal.timeout(1500) });
   if (!response.ok) throw new Error(`Codex-Debug-Endpunkt antwortete mit ${response.status}.`);
-  return await response.json() as T;
+  return (await response.json()) as T;
 }

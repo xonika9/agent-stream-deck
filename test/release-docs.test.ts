@@ -29,7 +29,9 @@ test("release preparation audits the completed release directory", async () => {
 
 test("release preparation is cross-platform and keeps platform archive boundaries", async () => {
   const [packageJson, source, windows] = await Promise.all([
-    text("package.json"), text("scripts/prepare-release.mjs"), text("scripts/package-windows-release.ps1")
+    text("package.json"),
+    text("scripts/prepare-release.mjs"),
+    text("scripts/package-windows-release.ps1"),
   ]);
   assert.match(packageJson, /"release:prepare": "node scripts\/prepare-release\.mjs"/);
   assert.match(source, /process\.platform === "win32"/);
@@ -41,7 +43,8 @@ test("release preparation is cross-platform and keeps platform archive boundarie
 
 test("npm and Stream Deck release versions use their required compatible forms", async () => {
   const [packageJson, manifest] = await Promise.all([
-    text("package.json").then(JSON.parse), text("static/manifest.json").then(JSON.parse)
+    text("package.json").then(JSON.parse),
+    text("static/manifest.json").then(JSON.parse),
   ]);
   const hotfix = /^(\d+\.\d+\.\d+)-hotfix\.(\d+)$/u.exec(packageJson.version);
   const expectedManifest = hotfix ? `${hotfix[1]}.${hotfix[2]}` : `${packageJson.version}.0`;

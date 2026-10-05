@@ -52,7 +52,11 @@ export interface OpenCodeCollectorDependencies {
   clearInterval(timer: NodeJS.Timeout): void;
   files: OpenCodeFileAccess;
   fetch(url: string, init?: RequestInit): Promise<Response>;
-  spawn(command: string, args: string[], options: { env: NodeJS.ProcessEnv; detached: boolean }): Promise<OpenCodeProcess>;
+  spawn(
+    command: string,
+    args: string[],
+    options: { env: NodeJS.ProcessEnv; detached: boolean },
+  ): Promise<OpenCodeProcess>;
   reserveLoopbackPort(): Promise<number>;
   waitForLoopbackPort(port: number, timeoutMs: number): Promise<boolean>;
   terminateProcessGroup(process: OpenCodeProcess): Promise<void>;
@@ -85,4 +89,3 @@ export type TerminalBinding = {
   acknowledged: boolean;
 };
 export type LabelBinding = { ordinal: number; lastSeenAt: number };
-

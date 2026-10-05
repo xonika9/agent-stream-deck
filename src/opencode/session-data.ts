@@ -13,7 +13,8 @@ export function parseActive(value: unknown): string[] {
 }
 
 export function parsePending(value: unknown): string[] {
-  if (!isRecord(value) || !Array.isArray(value.data) || value.data.length > MAX_SESSIONS) throw new Error("pending-shape");
+  if (!isRecord(value) || !Array.isArray(value.data) || value.data.length > MAX_SESSIONS)
+    throw new Error("pending-shape");
   return value.data.map((item) => {
     if (!isRecord(item) || !validId(item.sessionID)) throw new Error("pending-entry");
     return item.sessionID;
@@ -24,13 +25,16 @@ export function parseRootSessions(value: unknown): { sessions: RawSession[]; com
   if (!isRecord(value) || !Array.isArray(value.data) || value.data.length > MAX_ROOTS || !isRecord(value.cursor)) {
     throw new Error("root-shape");
   }
-  if ((value.cursor.next !== undefined && !boundedString(value.cursor.next, 4096)) ||
-    (value.cursor.previous !== undefined && !boundedString(value.cursor.previous, 4096))) throw new Error("cursor-shape");
+  if (
+    (value.cursor.next !== undefined && !boundedString(value.cursor.next, 4096)) ||
+    (value.cursor.previous !== undefined && !boundedString(value.cursor.previous, 4096))
+  )
+    throw new Error("cursor-shape");
   const sessions = value.data.map(parseSession);
   if (sessions.some((session) => session.parentID !== undefined)) throw new Error("non-root");
   return {
     sessions: [...new Map(sessions.map((session) => [session.id, session])).values()],
-    complete: value.cursor.next === undefined
+    complete: value.cursor.next === undefined,
   };
 }
 
@@ -40,11 +44,17 @@ export function parseSessionEnvelope(value: unknown): RawSession {
 }
 
 export function parseSession(value: unknown): RawSession {
-  if (!isRecord(value) || !validId(value.id) || (value.parentID !== undefined && !validId(value.parentID)) ||
-    !isRecord(value.time) || !timestamp(value.time.created) || !timestamp(value.time.updated) ||
+  if (
+    !isRecord(value) ||
+    !validId(value.id) ||
+    (value.parentID !== undefined && !validId(value.parentID)) ||
+    !isRecord(value.time) ||
+    !timestamp(value.time.created) ||
+    !timestamp(value.time.updated) ||
     (value.time.idle !== undefined && !timestamp(value.time.idle)) ||
     (value.time.viewed !== undefined && !timestamp(value.time.viewed)) ||
-    (value.outcome !== undefined && !["succeeded", "failed", "interrupted"].includes(String(value.outcome)))) {
+    (value.outcome !== undefined && !["succeeded", "failed", "interrupted"].includes(String(value.outcome)))
+  ) {
     throw new Error("session-shape");
   }
   return {
@@ -56,8 +66,8 @@ export function parseSession(value: unknown): RawSession {
       created: value.time.created,
       updated: value.time.updated,
       idle: value.time.idle as number | undefined,
-      viewed: value.time.viewed as number | undefined
-    }
+      viewed: value.time.viewed as number | undefined,
+    },
   };
 }
 
@@ -79,4 +89,3 @@ export function sanitizeDisplayTitle(value: unknown): string | undefined {
   }
   return characters.join("") || undefined;
 }
-

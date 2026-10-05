@@ -7,7 +7,7 @@ export interface OpenCodeFileAccess {
     path: string,
     maximumBytes: number,
     expectedUid?: number,
-    policy?: "private" | "owner-write"
+    policy?: "private" | "owner-write",
   ): Promise<Buffer>;
 }
 
@@ -21,13 +21,19 @@ function safeMetadata(
   metadata: { isFile(): boolean; isSymbolicLink(): boolean; uid: number; mode: number; size: number; nlink: number },
   maximumBytes: number,
   expectedUid?: number,
-  policy: "private" | "owner-write" = "private"
+  policy: "private" | "owner-write" = "private",
 ): boolean {
   const permissions = metadata.mode & 0o777;
-  return metadata.isFile() && !metadata.isSymbolicLink() && metadata.nlink === 1 &&
-    metadata.size >= 0 && metadata.size <= maximumBytes &&
+  return (
+    metadata.isFile() &&
+    !metadata.isSymbolicLink() &&
+    metadata.nlink === 1 &&
+    metadata.size >= 0 &&
+    metadata.size <= maximumBytes &&
     (expectedUid === undefined || metadata.uid === expectedUid) &&
-    (permissions & (policy === "private" ? 0o177 : 0o022)) === 0 && (permissions & 0o400) !== 0;
+    (permissions & (policy === "private" ? 0o177 : 0o022)) === 0 &&
+    (permissions & 0o400) !== 0
+  );
 }
 
 export const nodeOpenCodeFileAccess: OpenCodeFileAccess = {
@@ -50,9 +56,16 @@ export const nodeOpenCodeFileAccess: OpenCodeFileAccess = {
       if (data.byteLength > maximumBytes) throw new UnsafeOpenCodeFileError();
       const after = await handle.stat();
       const pathAfter = await lstat(path);
-      if (!safeMetadata(after, maximumBytes, expectedUid, policy) || pathAfter.isSymbolicLink() ||
-        before.dev !== after.dev || before.ino !== after.ino || before.dev !== pathAfter.dev || before.ino !== pathAfter.ino ||
-        before.size !== after.size || before.mtimeMs !== after.mtimeMs) {
+      if (
+        !safeMetadata(after, maximumBytes, expectedUid, policy) ||
+        pathAfter.isSymbolicLink() ||
+        before.dev !== after.dev ||
+        before.ino !== after.ino ||
+        before.dev !== pathAfter.dev ||
+        before.ino !== pathAfter.ino ||
+        before.size !== after.size ||
+        before.mtimeMs !== after.mtimeMs
+      ) {
         throw new UnsafeOpenCodeFileError();
       }
       return data;
@@ -62,5 +75,5 @@ export const nodeOpenCodeFileAccess: OpenCodeFileAccess = {
     } finally {
       await handle?.close().catch(() => undefined);
     }
-  }
+  },
 };

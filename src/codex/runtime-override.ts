@@ -80,7 +80,7 @@ export function buildRuntimeOverrideExpression(gateName = MICRO_GATE): string {
           const dispatch = bus.dispatchHostMessage ?? bus.dispatchMessage;
           dispatch.call(bus, ${JSON.stringify({
             type: "codex-micro-device-state-changed",
-            state: { status: "connected", error: null, battery: { percentage: 100, isCharging: true } }
+            state: { status: "connected", error: null, battery: { percentage: 100, isCharging: true } },
           })});
           deviceEventDispatched = true;
           break;
@@ -148,20 +148,25 @@ function remaining(deadline: number): number {
 }
 
 export function selectRuntimeTarget(targets: DebugTarget[]): DebugTarget | undefined {
-  const pages = targets.filter((target) =>
-    target.type === "page" && target.webSocketDebuggerUrl && target.url?.startsWith("app://")
+  const pages = targets.filter(
+    (target) => target.type === "page" && target.webSocketDebuggerUrl && target.url?.startsWith("app://"),
   );
   const isIndexDocument = (target: DebugTarget): boolean => {
-    try { return new URL(target.url!).pathname === "/index.html"; }
-    catch { return false; }
+    try {
+      return new URL(target.url!).pathname === "/index.html";
+    } catch {
+      return false;
+    }
   };
   const isAuxiliarySurface = (target: DebugTarget): boolean =>
     /avatar-overlay|composition-surface/i.test(target.url ?? "");
 
-  return pages.find((target) => isIndexDocument(target) && !new URL(target.url!).search)
-    ?? pages.find(isIndexDocument)
-    ?? pages.find((target) => !isAuxiliarySurface(target) && !target.url?.includes("initialRoute="))
-    ?? pages.find((target) => !isAuxiliarySurface(target));
+  return (
+    pages.find((target) => isIndexDocument(target) && !new URL(target.url!).search) ??
+    pages.find(isIndexDocument) ??
+    pages.find((target) => !isAuxiliarySurface(target) && !target.url?.includes("initialRoute=")) ??
+    pages.find((target) => !isAuxiliarySurface(target))
+  );
 }
 
 class CdpClient {
@@ -169,11 +174,14 @@ class CdpClient {
   private nextId = 0;
   private readonly pending = new Map<number, Pending>();
 
-  constructor(url: string, private readonly deadline: number) {
+  constructor(
+    url: string,
+    private readonly deadline: number,
+  ) {
     this.socket = new WebSocket(url, { handshakeTimeout: remaining(deadline) });
-    this.socket.on("message", raw => this.handle(String(raw)));
+    this.socket.on("message", (raw) => this.handle(String(raw)));
     this.socket.on("close", () => this.failPending(new Error("Codex runtime connection closed.")));
-    this.socket.on("error", error => this.failPending(error));
+    this.socket.on("error", (error) => this.failPending(error));
   }
 
   async connect(): Promise<void> {
@@ -184,10 +192,19 @@ class CdpClient {
         this.socket.removeListener("error", failed);
         this.socket.removeListener("close", closed);
       };
-      const opened = () => { cleanup(); resolve(); };
-      const failed = (error: Error) => { cleanup(); reject(error); };
+      const opened = () => {
+        cleanup();
+        resolve();
+      };
+      const failed = (error: Error) => {
+        cleanup();
+        reject(error);
+      };
       const closed = () => failed(new Error("Codex runtime connection closed."));
-      const timer = setTimeout(() => failed(new Error("Timed out connecting to the Codex runtime.")), remaining(this.deadline));
+      const timer = setTimeout(
+        () => failed(new Error("Timed out connecting to the Codex runtime.")),
+        remaining(this.deadline),
+      );
       this.socket.once("open", opened);
       this.socket.once("error", failed);
       this.socket.once("close", closed);
@@ -204,14 +221,21 @@ class CdpClient {
         reject(new Error("Timed out waiting for the Codex runtime response."));
       }, budget);
       this.pending.set(id, { resolve, reject, timer });
-      this.socket.send(JSON.stringify({ id, method: "Runtime.evaluate", params: { expression, awaitPromise: true, returnByValue: true } }), error => {
-        if (!error) return;
-        const pending = this.pending.get(id);
-        if (!pending) return;
-        this.pending.delete(id);
-        clearTimeout(pending.timer);
-        pending.reject(error);
-      });
+      this.socket.send(
+        JSON.stringify({
+          id,
+          method: "Runtime.evaluate",
+          params: { expression, awaitPromise: true, returnByValue: true },
+        }),
+        (error) => {
+          if (!error) return;
+          const pending = this.pending.get(id);
+          if (!pending) return;
+          this.pending.delete(id);
+          clearTimeout(pending.timer);
+          pending.reject(error);
+        },
+      );
     });
   }
 
@@ -229,8 +253,19 @@ class CdpClient {
   }
 
   private handle(raw: string): void {
-    let message: { id?: number; error?: { message?: string }; result?: { result?: { value?: unknown }; exceptionDetails?: { text?: string; exception?: { description?: string } } } };
-    try { message = JSON.parse(raw); } catch { return; }
+    let message: {
+      id?: number;
+      error?: { message?: string };
+      result?: {
+        result?: { value?: unknown };
+        exceptionDetails?: { text?: string; exception?: { description?: string } };
+      };
+    };
+    try {
+      message = JSON.parse(raw);
+    } catch {
+      return;
+    }
     if (!message.id) return;
     const pending = this.pending.get(message.id);
     if (!pending) return;
@@ -241,7 +276,13 @@ class CdpClient {
       return;
     }
     if (message.result?.exceptionDetails) {
-      pending.reject(new Error(message.result.exceptionDetails.exception?.description ?? message.result.exceptionDetails.text ?? "Codex runtime evaluation failed."));
+      pending.reject(
+        new Error(
+          message.result.exceptionDetails.exception?.description ??
+            message.result.exceptionDetails.text ??
+            "Codex runtime evaluation failed.",
+        ),
+      );
       return;
     }
     pending.resolve(message.result?.result?.value);
@@ -251,13 +292,17 @@ class CdpClient {
 async function findTarget(port: number, deadline: number): Promise<DebugTarget> {
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(`http://127.0.0.1:${port}/json/list`, { signal: AbortSignal.timeout(remaining(deadline)) });
+      const response = await fetch(`http://127.0.0.1:${port}/json/list`, {
+        signal: AbortSignal.timeout(remaining(deadline)),
+      });
       if (response.ok) {
-        const targets = await response.json() as DebugTarget[];
+        const targets = (await response.json()) as DebugTarget[];
         const target = selectRuntimeTarget(targets);
         if (target) return target;
       }
-    } catch { /* Codex is still starting. */ }
+    } catch {
+      /* Codex is still starting. */
+    }
     if (Date.now() < deadline) await delay(Math.min(250, remaining(deadline)));
   }
   throw new Error("Timed out waiting for the Codex renderer.");
