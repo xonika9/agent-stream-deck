@@ -155,12 +155,12 @@ test("controller applies the active queue only after host routing and preserves 
   );
 });
 
-test("Both queue drops stopped local Codex tasks before assigning the first key to OpenCode", async () => {
+test("All queue drops stopped local Codex tasks before assigning the first key to OpenCode", async () => {
   const controller = createController({ foregroundOpenCode: async () => {} });
   const images: string[] = [];
   let alerts = 0;
   const internal = controller as unknown as {
-    taskSource: "Both";
+    taskSource: "All";
     localHost?: CodexHost;
     localSnapshot?: HostSnapshot;
     localHealth: { state: "degraded"; reason: "codex-not-running"; changedAt: number };
@@ -170,7 +170,7 @@ test("Both queue drops stopped local Codex tasks before assigning the first key 
     refreshDisplay: () => Promise<void>;
     microBridge: { sendAgent: () => Promise<void> };
   };
-  internal.taskSource = "Both";
+  internal.taskSource = "All";
   sources(controller).codex.localHost = host;
   const staleSnapshot = structuredClone(snapshot);
   staleSnapshot.slots[0]!.status = "complete";

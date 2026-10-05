@@ -3,7 +3,7 @@ export type ThemeMode = "light" | "dark";
 export type HostHealthState = "ready" | "degraded" | "offline" | "connecting";
 export type UsageLimitMode = "auto" | "five-hour" | "weekly";
 export type UsageWindowKind = Exclude<UsageLimitMode, "auto"> | "other";
-export type TaskSource = "Codex" | "OpenCode" | "Both" | "T3 Code" | "All";
+export type TaskSource = "Codex" | "OpenCode" | "T3 Code" | "All";
 
 export type HostHealth = {
   state: HostHealthState;

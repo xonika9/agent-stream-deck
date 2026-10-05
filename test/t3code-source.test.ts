@@ -118,7 +118,7 @@ test("authenticated T3 shell becomes a queue, acknowledges only the displayed re
     await source.refresh();
     assert.equal(requests, protectedRequests);
     assert.equal(source.health.state, "degraded");
-    source.syncDemand("Both", host, false);
+    source.syncDemand("OpenCode", host, false);
     fail = false;
     const previous = requests;
     await source.refresh();

@@ -78,7 +78,7 @@ plutil -lint "$HOME/Library/LaunchAgents/com.simeo.codex-deck.watcher.plist"
 
 ## Existing profiles and remote settings
 
-The `host-toggle` action keeps its UUID and shows the local connection state. Pressing it redraws the status; it does not select another computer. Old Codex relay settings and tokens are ignored and their private files are preserved. Saved OpenCode SSH connections, including Fedora, remain available through the **OpenCode** and **Both** sources.
+The `host-toggle` action keeps its UUID and shows the local connection state. Pressing it redraws the status; it does not select another computer. Old Codex relay settings and tokens are ignored and their private files are preserved. Saved OpenCode SSH connections, including Fedora, remain available through the **OpenCode** and **All** sources.
 
 The watcher runtime is copied outside the repository. Rebuild and run `install` from the new launcher to replace the old watcher; building alone does not stop an installed legacy listener. Keep the established `com.simeo.codex-deck.watcher` service label.
 

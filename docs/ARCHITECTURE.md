@@ -85,7 +85,7 @@ while preserving strict host identity matching in this fork.
 The bridge does not emulate a USB HID device and installs no driver.
 
 For the characterized macOS OpenCode setup, the plugin starts a separate
-collector only when the global Agent source is `OpenCode` or `Both`. It discovers
+collector only when the global Agent source is `OpenCode` or `All`. It discovers
 the managed local service from its user-owned loopback registration and saved SSH
 connections from `opencode.settings`. SSH uses non-interactive authentication and
 a temporary loopback forward. If a CLI-managed remote service has no registration
@@ -117,7 +117,7 @@ failure from surviving a plugin update. Windows behavior retains
 the legacy path; this newer renderer shape has only been checked live on macOS.
 
 The global task-source selector runs before this projection. `Codex` preserves
-the saved Active queue preference; `OpenCode` and `Both` force the projection
+the saved Active queue preference; `OpenCode`, `T3 Code`, and `All` force the projection
 without overwriting that preference. OpenCode candidates use the same
 attention/completion/working groups but keep case-sensitive opaque identities
 and never receive a context ring. An OpenCode key-down foregrounds OpenCode
@@ -233,7 +233,7 @@ add a newly verified live Codex version or replace application/device acceptance
 Launcher updates validate their complete autonomous runtime before replacing the owned watcher. Startup acknowledgement belongs to the newly launched process; a historical log line is insufficient. Windows recovery reserves a global ten-minute cooldown before attempting a restart and retains it on failure.
 
 T3 Code is an independent macOS source under `src/t3code`, using the local V2
-HTTP shell and a separately paired read-only session. `T3 Code` and `All` extend
-the selector without changing `Both`. Its opaque task identities are isolated
+HTTP shell and a separately paired read-only session. The selector offers each source separately
+and `All` for all three; legacy `Both` settings resolve to `All`. Its opaque task identities are isolated
 from Codex conversation mirrors. See [T3 Code compatibility](T3CODE_COMPATIBILITY.md)
 for setup, queue acknowledgement, limits and validation boundaries.

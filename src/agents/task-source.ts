@@ -1,7 +1,8 @@
 import type { TaskSource } from "./types.js";
 
 export function parseTaskSource(value: unknown): TaskSource {
-  return value === "OpenCode" || value === "Both" || value === "T3 Code" || value === "All" ? value : "Codex";
+  if (value === "Both") return "All";
+  return value === "OpenCode" || value === "T3 Code" || value === "All" ? value : "Codex";
 }
 
 export function usesActiveQueue(source: TaskSource, codexPreference: boolean): boolean {
@@ -9,7 +10,7 @@ export function usesActiveQueue(source: TaskSource, codexPreference: boolean): b
 }
 
 export function shouldCollectOpenCode(source: TaskSource, platform: NodeJS.Platform): boolean {
-  return platform === "darwin" && (source === "OpenCode" || source === "Both" || source === "All");
+  return platform === "darwin" && (source === "OpenCode" || source === "All");
 }
 
 export function selectTaskCandidates<T>(
@@ -21,6 +22,5 @@ export function selectTaskCandidates<T>(
   if (source === "Codex") return [...codex];
   if (source === "OpenCode") return [...openCode];
   if (source === "T3 Code") return [...t3Code];
-  if (source === "All") return [...codex, ...openCode, ...t3Code];
-  return [...codex, ...openCode];
+  return [...codex, ...openCode, ...t3Code];
 }

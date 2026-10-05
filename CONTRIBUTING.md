@@ -6,7 +6,7 @@ Use Node.js 24 or newer for development and launchers. The plugin uses SDK 3
 and requires Stream Deck 7.1 or newer.
 
 Mac is the primary platform; standalone Windows installation, startup, and
-existing actions remain supported. Mac retains `Codex`, `OpenCode`, and `Both`,
+existing actions remain supported. Mac retains `Codex`, `OpenCode`, `T3 Code`, and `All`,
 with local OpenCode and saved Fedora SSH connections. Fedora supplies chats
 rather than running the Stream Deck plugin. The iPhone app and its infrastructure have been removed. The separate Codex
 relay has been removed; preserve old private settings and ignore remote selections. Other removals need a separate decision.

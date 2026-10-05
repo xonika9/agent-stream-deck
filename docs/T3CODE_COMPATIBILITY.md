@@ -1,7 +1,8 @@
 # T3 Code task source
 
 The macOS Agent selector adds `T3 Code` and `All` (all three sources).
-`Both` remains Codex + OpenCode. All external sources force Active queue without
+Legacy `Both` settings resolve to `All`; the selector offers only the three
+individual sources and `All`. All external sources force Active queue without
 changing the saved Codex preference. Windows installation and existing actions
 are unchanged; T3 Code collection is currently macOS-only.
 

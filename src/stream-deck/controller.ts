@@ -530,15 +530,7 @@ export class DeckController {
     if (this.taskSource === "OpenCode") return this.openCode.openCodeHealth;
     if (this.taskSource === "Codex") return this.targetHealth();
     if (this.taskSource === "T3 Code") return this.t3Code.health;
-    if (this.taskSource === "Both") {
-      const codex = this.targetHealth();
-      if (codex.state === "ready" || this.openCode.openCodeHealth.state === "ready") {
-        return { state: "ready", changedAt: Math.max(codex.changedAt, this.openCode.openCodeHealth.changedAt) };
-      }
-      return this.openCode.openCodeHealth.state === "connecting" ? codex : this.openCode.openCodeHealth;
-    }
-    const health = [this.targetHealth(), this.openCode.openCodeHealth];
-    if (this.taskSource === "All") health.push(this.t3Code.health);
+    const health = [this.targetHealth(), this.openCode.openCodeHealth, this.t3Code.health];
     return (
       health.find((item) => item.state === "ready") ?? health.find((item) => item.state === "degraded") ?? health[0]!
     );
