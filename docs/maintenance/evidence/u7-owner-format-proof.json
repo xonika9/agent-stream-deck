@@ -1,0 +1,24 @@
+{
+  "unit": "U7 phase 2",
+  "environment": "macOS Node24.16.0",
+  "base": "e767ed70958ffb79ef245b599bfc1f3f68b70233",
+  "format_commit": "ea8dc3cec70c11173879a0bf254a318817c00052",
+  "owner_canonical_proof": {
+    "tool": "biome format --stdin-file-path=<path>",
+    "files": 78,
+    "equal": true,
+    "types_preserved": true,
+    "normalization": "Only the existing noControlCharactersInRegex suppression line in src/opencode/discovery.ts removed from both formatted outputs for the documented relocation comparison; all other contents compared exactly."
+  },
+  "owner_gates": {
+    "lint": "pass; one informational template-style suggestion",
+    "check:boundaries": "pass",
+    "check": "pass",
+    "test": "205 passed, zero failed, one Windows PowerShell skip",
+    "validate": "pass",
+    "audit:release": "pass for three artifact roots",
+    "git diff --check": "pass"
+  },
+  "live_apps": "not run",
+  "physical_device": "not run"
+}
