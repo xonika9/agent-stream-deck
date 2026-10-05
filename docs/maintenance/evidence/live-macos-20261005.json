@@ -86,10 +86,9 @@
   },
   "windows": "explicitly deferred by user; native Windows and Windows CI acceptance remain open",
   "remaining": [
-    "Fedora disconnect/recovery without old completion backfill",
-    "physical holds and queue change",
-    "local OpenCode active task acceptance if not covered by Fedora observation",
-    "Mac CI clean install; Windows and Windows CI explicitly deferred"
+    "Mac CI clean install not run",
+    "Windows and Windows CI explicitly deferred",
+    "rare physical hold/queue-change cases explicitly deferred"
   ],
   "interface": {
     "actualNativeAppObserved": true,
@@ -110,10 +109,31 @@
     "productionCollectorConnectionsAfterLaunch": 2,
     "bothConnectionHealth": "capacity-exceeded",
     "activeCards": 0,
-    "completionAndAcknowledgement": "not verified without active tasks"
+    "completionAndAcknowledgement": "not verified without active tasks",
+    "userAcceptance": {
+      "source": "local Mac service, separately requested from Fedora",
+      "activeTaskCardAppeared": true,
+      "completionCardTurnedGreen": true,
+      "physicalPressOpenedApp": true,
+      "viewedCardDisappeared": true,
+      "evidence": "user explicitly confirmed all requested local scenario steps"
+    }
   },
   "productAmendment": {
     "authority": "user explicitly requested removal of paid reset to prevent accidental spending",
     "behavior": "legacy reset action becomes read-only; no credit consumption on any press/hold"
-  }
+  },
+  "acceptanceScopeDecision": {
+    "authority": "User explicitly declined rare hold/queue-change device cases; revisit if a problem occurs",
+    "deferred": [
+      "physical hold while queue changes",
+      "empty held slot filled before release"
+    ],
+    "notClaimedAsPassed": true
+  },
+  "ordinaryMacAcceptance": "completed within user-approved scope; not full original Definition of Done",
+  "limits": [
+    "No live API-notification failure injection",
+    "Separate SSH outage probe had no active local cards; installed-plugin card retention during outage not observed"
+  ]
 }
