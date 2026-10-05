@@ -53,20 +53,21 @@
     "macExecutableModes": true
   },
   "network": {
-    "failures": [
+    "publicVersionCollisionCheck": "pass after connectivity restored: release and remote tag API returned HTTP404; fetched tags have no v2.0.0",
+    "push": "main57f4f8989da312480f10718bf32dbaac57aee313 pushed; remote branch verified exact",
+    "tag": "not created",
+    "release": "not created",
+    "CI": "no runs returned for origin repository after push; Actions enabled and workflow active; cause not established; no pass claimed",
+    "previousFailures": [
       "gh api TLS handshake timeouts",
       "git ls-remote connection reset",
       "curl HTTPS timeouts with IPv4 and HTTP1.1",
       "Edge extension policy-loading failed twice",
       "verified Edge MCP browser navigation timed out; snapshot ERR_TIMED_OUT",
       "additional web retrieval stalled and cancelled"
-    ],
-    "publicVersionCollisionCheck": "not completed because GitHub inaccessible; do before tag/publication",
-    "push": "not attempted",
-    "tag": "not created",
-    "release": "not created",
-    "CI": "not triggered"
+    ]
   },
-  "next": "Commit prepared candidate locally; when GitHub access restored, refresh origin, verify no v2.0.0 tag/release, push main, verify CI, create immutable annotated tag, draft/upload/verify/publish/download checksum verification",
-  "liveAndDevice": "Ordinary Mac scenarios user-confirmed; Windows and rare device holds deferred; see implementation report"
+  "next": "Push final document checkpoint, create immutable annotated tag, draft/upload/verify/publish, download all assets and compare SHA256",
+  "liveAndDevice": "Ordinary Mac scenarios user-confirmed; Windows and rare device holds deferred; see implementation report",
+  "publicationTarget": "final release-document checkpoint after 57f4f89; resolve immutable v2.0.0 tag when published"
 }
