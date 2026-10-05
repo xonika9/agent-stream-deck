@@ -179,7 +179,9 @@ export function projectActiveQueue(
       if (group == null) return [];
       const identity = threadIdentity(slot.threadKey);
       const sessionActivity =
-        group === "completion" ? newestMatchingSessionActivity(sessionsByHost.get(slot.host.hostId), identity) : null;
+        group === "completion" && (!slot.taskSource || slot.taskSource === "codex")
+          ? newestMatchingSessionActivity(sessionsByHost.get(slot.host.hostId), identity)
+          : null;
       return [
         {
           slot,
@@ -259,7 +261,8 @@ function compareLegacyTies(left: QueueCandidate, right: QueueCandidate): number 
 }
 
 function queueIdentity(slot: RoutedAgentSlot): string {
-  if (slot.taskSource === "opencode") return `opencode:${slot.host.hostId}:${slot.threadKey ?? ""}`;
+  if (slot.taskSource && slot.taskSource !== "codex")
+    return `${slot.taskSource}:${slot.host.hostId}:${slot.threadKey ?? ""}`;
   return slot.conversationId
     ? `trusted:${slot.conversationId.toLowerCase()}`
     : `host:${slot.host.hostId}:exact:${slot.threadKey!.toLowerCase()}`;

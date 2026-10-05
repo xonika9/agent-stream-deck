@@ -1,5 +1,6 @@
 import { CodexSource } from "#codex";
 import { OpenCodeSource } from "#opencode";
+import { T3CodeSource } from "#t3code";
 import streamDeck from "@elgato/streamdeck";
 import { DeckController, type AgentDisplaySettings } from "#stream-deck";
 import {
@@ -64,6 +65,7 @@ const controller = new DeckController({
     (message) => streamDeck.logger.warn(message),
   ),
   openCode: new OpenCodeSource((message) => streamDeck.logger.warn(message)),
+  t3Code: new T3CodeSource((message) => streamDeck.logger.warn(message)),
 });
 
 streamDeck.settings.onDidReceiveGlobalSettings<AgentDisplaySettings>((event) => {

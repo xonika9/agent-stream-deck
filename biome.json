@@ -68,6 +68,7 @@
                       "#*/**",
                       "**/codex/**",
                       "**/opencode/**",
+                      "**/t3code/**",
                       "**/agents/**",
                       "**/stream-deck/**",
                       "**/usage/**",
@@ -78,6 +79,7 @@
                       "#*",
                       "!#codex",
                       "!#opencode",
+                      "!#t3code",
                       "!#agents",
                       "!#stream-deck",
                       "!#usage"
@@ -102,7 +104,8 @@
                 "paths": {
                   "#opencode": "Task sources must remain independent.",
                   "#stream-deck": "Task sources must not depend on Stream Deck.",
-                  "@elgato/streamdeck": "Task sources must not depend on the SDK."
+                  "@elgato/streamdeck": "Task sources must not depend on the SDK.",
+                  "#t3code": "Task sources must remain independent."
                 },
                 "patterns": [
                   {
@@ -114,6 +117,7 @@
                       "*:/**",
                       "#*/**",
                       "**/opencode/**",
+                      "**/t3code/**",
                       "**/agents/**",
                       "**/stream-deck/**",
                       "**/usage/**",
@@ -125,6 +129,7 @@
                       "#*",
                       "!#codex",
                       "!#opencode",
+                      "!#t3code",
                       "!#agents",
                       "!#stream-deck",
                       "!#usage"
@@ -149,7 +154,8 @@
                 "paths": {
                   "#codex": "Task sources must remain independent.",
                   "#stream-deck": "Task sources must not depend on Stream Deck.",
-                  "@elgato/streamdeck": "Task sources must not depend on the SDK."
+                  "@elgato/streamdeck": "Task sources must not depend on the SDK.",
+                  "#t3code": "Task sources must remain independent."
                 },
                 "patterns": [
                   {
@@ -172,6 +178,7 @@
                       "#*",
                       "!#codex",
                       "!#opencode",
+                      "!#t3code",
                       "!#agents",
                       "!#stream-deck",
                       "!#usage"
@@ -210,6 +217,7 @@
                       "#*/**",
                       "**/codex/**",
                       "**/opencode/**",
+                      "**/t3code/**",
                       "**/stream-deck/**",
                       "**/usage/**",
                       "node:*",
@@ -234,6 +242,7 @@
                       "#*",
                       "!#codex",
                       "!#opencode",
+                      "!#t3code",
                       "!#agents",
                       "!#stream-deck",
                       "!#usage",
@@ -242,7 +251,8 @@
                       "#codex",
                       "#opencode",
                       "#stream-deck",
-                      "#usage"
+                      "#usage",
+                      "#t3code"
                     ],
                     "message": "Use the exact public #area entry; relative imports stay inside their owner."
                   }
@@ -285,6 +295,7 @@
                       "#*/**",
                       "**/codex/**",
                       "**/opencode/**",
+                      "**/t3code/**",
                       "**/agents/**",
                       "**/usage/**",
                       "*:*",
@@ -294,6 +305,7 @@
                       "#*",
                       "!#codex",
                       "!#opencode",
+                      "!#t3code",
                       "!#agents",
                       "!#stream-deck",
                       "!#usage"
@@ -330,6 +342,7 @@
                       "#*/**",
                       "**/codex/**",
                       "**/opencode/**",
+                      "**/t3code/**",
                       "**/agents/**",
                       "**/stream-deck/**",
                       "@elgato/streamdeck/**",
@@ -340,6 +353,7 @@
                       "#*",
                       "!#codex",
                       "!#opencode",
+                      "!#t3code",
                       "!#agents",
                       "!#stream-deck",
                       "!#usage"
@@ -364,7 +378,8 @@
                 "paths": {
                   "#opencode": "Task sources must remain independent.",
                   "#stream-deck": "Task sources must not depend on Stream Deck.",
-                  "@elgato/streamdeck": "Task sources must not depend on the SDK."
+                  "@elgato/streamdeck": "Task sources must not depend on the SDK.",
+                  "#t3code": "Task sources must remain independent."
                 },
                 "patterns": [
                   {
@@ -376,6 +391,7 @@
                       "*:/**",
                       "#*/**",
                       "**/opencode/**",
+                      "**/t3code/**",
                       "**/agents/**",
                       "**/stream-deck/**",
                       "**/usage/**",
@@ -389,6 +405,7 @@
                       "#*",
                       "!#codex",
                       "!#opencode",
+                      "!#t3code",
                       "!#agents",
                       "!#stream-deck",
                       "!#usage"
@@ -413,7 +430,8 @@
                 "paths": {
                   "#codex": "Task sources must remain independent.",
                   "#stream-deck": "Task sources must not depend on Stream Deck.",
-                  "@elgato/streamdeck": "Task sources must not depend on the SDK."
+                  "@elgato/streamdeck": "Task sources must not depend on the SDK.",
+                  "#t3code": "Task sources must remain independent."
                 },
                 "patterns": [
                   {
@@ -437,6 +455,7 @@
                       "#*",
                       "!#codex",
                       "!#opencode",
+                      "!#t3code",
                       "!#agents",
                       "!#stream-deck",
                       "!#usage"
@@ -470,6 +489,7 @@
                       "#*/**",
                       "**/codex/**",
                       "**/opencode/**",
+                      "**/t3code/**",
                       "**/agents/**",
                       "**/usage/**",
                       "!../runtime/paths.js",
@@ -480,6 +500,7 @@
                       "#*",
                       "!#codex",
                       "!#opencode",
+                      "!#t3code",
                       "!#agents",
                       "!#stream-deck",
                       "!#usage"
@@ -509,6 +530,105 @@
         "rules": {
           "suspicious": {
             "noExplicitAny": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/t3code/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "#codex": "Task sources must remain independent.",
+                  "#stream-deck": "Task sources must not depend on Stream Deck.",
+                  "@elgato/streamdeck": "Task sources must not depend on the SDK.",
+                  "#opencode": "Task sources must remain independent."
+                },
+                "patterns": [
+                  {
+                    "group": [
+                      "../**",
+                      "./**/../**",
+                      "/**",
+                      "file:/**",
+                      "*:/**",
+                      "#*/**",
+                      "**/codex/**",
+                      "**/agents/**",
+                      "**/stream-deck/**",
+                      "**/usage/**",
+                      "@elgato/streamdeck/**",
+                      "*:*",
+                      "*:*/**",
+                      "!node:*",
+                      "!node:*/**",
+                      "#*",
+                      "!#codex",
+                      "!#opencode",
+                      "!#t3code",
+                      "!#agents",
+                      "!#stream-deck",
+                      "!#usage"
+                    ],
+                    "message": "Use the exact public #area entry; relative imports stay inside their owner."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/t3code/source.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "#codex": "Task sources must remain independent.",
+                  "#stream-deck": "Task sources must not depend on Stream Deck.",
+                  "@elgato/streamdeck": "Task sources must not depend on the SDK.",
+                  "#opencode": "Task sources must remain independent."
+                },
+                "patterns": [
+                  {
+                    "group": [
+                      "../**",
+                      "./**/../**",
+                      "/**",
+                      "file:/**",
+                      "*:/**",
+                      "#*/**",
+                      "**/codex/**",
+                      "**/agents/**",
+                      "**/stream-deck/**",
+                      "**/usage/**",
+                      "@elgato/streamdeck/**",
+                      "*:*",
+                      "*:*/**",
+                      "!node:*",
+                      "!node:*/**",
+                      "#*",
+                      "!#codex",
+                      "!#opencode",
+                      "!#t3code",
+                      "!#agents",
+                      "!#stream-deck",
+                      "!#usage",
+                      "!../runtime/paths.js"
+                    ],
+                    "message": "Use the exact public #area entry; relative imports stay inside their owner."
+                  }
+                ]
+              }
+            }
           }
         }
       }

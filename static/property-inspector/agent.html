@@ -21,26 +21,28 @@
       <option>Codex</option>
       <option>OpenCode</option>
       <option>Both</option>
+      <option>T3 Code</option>
+      <option value="All">All three sources</option>
     </select>
   </label>
-  <p>Applies to all six Agent keys. OpenCode support covers this Mac's local service and saved SSH connections.</p>
+  <p>Applies to all six Agent keys. Both combines Codex + OpenCode; All adds local T3 Code. T3 Code requires a separate local connection; see the plugin documentation.</p>
   <label>
     <span>Context ring</span>
     <input id="show-context-rings" type="checkbox" checked disabled>
   </label>
-  <p>This global option applies to Codex tasks. OpenCode labels never expose task content.</p>
+  <p>This global option applies to Codex tasks only.</p>
   <label>
     <span>Active queue</span>
     <input id="active-queue" type="checkbox" disabled>
   </label>
-  <p id="active-queue-help">Uses Codex's full native pinned + unpinned sidebar catalog when available, with a fallback to the six Micro slots. Place <strong>Agent 1</strong> through <strong>Agent N</strong> contiguously. Idle chats are unavailable; <strong>custom</strong> keeps its six configured candidates and may compact them. OpenCode and Both always use this queue.</p>
+  <p id="active-queue-help">Uses Codex's full native pinned + unpinned sidebar catalog when available, with a fallback to the six Micro slots. Place <strong>Agent 1</strong> through <strong>Agent N</strong> contiguously. Idle chats are unavailable; <strong>custom</strong> keeps its six configured candidates and may compact them. OpenCode, Both, T3 Code and All always use this queue.</p>
   <script>
     let websocket;
     let pluginContext;
     let globalSettings = {};
 
     function applySettings() {
-      const source = ["Codex", "OpenCode", "Both"].includes(globalSettings.taskSource)
+      const source = ["Codex", "OpenCode", "Both", "T3 Code", "All"].includes(globalSettings.taskSource)
         ? globalSettings.taskSource : "Codex";
       document.getElementById("task-source").value = source;
       document.getElementById("show-context-rings").checked = globalSettings.showContextRings !== false;
@@ -50,7 +52,7 @@
       document.getElementById("task-source").disabled = false;
       document.getElementById("active-queue").disabled = forcedQueue;
       document.getElementById("active-queue-help").textContent = forcedQueue
-        ? "OpenCode and Both always use the Active queue. Return to Codex to restore your saved preference."
+        ? "OpenCode, Both, T3 Code and All always use the Active queue. Return to Codex to restore your saved preference."
         : "Uses Codex's full native pinned + unpinned sidebar catalog when available, with a fallback to the six Micro slots. Place Agent 1 through Agent N contiguously.";
     }
 

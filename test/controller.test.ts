@@ -11,14 +11,18 @@ import { DeckController } from "#stream-deck";
 import { CodexSource } from "#codex";
 import { CODEX_BAR_FRESH_MS, parseCodexBarUsage } from "#usage";
 import { OpenCodeSource, openCodeTaskSlot } from "#opencode";
+import { T3CodeSource } from "#t3code";
 import { Agent1, ReasoningUp, RateLimitReset } from "#stream-deck";
 import type { HostSnapshot } from "#agents";
 import type { CodexHost, MicroSnapshot, RoutedAgentSlot } from "#agents";
 
-function createController(options: { foregroundOpenCode?: () => Promise<void> } = {}): DeckController {
+function createController(
+  options: { foregroundOpenCode?: () => Promise<void>; foregroundT3Code?: () => Promise<void> } = {},
+): DeckController {
   return new DeckController({
     codex: new CodexSource(() => {}),
     openCode: new OpenCodeSource(() => {}, options.foregroundOpenCode),
+    t3Code: new T3CodeSource(() => {}, { foreground: options.foregroundT3Code }),
   });
 }
 
@@ -685,7 +689,8 @@ test("startup and legacy host action use the local bridge while preserving old p
       streamDeck.settings.getGlobalSettings = async () => ({ activeQueueEnabled: false });
       const { CodexSource } = await import(${JSON.stringify(new URL("../src/codex/index.ts", import.meta.url).href)});
       const { OpenCodeSource } = await import(${JSON.stringify(new URL("../src/opencode/index.ts", import.meta.url).href)});
-      const controller = new DeckController({ codex: new CodexSource(() => {}), openCode: new OpenCodeSource(() => {}) });
+      const { T3CodeSource } = await import(${JSON.stringify(new URL("../src/t3code/index.ts", import.meta.url).href)});
+      const controller = new DeckController({ codex: new CodexSource(() => {}), openCode: new OpenCodeSource(() => {}), t3Code: new T3CodeSource(() => {}) });
       controller.sources.codex.microBridge.refresh = async () => (${JSON.stringify(snapshot)});
       const sends = [];
       controller.sources.codex.microBridge.sendAgent = async (...args) => { sends.push(args.slice(0, 3)); };
@@ -1021,4 +1026,39 @@ test("an empty Agent press queued behind a prior pair captures its no-op before 
     [0, 1, original.threadKey],
     [0, 0, original.threadKey],
   ]);
+});
+
+test("T3 Agent presses acknowledge the captured result and never send Codex phases", async () => {
+  let foregrounds = 0;
+  const controller = createController({
+    foregroundT3Code: async () => {
+      foregrounds++;
+    },
+  });
+  const internal = controller as unknown as { sources: { t3Code: T3CodeSource }; routedSlots: RoutedAgentSlot[] };
+  const source = internal.sources.t3Code;
+  source.syncDemand("T3 Code", host, false);
+  const assignment: RoutedAgentSlot = {
+    id: 0,
+    sourceSlot: 0,
+    host,
+    threadKey: "thread",
+    title: "T3 task",
+    status: "unread",
+    taskSource: "t3code",
+    selected: false,
+    activityAt: Date.now(),
+    observedAt: Date.now(),
+  };
+  source.slots = [assignment];
+  source.health = { state: "ready", changedAt: Date.now() };
+  internal.routedSlots = [assignment];
+  sources(controller).codex.microBridge.sendAgent = async () => {
+    throw new Error("T3 press reached Codex");
+  };
+  await controller.sendAgent(0, 1, { id: "t3-key" });
+  await controller.sendAgent(0, 0, { id: "t3-key" });
+  assert.equal(foregrounds, 1);
+  assert.deepEqual(source.slots, []);
+  controller.stop();
 });

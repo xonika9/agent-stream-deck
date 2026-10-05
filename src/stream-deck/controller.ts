@@ -21,6 +21,7 @@ import {
 } from "./render.js";
 import { openCodexThread } from "#codex";
 import type { OpenCodeSource } from "#opencode";
+import type { T3CodeSource } from "#t3code";
 import { visualStatusFromMicro } from "#agents";
 import { parseTaskSource, selectTaskCandidates, usesActiveQueue } from "#agents";
 import type {
@@ -52,7 +53,7 @@ export type AgentDisplaySettings = {
   taskSource?: TaskSource;
 };
 
-type DeckControllerDependencies = { codex: CodexSource; openCode: OpenCodeSource };
+type DeckControllerDependencies = { codex: CodexSource; openCode: OpenCodeSource; t3Code: T3CodeSource };
 
 const USER_ICON_ROOT = join(codexDeckStateRoot(), "icons");
 
@@ -93,11 +94,15 @@ export class DeckController {
     return this.sources.openCode;
   }
 
+  private get t3Code(): T3CodeSource {
+    return this.sources.t3Code;
+  }
+
   async start(): Promise<void> {
     this.stopped = false;
     await this.loadAgentDisplaySettings();
     await this.codex.start();
-    await this.syncOpenCodeCollectorDemand();
+    await this.syncTaskSourceDemand();
     await this.refresh();
     this.scheduleRefresh();
     this.scheduleAnimation();
@@ -122,6 +127,7 @@ export class DeckController {
     this.agentButtons.clear();
     this.codex.stop();
     this.openCode.stop();
+    this.t3Code.stop();
   }
 
   registerAgent(slot: number, action: KeyAction<{}>): void {
@@ -150,9 +156,10 @@ export class DeckController {
     if (activeQueueChanged || taskSourceChanged) {
       this.activeQueueRankIndex.clear();
       if (taskSourceChanged) {
-        const synchronize = this.syncOpenCodeCollectorDemand();
+        const synchronize = this.syncTaskSourceDemand();
         void this.refreshDisplay().catch(() => streamDeck.logger.error("Agent display settings refresh failed."));
         void synchronize
+          .then(() => this.t3Code.refresh())
           .then(() => this.refreshDisplay())
           .catch(() => streamDeck.logger.error("Agent display settings refresh failed."));
       } else {
@@ -242,7 +249,12 @@ export class DeckController {
           } catch {
             /* The native owner may already have delivered the press. */
           }
-          if (press.abort.signal.aborted || !press.assignment || press.assignment.taskSource === "opencode") return;
+          if (
+            press.abort.signal.aborted ||
+            !press.assignment ||
+            (press.assignment.taskSource && press.assignment.taskSource !== "codex")
+          )
+            return;
           await this.codex.microBridge.sendAgent(
             press.assignment.sourceSlot,
             0,
@@ -265,6 +277,10 @@ export class DeckController {
       if (!assignment) {
         if (emptyAllowed) return;
         throw new Error(`No Codex task is assigned to global agent slot ${slot + 1}.`);
+      }
+      if (assignment.taskSource === "t3code") {
+        if (await this.t3Code.open(assignment, abort.signal)) await this.refreshDisplay();
+        return;
       }
       if (assignment.taskSource === "opencode") {
         if (await this.openCode.open(assignment, abort.signal)) await this.refreshDisplay();
@@ -330,11 +346,12 @@ export class DeckController {
 
   private async refreshOnce(): Promise<void> {
     if (process.platform === "darwin") this.codexBarUsage = await readCodexBarUsage();
-    await this.codex.refresh();
+    await Promise.all([this.codex.refresh(), this.t3Code.refresh()]);
     await this.refreshDisplay();
   }
 
-  private syncOpenCodeCollectorDemand(): Promise<void> {
+  private syncTaskSourceDemand(): Promise<void> {
+    this.t3Code.syncDemand(this.taskSource, this.codex.localHost, this.stopped);
     return this.openCode.syncDemand(this.taskSource, this.codex.localHost, this.stopped);
   }
 
@@ -352,7 +369,7 @@ export class DeckController {
     const codexSlots = activeQueueEnabled
       ? this.activityIndex.mergeActiveCatalog(queueInputs[0], now)
       : this.activityIndex.merge(this.codex.localSnapshot, now);
-    const merged = selectTaskCandidates(this.taskSource, codexSlots, this.openCode.openCodeSlots);
+    const merged = selectTaskCandidates(this.taskSource, codexSlots, this.openCode.openCodeSlots, this.t3Code.slots);
     this.routedSlots = activeQueueEnabled
       ? projectActiveQueue(merged, queueInputs, this.activeQueueRankIndex, now)
       : merged;
@@ -400,12 +417,7 @@ export class DeckController {
 
   private async renderAgent({ action, slot }: AgentRegistration): Promise<void> {
     const agent = this.routedSlots[slot];
-    const health =
-      agent?.taskSource === "opencode"
-        ? this.openCode.openCodeHealth
-        : agent
-          ? this.codex.localHealth
-          : this.selectedTaskHealth();
+    const health = this.agentHealth(agent);
     const codexStopped = slot < 4 && health.state === "degraded" && health.reason === "codex-not-running";
     const healthyQueueGap = this.effectiveActiveQueueEnabled() && !agent && health.state === "ready";
     if (codexStopped || healthyQueueGap) {
@@ -423,7 +435,7 @@ export class DeckController {
     const title = agent?.title ?? (agent?.threadKey && health.state === "ready" ? "New chat" : unavailableTitle);
     const status = agent ? visualStatusFromMicro(agent.status) : "empty";
     const theme = this.targetSnapshot()?.theme ?? this.codex.localSnapshot?.snapshot.theme ?? "light";
-    const hostBadge = agent?.taskSource === "opencode" ? "O" : undefined;
+    const hostBadge = agent?.taskSource === "t3code" ? "T3" : agent?.taskSource === "opencode" ? "O" : undefined;
     await this.setImage(
       action,
       renderAgentKey(
@@ -436,7 +448,7 @@ export class DeckController {
         hostBadge,
         health.state,
         agent?.contextUsedPercent,
-        this.showContextRings && agent?.taskSource !== "opencode",
+        this.showContextRings && (!agent?.taskSource || agent.taskSource === "codex"),
       ),
     );
   }
@@ -507,14 +519,29 @@ export class DeckController {
     return this.codex.localHealth;
   }
 
+  private agentHealth(agent: RoutedAgentSlot | undefined): HostHealth {
+    if (!agent) return this.selectedTaskHealth();
+    if (agent.taskSource === "t3code") return this.t3Code.health;
+    if (agent.taskSource === "opencode") return this.openCode.openCodeHealth;
+    return this.codex.localHealth;
+  }
+
   private selectedTaskHealth(): HostHealth {
     if (this.taskSource === "OpenCode") return this.openCode.openCodeHealth;
     if (this.taskSource === "Codex") return this.targetHealth();
-    const codex = this.targetHealth();
-    if (codex.state === "ready" || this.openCode.openCodeHealth.state === "ready") {
-      return { state: "ready", changedAt: Math.max(codex.changedAt, this.openCode.openCodeHealth.changedAt) };
+    if (this.taskSource === "T3 Code") return this.t3Code.health;
+    if (this.taskSource === "Both") {
+      const codex = this.targetHealth();
+      if (codex.state === "ready" || this.openCode.openCodeHealth.state === "ready") {
+        return { state: "ready", changedAt: Math.max(codex.changedAt, this.openCode.openCodeHealth.changedAt) };
+      }
+      return this.openCode.openCodeHealth.state === "connecting" ? codex : this.openCode.openCodeHealth;
     }
-    return this.openCode.openCodeHealth.state === "connecting" ? codex : this.openCode.openCodeHealth;
+    const health = [this.targetHealth(), this.openCode.openCodeHealth];
+    if (this.taskSource === "All") health.push(this.t3Code.health);
+    return (
+      health.find((item) => item.state === "ready") ?? health.find((item) => item.state === "degraded") ?? health[0]!
+    );
   }
 
   private targetSnapshot(): MicroSnapshot | undefined {

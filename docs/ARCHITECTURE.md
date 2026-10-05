@@ -2,10 +2,10 @@
 
 ## Components
 
-The implementation remains one package. `src/plugin.ts` composes the Codex and
-OpenCode sources with the Stream Deck controller. Cross-area imports use the
-public `#codex`, `#opencode`, `#agents`, `#stream-deck`, and `#usage` entries.
-`agents` owns pure task types, identity, selection, and queue rules; the two task
+The implementation remains one package. `src/plugin.ts` composes the Codex, OpenCode and
+T3 Code sources with the Stream Deck controller. Cross-area imports use the
+public `#codex`, `#opencode`, `#t3code`, `#agents`, `#stream-deck`, and `#usage` entries.
+`agents` owns pure task types, identity, selection, and queue rules; the task
 sources do not import each other. OpenCode separates protected discovery, SSH,
 authenticated requests, external session data, and process-local revision state.
 Only shared state paths and local host identity remain under `src/runtime`.
@@ -231,3 +231,9 @@ attempts, including a peer that never completes a close handshake. They do not
 add a newly verified live Codex version or replace application/device acceptance.
 
 Launcher updates validate their complete autonomous runtime before replacing the owned watcher. Startup acknowledgement belongs to the newly launched process; a historical log line is insufficient. Windows recovery reserves a global ten-minute cooldown before attempting a restart and retains it on failure.
+
+T3 Code is an independent macOS source under `src/t3code`, using the local V2
+HTTP shell and a separately paired read-only session. `T3 Code` and `All` extend
+the selector without changing `Both`. Its opaque task identities are isolated
+from Codex conversation mirrors. See [T3 Code compatibility](T3CODE_COMPATIBILITY.md)
+for setup, queue acknowledgement, limits and validation boundaries.

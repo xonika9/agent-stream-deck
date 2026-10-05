@@ -213,3 +213,9 @@ artwork from that concept is included.
 Code and original artwork are licensed under [MIT](LICENSE). OpenAI, Codex, ChatGPT, Elgato, Stream Deck, and their marks/assets belong to their respective owners; third-party and user-supplied assets are not relicensed.
 
 Current local metadata identifies OpenCode `2.0.22`, Stream Deck `7.6.0` (build `23012`), and CodexBar `0.70.0` (build `161`). Metadata is not a live compatibility result. Codex was not found in the bounded standard-directory metadata search; that does not prove it is absent. The build uses Node.js 24 and Stream Deck SDKVersion 3.
+
+### T3 Code tasks (macOS)
+
+Agent keys also support `T3 Code` and `All` (all three sources). `Both` still
+means Codex + OpenCode. Connect the local T3 server using its separate read-only
+session before selecting these modes; see [setup and compatibility](docs/T3CODE_COMPATIBILITY.md).

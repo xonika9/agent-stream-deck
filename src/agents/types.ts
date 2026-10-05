@@ -3,7 +3,7 @@ export type ThemeMode = "light" | "dark";
 export type HostHealthState = "ready" | "degraded" | "offline" | "connecting";
 export type UsageLimitMode = "auto" | "five-hour" | "weekly";
 export type UsageWindowKind = Exclude<UsageLimitMode, "auto"> | "other";
-export type TaskSource = "Codex" | "OpenCode" | "Both";
+export type TaskSource = "Codex" | "OpenCode" | "Both" | "T3 Code" | "All";
 
 export type HostHealth = {
   state: HostHealthState;
@@ -118,7 +118,7 @@ export type CodexHost = {
 
 export type RoutedAgentSlot = MicroAgentSlot & {
   host: CodexHost;
-  taskSource?: "codex" | "opencode";
+  taskSource?: "codex" | "opencode" | "t3code";
   sourceSlot: number;
   /** Physical native slot when the task belongs to the host's six-slot set. */
   nativeSlot?: 0 | 1 | 2 | 3 | 4 | 5;

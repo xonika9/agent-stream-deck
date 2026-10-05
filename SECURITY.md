@@ -24,3 +24,13 @@ OpenCode monitoring is opt-in. The characterized macOS integration accepts only 
 Release artifacts are audited for private runtime state, known personal setup markers, and protected Codex keycap SVG files. This reduces accidental packaging risk but does not replace review.
 
 Launcher updates preflight the autonomous runtime and Node.js 24 before stopping the owned watcher. Windows legacy SSH cleanup requires the saved PID, exact saved loopback forwarding target and documented arguments; an unproven tunnel stops migration with an actionable error. Private configuration is preserved; OpenCode and unrelated tunnels are never adopted by port.
+
+## T3 Code source
+
+The macOS adapter uses a separately paired `orchestration:read` bearer session,
+stored in a current-user-owned regular file with mode `0600`. It rejects symlinks
+and group/other-readable configuration. The saved origin must be loopback HTTP
+and match T3 runtime registration with a live process. Redirects are rejected,
+requests are bounded, and credentials are never logged or put in Stream Deck
+global settings. No T3 command dispatch, database access, desktop credential
+decryption, or remote transport is added. See `docs/T3CODE_COMPATIBILITY.md`.

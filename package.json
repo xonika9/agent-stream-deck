@@ -25,7 +25,8 @@
     "pack": "npm run build && streamdeck pack dist/com.xonika9.codex-deck.sdPlugin --force",
     "release:prepare": "node scripts/prepare-release.mjs",
     "lint": "biome check . --error-on-warnings",
-    "check:boundaries": "biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings"
+    "check:boundaries": "biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings",
+    "connect:t3": "node scripts/connect-t3.mjs"
   },
   "dependencies": {
     "@elgato/streamdeck": "3.0.1",
@@ -45,6 +46,7 @@
     "#opencode": "./src/opencode/index.ts",
     "#agents": "./src/agents/index.ts",
     "#stream-deck": "./src/stream-deck/index.ts",
-    "#usage": "./src/usage/index.ts"
+    "#usage": "./src/usage/index.ts",
+    "#t3code": "./src/t3code/index.ts"
   }
 }
