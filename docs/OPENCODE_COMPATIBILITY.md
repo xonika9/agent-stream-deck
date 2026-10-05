@@ -3,7 +3,7 @@
 The first OpenCode integration targets the maintainer's characterized setup:
 
 - macOS;
-- OpenCode Desktop on macOS, validated against `2.0.5` and `2.0.10`;
+- OpenCode Desktop on macOS: historical characterization against `2.0.5` and `2.0.10`; ordinary local and saved-SSH task/card behavior was confirmed by the maintainer on Desktop `2.0.22` with Fedora service `2.0.21` for release `2.0.0`;
 - the managed local `sidecar` service;
 - saved SSH connections that authenticate non-interactively through the user's
   existing SSH configuration.

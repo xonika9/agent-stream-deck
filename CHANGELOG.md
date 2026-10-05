@@ -2,6 +2,29 @@
 
 Versions through `0.7.0.2` below are the historical upstream releases by Dazer. Starting with `1.0.0`, releases belong to the xonika9 fork and use its own plugin identity.
 
+## 2.0.0 - 2026-10-05
+
+### Highlights
+
+- Added the macOS Codex, OpenCode, and Both task-source modes, including local OpenCode and authenticated saved Fedora SSH connections. Viewed OpenCode results leave the queue, and new work in the same chat returns.
+- Restored current Codex sidebar and full task-catalog integration, omitted stale stopped local tasks, and stabilized task ownership, queue order, and captured press/release behavior.
+- Kept all 53 action UUIDs and existing xonika9 profile assignments. The former host selector now reports the local Codex connection; old private relay settings are preserved and ignored.
+- Split maintained code into Codex, OpenCode, agent queue, Stream Deck, and usage areas with checked public imports. Updated dependencies, expanded type checking, and added formatting and boundary checks to macOS/Windows CI.
+- Made desktop watcher updates preflight their bundles and confirm the new process, lock, and fresh startup receipt. Preserved loopback-only Codex access and identity-checked OpenCode SSH.
+
+### Breaking changes
+
+- Removed the iPhone application, pairing, widgets, mobile infrastructure, and separate multi-host Codex relay. Fedora remains an OpenCode chat source, not a Stream Deck plugin platform.
+- Removed paid reset-credit consumption. The legacy reset action remains a read-only counter; pressing or holding it never spends a credit.
+- Requires Stream Deck 7.1 or newer and Node.js 24 or newer for development and launchers; the plugin now uses Stream Deck SDK 3.
+
+### Validation and compatibility
+
+- Local macOS clean install, lint, import boundaries, type checking, tests (207 passed, two Windows-only skips), plugin validation, packaging, and artifact auditing passed.
+- Live macOS validation used Codex 26.930.31730, Stream Deck 7.6.0, and OpenCode Desktop 2.0.22 with Fedora OpenCode 2.0.21. The maintainer confirmed ordinary physical Stream Deck MK.2 presses for Codex and both OpenCode sources.
+- Native Windows application/device validation and rare physical hold/queue-change cases are explicitly deferred. A separate real SSH collector probe verified disconnect/recovery; installed-plugin retention of active local cards during that outage was not observed. CI results are reported separately from live/device acceptance.
+- Codex/OpenCode renderer and service integrations still depend on undocumented interfaces. See the compatibility guide and maintenance report for evidence and limitations.
+
 ## 1.0.1 - 2026-08-22
 
 - Fixed handling of `turn_aborted` so stopped Codex tasks no longer remain in the Active queue as working.

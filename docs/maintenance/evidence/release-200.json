@@ -1,0 +1,72 @@
+{
+  "version": "2.0.0",
+  "packageVersion": "2.0.0",
+  "manifestVersion": "2.0.0.0",
+  "authority": "User explicitly selected prepare/publish 2.0.0, including plan/report, main push and GitHub release",
+  "candidateBase": "12d2476ad08c6ebcc69d989ccde1e1f95f709aaa",
+  "previousPublicTag": "v1.0.1",
+  "branch": "main",
+  "origin": "https://github.com/xonika9/codex-stream-deck.git",
+  "fetchedOriginAncestorOfCandidate": true,
+  "commitsAheadBeforeReleaseCommit": 27,
+  "validation": {
+    "node": "24.16.0",
+    "npm": "11.13.0",
+    "commands": [
+      "npm ci",
+      "npm run lint",
+      "npm run check:boundaries",
+      "npm run check",
+      "npm test",
+      "npm run validate",
+      "npm run release:prepare -- --version 2.0.0",
+      "npm run audit:release -- outputs/release-v2.0.0",
+      "python3 <resolved-x9-skill-creator>/scripts/validate.py --runtime portable --runtime claude --runtime codex .claude/skills/release",
+      "python3 <resolved-x9-skill-creator>/scripts/test_validate.py",
+      "unzip -t outputs/release-v2.0.0/codex-deck-launcher-windows-v2.0.0.zip",
+      "unzip -t outputs/release-v2.0.0/codex-deck-launcher-macos-v2.0.0.zip",
+      "shasum -a 256 -c SHA256SUMS.txt",
+      "git diff --check"
+    ],
+    "results": "pass; two Windows tests skipped",
+    "tests": {
+      "total": 209,
+      "passed": 207,
+      "failed": 0,
+      "skipped": 2
+    },
+    "schemaUpdate": "Remote Elgato schema update timed out; inspected CLI1.10.1 default-schema validation, command returned Validation successful. No bypass flags used.",
+    "skillValidator": "PASS, zero errors/warnings; validator regression scenarios PASS",
+    "iOSBuild": "not applicable: agreed removed product; release checklist corrected to Node24 and current product scope"
+  },
+  "artifacts": {
+    "codex-deck-launcher-macos-v2.0.0.zip": "bd7bbf9ec027a2f3723d72caee6c9a6b20ba53e9829f6bd30b85bff16c619b4f",
+    "codex-deck-launcher-windows-v2.0.0.zip": "ea238b378f9e06449daecb2eee8e51160421c0172c67c878f8c7dc9afefb4fd1",
+    "com.xonika9.codex-deck.streamDeckPlugin": "f0d4f1568dfbfa990f24808cc3e45dc08b4386819f0a187ad2d55eed4dd18ead"
+  },
+  "inspection": {
+    "fourExpectedArtifactsOnly": true,
+    "actionUUIDs": 53,
+    "SDK": 3,
+    "creditConsumptionAbsent": true,
+    "privateStateAndPlansExcludedFromBundles": true,
+    "macExecutableModes": true
+  },
+  "network": {
+    "failures": [
+      "gh api TLS handshake timeouts",
+      "git ls-remote connection reset",
+      "curl HTTPS timeouts with IPv4 and HTTP1.1",
+      "Edge extension policy-loading failed twice",
+      "verified Edge MCP browser navigation timed out; snapshot ERR_TIMED_OUT",
+      "additional web retrieval stalled and cancelled"
+    ],
+    "publicVersionCollisionCheck": "not completed because GitHub inaccessible; do before tag/publication",
+    "push": "not attempted",
+    "tag": "not created",
+    "release": "not created",
+    "CI": "not triggered"
+  },
+  "next": "Commit prepared candidate locally; when GitHub access restored, refresh origin, verify no v2.0.0 tag/release, push main, verify CI, create immutable annotated tag, draft/upload/verify/publish/download checksum verification",
+  "liveAndDevice": "Ordinary Mac scenarios user-confirmed; Windows and rare device holds deferred; see implementation report"
+}
