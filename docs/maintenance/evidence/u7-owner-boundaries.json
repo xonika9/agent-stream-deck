@@ -1,0 +1,244 @@
+{
+  "environment": "macOS Node24; actual Biome command, temporary inputs from worker receipt",
+  "probes": [
+    {
+      "name": "direct-internal",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "dot-bypass",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "absolute-path",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "file-url",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "absolute-other",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "absolute-windows",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "reexport",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "type-import",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "mutual-source",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "source-to-stream-deck",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "source-to-sdk",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "unknown-alias",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "absolute-windows-backslash",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "alias-subpath",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "computed-import",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "plugin",
+      "passed": true
+    },
+    {
+      "name": "computed-require",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "plugin",
+      "passed": true
+    },
+    {
+      "name": "template-import",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "plugin",
+      "passed": true
+    },
+    {
+      "name": "expression-import",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "plugin",
+      "passed": true
+    },
+    {
+      "name": "two-argument-import",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "plugin",
+      "passed": true
+    },
+    {
+      "name": "type-query",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "plugin",
+      "passed": true
+    },
+    {
+      "name": "import-equals-require",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "plugin",
+      "passed": true
+    },
+    {
+      "name": "agent-process",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "agent-network",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "agent-network-global",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedGlobals",
+      "passed": true
+    },
+    {
+      "name": "agent-process-global",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedGlobals",
+      "passed": true
+    },
+    {
+      "name": "reverse-mutual-source",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "usage-to-sdk",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "literal-dynamic-internal",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/style/noRestrictedImports",
+      "passed": true
+    },
+    {
+      "name": "literal-require-internal",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "plugin",
+      "passed": true
+    },
+    {
+      "name": "two-node-cycle",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/suspicious/noImportCycles",
+      "passed": true
+    },
+    {
+      "name": "three-node-cycle",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/suspicious/noImportCycles",
+      "passed": true
+    },
+    {
+      "name": "type-cycle",
+      "exit_code": 1,
+      "expected": "reject",
+      "diagnostic": "lint/suspicious/noImportCycles",
+      "passed": true
+    },
+    {
+      "name": "valid-public-internal-literal",
+      "exit_code": 0,
+      "expected": "allow",
+      "diagnostic": null,
+      "passed": true
+    },
+    {
+      "name": "valid-shared-runtime-exception",
+      "exit_code": 0,
+      "expected": "allow",
+      "diagnostic": null,
+      "passed": true
+    }
+  ],
+  "temporary_files_removed": true
+}

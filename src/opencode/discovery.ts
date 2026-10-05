@@ -7,6 +7,7 @@ export function parseRegistration(bytes: Buffer, remote = false): Registration |
   try { value = JSON.parse(bytes.toString("utf8")); } catch { return null; }
   if (!isRecord(value) || (value.id !== undefined && !boundedString(value.id, 256)) ||
     !boundedString(value.url, 2048) || !boundedString(value.password, 1024) || value.password.length === 0 ||
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: Reject or strip untrusted control characters deliberately.
     !boundedString(value.version, 64) || value.version.length === 0 || /[\u0000-\u001f\u007f]/u.test(value.version) ||
     !positiveInteger(value.pid)) return null;
   try { loopbackAddress(value.url, remote); } catch { return null; }
@@ -26,6 +27,7 @@ export function parseRemoteRegistration(output: string): Registration | null {
   const pairOutput = remoteBlock(output, "OPENCODE_PAIR", 32 * 1024);
   const pairStatus = remoteBlock(output, "OPENCODE_PAIR_STATUS", 65_536);
   if (!pairOutput || !pairStatus) return null;
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: Reject or strip untrusted control characters deliberately.
   const cleanPairOutput = pairOutput.replace(/\u001b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/gu, "");
   const pairPassword = cleanPairOutput.match(/^\s*Password\s+([A-Za-z0-9._~+/=-]{1,1024})\s*$/mu)?.[1];
   if (!pairPassword) return null;

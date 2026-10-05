@@ -1,0 +1,17 @@
+language js(typescript)
+
+or {
+  `import($source)` where {
+    not $source <: JsStringLiteralExpression(),
+    register_diagnostic(span = $source, message = "Module imports must use a literal public entry or an internal path.")
+  },
+  TsImportType() as $type where {
+    register_diagnostic(span = $type, message = "Use an import type declaration so module boundaries and type cycles can be checked.")
+  },
+  TsExternalModuleReference() as $reference where {
+    register_diagnostic(span = $reference, message = "Area modules use ESM import declarations so module boundaries and cycles can be checked.")
+  },
+  `require($source)` where {
+    register_diagnostic(span = $source, message = "Area modules use ESM imports so module boundaries and cycles can be checked.")
+  }
+}

@@ -41,7 +41,7 @@ export const nodeOpenCodeFileAccess: OpenCodeFileAccess = {
 
   async readSecure(path, maximumBytes, expectedUid, policy = "private") {
     const noFollow = "O_NOFOLLOW" in constants ? constants.O_NOFOLLOW : 0;
-    let handle;
+    let handle: Awaited<ReturnType<typeof open>> | undefined;
     try {
       handle = await open(path, constants.O_RDONLY | noFollow);
       const before = await handle.stat();

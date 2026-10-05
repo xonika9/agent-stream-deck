@@ -236,9 +236,13 @@ class CdpClient {
     if (!pending) return;
     this.pending.delete(message.id);
     clearTimeout(pending.timer);
-    if (message.error) return pending.reject(new Error(message.error.message ?? "CDP request failed."));
+    if (message.error) {
+      pending.reject(new Error(message.error.message ?? "CDP request failed."));
+      return;
+    }
     if (message.result?.exceptionDetails) {
-      return pending.reject(new Error(message.result.exceptionDetails.exception?.description ?? message.result.exceptionDetails.text ?? "Codex runtime evaluation failed."));
+      pending.reject(new Error(message.result.exceptionDetails.exception?.description ?? message.result.exceptionDetails.text ?? "Codex runtime evaluation failed."));
+      return;
     }
     pending.resolve(message.result?.result?.value);
   }

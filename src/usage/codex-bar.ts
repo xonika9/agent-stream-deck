@@ -27,7 +27,7 @@ export async function readCodexBarUsage(
 }
 
 async function readCandidate(path: string, now: number): Promise<UsageSnapshot | undefined> {
-  let handle;
+  let handle: Awaited<ReturnType<typeof open>> | undefined;
   try {
     handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
     const metadata = await handle.stat();

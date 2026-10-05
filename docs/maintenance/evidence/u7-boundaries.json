@@ -1,0 +1,498 @@
+{
+  "command": "npm run check:boundaries",
+  "probes": [
+    {
+      "name": "direct-internal",
+      "inputs": {
+        "src/codex/u7-probe.ts": "import \"../agents/types.js\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 61ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:8 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Use the exact public #area entry; relative imports stay inside their owner.\n  \n  > 1 \u2502 import \"../agents/types.js\";\n      \u2502        ^^^^^^^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "dot-bypass",
+      "inputs": {
+        "src/codex/u7-probe.ts": "import \"./../agents/types.js\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 48ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:8 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Use the exact public #area entry; relative imports stay inside their owner.\n  \n  > 1 \u2502 import \"./../agents/types.js\";\n      \u2502        ^^^^^^^^^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "absolute-path",
+      "inputs": {
+        "src/codex/u7-probe.ts": "import \"/tmp/agents/types.js\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 48ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:8 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Use the exact public #area entry; relative imports stay inside their owner.\n  \n  > 1 \u2502 import \"/tmp/agents/types.js\";\n      \u2502        ^^^^^^^^^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "file-url",
+      "inputs": {
+        "src/codex/u7-probe.ts": "import \"file:///tmp/other.ts\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 48ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:8 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Use the exact public #area entry; relative imports stay inside their owner.\n  \n  > 1 \u2502 import \"file:///tmp/other.ts\";\n      \u2502        ^^^^^^^^^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "absolute-other",
+      "inputs": {
+        "src/codex/u7-probe.ts": "import \"/tmp/other.ts\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 47ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:8 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Use the exact public #area entry; relative imports stay inside their owner.\n  \n  > 1 \u2502 import \"/tmp/other.ts\";\n      \u2502        ^^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "absolute-windows",
+      "inputs": {
+        "src/codex/u7-probe.ts": "import \"C:/private/other.ts\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 51ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:8 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Use the exact public #area entry; relative imports stay inside their owner.\n  \n  > 1 \u2502 import \"C:/private/other.ts\";\n      \u2502        ^^^^^^^^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "reexport",
+      "inputs": {
+        "src/codex/u7-probe.ts": "export * from \"../agents/types.js\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 52ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:15 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Use the exact public #area entry; relative imports stay inside their owner.\n  \n  > 1 \u2502 export * from \"../agents/types.js\";\n      \u2502               ^^^^^^^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "type-import",
+      "inputs": {
+        "src/codex/u7-probe.ts": "import type { TaskSource } from \"../agents/types.js\"; export type T = TaskSource;"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 50ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:33 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Use the exact public #area entry; relative imports stay inside their owner.\n  \n  > 1 \u2502 import type { TaskSource } from \"../agents/types.js\"; export type T = TaskSource;\n      \u2502                                 ^^^^^^^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "mutual-source",
+      "inputs": {
+        "src/codex/u7-probe.ts": "import \"#opencode\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 46ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:8 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Task sources must remain independent.\n  \n  > 1 \u2502 import \"#opencode\";\n      \u2502        ^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "source-to-stream-deck",
+      "inputs": {
+        "src/codex/u7-probe.ts": "import \"#stream-deck\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 47ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:8 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Task sources must not depend on Stream Deck.\n  \n  > 1 \u2502 import \"#stream-deck\";\n      \u2502        ^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "source-to-sdk",
+      "inputs": {
+        "src/codex/u7-probe.ts": "import \"@elgato/streamdeck\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 49ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:8 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Task sources must not depend on the SDK.\n  \n  > 1 \u2502 import \"@elgato/streamdeck\";\n      \u2502        ^^^^^^^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "unknown-alias",
+      "inputs": {
+        "src/codex/u7-probe.ts": "import \"#unknown\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 48ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:8 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Use the exact public #area entry; relative imports stay inside their owner.\n  \n  > 1 \u2502 import \"#unknown\";\n      \u2502        ^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "absolute-windows-backslash",
+      "inputs": {
+        "src/codex/u7-probe.ts": "import \"C:\\\\private\\\\other.ts\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 53ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:8 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Use the exact public #area entry; relative imports stay inside their owner.\n  \n  > 1 \u2502 import \"C:\\\\private\\\\other.ts\";\n      \u2502        ^^^^^^^^^^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "alias-subpath",
+      "inputs": {
+        "src/codex/u7-probe.ts": "import \"#agents/types\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 49ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:8 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Use the exact public #area entry; relative imports stay inside their owner.\n  \n  > 1 \u2502 import \"#agents/types\";\n      \u2502        ^^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "computed-import",
+      "inputs": {
+        "src/codex/u7-probe.ts": "const path=\"ws\"; await import(path);"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "plugin",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 51ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:31 plugin \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Module imports must use a literal public entry or an internal path.\n  \n  > 1 \u2502 const path=\"ws\"; await import(path);\n      \u2502                               ^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "computed-require",
+      "inputs": {
+        "src/codex/u7-probe.ts": "const path=\"ws\"; require(path);"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "plugin",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 49ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:26 plugin \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Area modules use ESM imports so module boundaries and cycles can be checked.\n  \n  > 1 \u2502 const path=\"ws\"; require(path);\n      \u2502                          ^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "template-import",
+      "inputs": {
+        "src/codex/u7-probe.ts": "await import(`ws`);"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "plugin",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 51ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:14 plugin \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Module imports must use a literal public entry or an internal path.\n  \n  > 1 \u2502 await import(`ws`);\n      \u2502              ^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "expression-import",
+      "inputs": {
+        "src/codex/u7-probe.ts": "await import(\"w\" + \"s\");"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "plugin",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 49ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:14 plugin \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Module imports must use a literal public entry or an internal path.\n  \n  > 1 \u2502 await import(\"w\" + \"s\");\n      \u2502              ^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "two-argument-import",
+      "inputs": {
+        "src/codex/u7-probe.ts": "const path=\"ws\"; await import(path, {with:{type:\"json\"}});"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "plugin",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 54ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:31 plugin \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Module imports must use a literal public entry or an internal path.\n  \n  > 1 \u2502 const path=\"ws\"; await import(path, {with:{type:\"json\"}});\n      \u2502                               ^^^^^^^^^^^^^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "type-query",
+      "inputs": {
+        "src/codex/u7-probe.ts": "export type T = import(\"../agents/types.js\").TaskSource;"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "plugin",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 44ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:17 plugin \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Use an import type declaration so module boundaries and type cycles can be checked.\n  \n  > 1 \u2502 export type T = import(\"../agents/types.js\").TaskSource;\n      \u2502                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "import-equals-require",
+      "inputs": {
+        "src/codex/u7-probe.ts": "import T = require(\"../agents/types.js\");"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "plugin",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 53ms. No fixes applied.\nFound 2 errors.\nsrc/codex/u7-probe.ts:1:12 plugin \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Area modules use ESM import declarations so module boundaries and cycles can be checked.\n  \n  > 1 \u2502 import T = require(\"../agents/types.js\");\n      \u2502            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  \n\nsrc/codex/u7-probe.ts:1:20 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Use the exact public #area entry; relative imports stay inside their owner.\n  \n  > 1 \u2502 import T = require(\"../agents/types.js\");\n      \u2502                    ^^^^^^^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "agent-process",
+      "inputs": {
+        "src/agents/u7-probe.ts": "import \"node:child_process\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 49ms. No fixes applied.\nFound 1 error.\nsrc/agents/u7-probe.ts:1:8 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Use the exact public #area entry; relative imports stay inside their owner.\n  \n  > 1 \u2502 import \"node:child_process\";\n      \u2502        ^^^^^^^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "agent-network",
+      "inputs": {
+        "src/agents/u7-probe.ts": "import \"ws\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 47ms. No fixes applied.\nFound 1 error.\nsrc/agents/u7-probe.ts:1:8 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Use the exact public #area entry; relative imports stay inside their owner.\n  \n  > 1 \u2502 import \"ws\";\n      \u2502        ^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "agent-network-global",
+      "inputs": {
+        "src/agents/u7-probe.ts": "await fetch(\"https://example.invalid\");"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedGlobals",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 49ms. No fixes applied.\nFound 1 error.\nsrc/agents/u7-probe.ts:1:7 lint/style/noRestrictedGlobals \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Do not use the global variable fetch.\n  \n  > 1 \u2502 await fetch(\"https://example.invalid\");\n      \u2502       ^^^^^\n  \n  i Agents contain pure shared policy; process/network access belongs to a source.\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "agent-process-global",
+      "inputs": {
+        "src/agents/u7-probe.ts": "process.cwd();"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedGlobals",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 46ms. No fixes applied.\nFound 1 error.\nsrc/agents/u7-probe.ts:1:1 lint/style/noRestrictedGlobals \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Do not use the global variable process.\n  \n  > 1 \u2502 process.cwd();\n      \u2502 ^^^^^^^\n  \n  i Agents contain pure shared policy; process/network access belongs to a source.\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "reverse-mutual-source",
+      "inputs": {
+        "src/opencode/u7-probe.ts": "import \"#codex\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 38ms. No fixes applied.\nFound 1 error.\nsrc/opencode/u7-probe.ts:1:8 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Task sources must remain independent.\n  \n  > 1 \u2502 import \"#codex\";\n      \u2502        ^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "usage-to-sdk",
+      "inputs": {
+        "src/usage/u7-probe.ts": "import \"@elgato/streamdeck\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 51ms. No fixes applied.\nFound 1 error.\nsrc/usage/u7-probe.ts:1:8 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Usage must not depend on the SDK.\n  \n  > 1 \u2502 import \"@elgato/streamdeck\";\n      \u2502        ^^^^^^^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "literal-dynamic-internal",
+      "inputs": {
+        "src/codex/u7-probe.ts": "await import(\"../agents/types.js\");"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/style/noRestrictedImports",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 49ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:14 lint/style/noRestrictedImports \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Use the exact public #area entry; relative imports stay inside their owner.\n  \n  > 1 \u2502 await import(\"../agents/types.js\");\n      \u2502              ^^^^^^^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "literal-require-internal",
+      "inputs": {
+        "src/codex/u7-probe.ts": "require(\"../agents/types.js\");"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "plugin",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 42ms. No fixes applied.\nFound 1 error.\nsrc/codex/u7-probe.ts:1:9 plugin \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Area modules use ESM imports so module boundaries and cycles can be checked.\n  \n  > 1 \u2502 require(\"../agents/types.js\");\n      \u2502         ^^^^^^^^^^^^^^^^^^^^\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "two-node-cycle",
+      "inputs": {
+        "src/agents/u7-a.ts": "import \"./u7-b.js\";",
+        "src/agents/u7-b.ts": "import \"./u7-a.js\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/suspicious/noImportCycles",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 42 files in 48ms. No fixes applied.\nFound 2 errors.\nsrc/agents/u7-a.ts:1:8 lint/suspicious/noImportCycles \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 This import is part of a cycle.\n  \n  > 1 \u2502 import \"./u7-b.js\";\n      \u2502        ^^^^^^^^^^^\n  \n  i This import resolves to src/agents/u7-b.ts\n        ... which imports src/agents/u7-a.ts\n        ... which is the file we're importing from.\n  \n\nsrc/agents/u7-b.ts:1:8 lint/suspicious/noImportCycles \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 This import is part of a cycle.\n  \n  > 1 \u2502 import \"./u7-a.js\";\n      \u2502        ^^^^^^^^^^^\n  \n  i This import resolves to src/agents/u7-a.ts\n        ... which imports src/agents/u7-b.ts\n        ... which is the file we're importing from.\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "three-node-cycle",
+      "inputs": {
+        "src/agents/u7-a.ts": "import \"./u7-b.js\";",
+        "src/agents/u7-b.ts": "import \"./u7-c.js\";",
+        "src/agents/u7-c.ts": "import \"./u7-a.js\";"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/suspicious/noImportCycles",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 43 files in 46ms. No fixes applied.\nFound 3 errors.\nsrc/agents/u7-a.ts:1:8 lint/suspicious/noImportCycles \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 This import is part of a cycle.\n  \n  > 1 \u2502 import \"./u7-b.js\";\n      \u2502        ^^^^^^^^^^^\n  \n  i This import resolves to src/agents/u7-b.ts\n        ... which imports src/agents/u7-c.ts\n        ... which imports src/agents/u7-a.ts\n        ... which is the file we're importing from.\n  \n\nsrc/agents/u7-b.ts:1:8 lint/suspicious/noImportCycles \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 This import is part of a cycle.\n  \n  > 1 \u2502 import \"./u7-c.js\";\n      \u2502        ^^^^^^^^^^^\n  \n  i This import resolves to src/agents/u7-c.ts\n        ... which imports src/agents/u7-a.ts\n        ... which imports src/agents/u7-b.ts\n        ... which is the file we're importing from.\n  \n\nsrc/agents/u7-c.ts:1:8 lint/suspicious/noImportCycles \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 This import is part of a cycle.\n  \n  > 1 \u2502 import \"./u7-a.js\";\n      \u2502        ^^^^^^^^^^^\n  \n  i This import resolves to src/agents/u7-a.ts\n        ... which imports src/agents/u7-b.ts\n        ... which imports src/agents/u7-c.ts\n        ... which is the file we're importing from.\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "type-cycle",
+      "inputs": {
+        "src/agents/u7-a.ts": "import type { B } from \"./u7-b.js\"; export type A = { b: B };",
+        "src/agents/u7-b.ts": "import type { A } from \"./u7-a.js\"; export type B = { a: A };"
+      },
+      "expected": "reject",
+      "exit_code": 1,
+      "passed": true,
+      "diagnostic": "lint/suspicious/noImportCycles",
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 42 files in 42ms. No fixes applied.\nFound 2 errors.\nsrc/agents/u7-a.ts:1:24 lint/suspicious/noImportCycles \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 This import is part of a cycle.\n  \n  > 1 \u2502 import type { B } from \"./u7-b.js\"; export type A = { b: B };\n      \u2502                        ^^^^^^^^^^^\n  \n  i This import resolves to src/agents/u7-b.ts\n        ... which imports src/agents/u7-a.ts\n        ... which is the file we're importing from.\n  \n\nsrc/agents/u7-b.ts:1:24 lint/suspicious/noImportCycles \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 This import is part of a cycle.\n  \n  > 1 \u2502 import type { A } from \"./u7-a.js\"; export type B = { a: A };\n      \u2502                        ^^^^^^^^^^^\n  \n  i This import resolves to src/agents/u7-a.ts\n        ... which imports src/agents/u7-b.ts\n        ... which is the file we're importing from.\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    },
+    {
+      "name": "valid-public-internal-literal",
+      "inputs": {
+        "src/codex/u7-probe.ts": "import \"#agents\"; import \"./sidebar.js\"; await import(\"ws\");"
+      },
+      "expected": "allow",
+      "exit_code": 0,
+      "passed": true,
+      "diagnostic": null,
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 41 files in 50ms. No fixes applied.\n"
+    },
+    {
+      "name": "valid-shared-runtime-exception",
+      "inputs": {},
+      "expected": "allow",
+      "exit_code": 0,
+      "passed": true,
+      "diagnostic": null,
+      "output": "\n> codex-stream-deck@1.0.1 check:boundaries\n> biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings\n\nChecked 40 files in 39ms. No fixes applied.\n"
+    }
+  ],
+  "unit": "U7 phase 1",
+  "checked_on": "2026-10-05",
+  "biome_version": "2.5.15",
+  "baseline_head": "9efcaf0cc5237de908bdecf5dbdc44b384490a47",
+  "temporary_files_removed": true,
+  "scanner_proof": "Both two-node and three-node cycles, including type-only edges, failed specifically with lint/suspicious/noImportCycles. ignoreTypes=false is explicit.",
+  "discovered_tool_limits": [
+    "Plugin includes must be **/src/** in Biome 2.5.15; src/** silently omitted plugins in actual probes.",
+    "noRestrictedImports did not reject bare require(literal) or inline import() type queries. Existing ESM areas now require import/import type declarations for these forms; GritQL rejects require() and TsImportType/TsExternalModuleReference. No existing production AST imports use these forms."
+  ],
+  "phase1_gates": {
+    "npm ci": "pass",
+    "npm run lint -- --formatter-enabled=false": "pass, one informational style suggestion",
+    "npm run check:boundaries": "pass",
+    "npm run check": "pass",
+    "npm test": "205 pass / 1 Windows-only skip / 0 fail",
+    "npm run validate": "pass",
+    "npm run audit:release": "pass for 3 artifact roots",
+    "npm run lint": "expected: 65 formatter errors only, 0 semantic warnings/errors, one informational style suggestion"
+  },
+  "live_app_validation": "not run",
+  "physical_device_validation": "not run",
+  "ci_remote_execution": "not run; local workflow updated only",
+  "native_tool_limit_probes": [
+    {
+      "name": "bare-require-literal-direction",
+      "inputs": {
+        "src/codex/u7-probe.ts": "require(\"../agents/types.js\");"
+      },
+      "command": "npx biome lint src --only=style/noRestrictedImports --skip=plugin --error-on-warnings",
+      "exit_code": 0,
+      "output": "Checked 41 files in 7ms. No fixes applied.\n"
+    },
+    {
+      "name": "inline-type-query-direction",
+      "inputs": {
+        "src/codex/u7-probe.ts": "export type T = import(\"../agents/types.js\").TaskSource;"
+      },
+      "command": "npx biome lint src --only=style/noRestrictedImports --skip=plugin --error-on-warnings",
+      "exit_code": 0,
+      "output": "Checked 41 files in 6ms. No fixes applied.\n"
+    },
+    {
+      "name": "assigned-require-literal-direction",
+      "inputs": {
+        "src/codex/u7-probe.ts": "const T = require(\"../agents/types.js\");"
+      },
+      "command": "npx biome lint src --only=style/noRestrictedImports --skip=plugin --error-on-warnings",
+      "exit_code": 0,
+      "output": "Checked 41 files in 6ms. No fixes applied.\n"
+    },
+    {
+      "name": "inline-type-query-cycle",
+      "inputs": {
+        "src/agents/u7-a.ts": "export type A = { b: import(\"./u7-b.js\").B };",
+        "src/agents/u7-b.ts": "export type B = { a: import(\"./u7-a.js\").A };"
+      },
+      "command": "npx biome lint src --only=suspicious/noImportCycles --skip=plugin --error-on-warnings",
+      "exit_code": 0,
+      "output": "Checked 42 files in 43ms. No fixes applied.\n"
+    },
+    {
+      "name": "literal-require-cycle",
+      "inputs": {
+        "src/agents/u7-a.ts": "const B = require(\"./u7-b.js\"); export const A = 1;",
+        "src/agents/u7-b.ts": "const A = require(\"./u7-a.js\"); export const B = 1;"
+      },
+      "command": "npx biome lint src --only=suspicious/noImportCycles --skip=plugin --error-on-warnings",
+      "exit_code": 1,
+      "output": "Checked 42 files in 50ms. No fixes applied.\nFound 2 errors.\nsrc/agents/u7-a.ts:1:11 lint/suspicious/noImportCycles \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 This import is part of a cycle.\n  \n  > 1 \u2502 const B = require(\"./u7-b.js\"); export const A = 1;\n      \u2502           ^^^^^^^^^^^^^^^^^^^^\n  \n  i This import resolves to src/agents/u7-b.ts\n        ... which imports src/agents/u7-a.ts\n        ... which is the file we're importing from.\n  \n\nsrc/agents/u7-b.ts:1:11 lint/suspicious/noImportCycles \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 This import is part of a cycle.\n  \n  > 1 \u2502 const A = require(\"./u7-a.js\"); export const B = 1;\n      \u2502           ^^^^^^^^^^^^^^^^^^^^\n  \n  i This import resolves to src/agents/u7-a.ts\n        ... which imports src/agents/u7-b.ts\n        ... which is the file we're importing from.\n  \n\nlint \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n  \u00d7 Some errors were emitted while running checks.\n  \n\n"
+    }
+  ],
+  "files_changed": [
+    ".github/workflows/ci.yml",
+    "package.json",
+    "package-lock.json",
+    "biome.json",
+    "scripts/lint/no-computed-imports.grit",
+    "src/codex/bridge.ts",
+    "src/codex/runtime-override.ts",
+    "src/opencode/discovery.ts",
+    "src/opencode/secure-files.ts",
+    "src/opencode/session-data.ts",
+    "src/stream-deck/controller.ts",
+    "src/usage/codex-bar.ts",
+    "test/opencode-collector.test.ts",
+    "docs/maintenance/evidence/u7-boundaries.json",
+    "docs/maintenance/u7-implementation.md"
+  ],
+  "behavior_changed": false,
+  "test_evidence": {
+    "existing_tests_inspected": [
+      "test/controller.test.ts (captured native phases / disappearance / refresh and activation errors)",
+      "test/micro-bridge.test.ts (renderer expression execution and native routing)",
+      "test/opencode-collector.test.ts (bounded sanitization and transport security)",
+      "test/opencode-secure-files.test.ts (descriptor policy)",
+      "test/codex-bar-usage.test.ts (snapshot rejection and quotas)",
+      "test/launcher.test.ts (renderer runtime expression execution)"
+    ],
+    "added": [],
+    "changed": [
+      "test/opencode-collector.test.ts: comment-only suppression for intentional control-character rejection; assertion and inputs unchanged"
+    ],
+    "unchanged": "All remaining existing tests unchanged in phase 1.",
+    "characterization": "87 pass / 1 Windows-only skip before optional-chain change. Full suite after changes: 205 pass / 1 Windows-only skip.",
+    "red": "No bug regression authored; equivalent syntax/type changes only. Invalid tool probes fail independently of compiler.",
+    "no_test_exceptions": [
+      "Biome configuration is proved by actual CLI probes; no tests copying configuration.",
+      "Explicit descriptor annotations and void returns preserve behavior; no new test-only production seams."
+    ],
+    "not_claimed": "Direct unit coverage of private CDP rejection branches; live apps; physical device."
+  },
+  "considered_not_built": [
+    "Separate import scanner/architecture package/old TypeScript Compiler API: native Biome plus GritQL suffice.",
+    "New tests mirroring lint configuration: actual CLI negative/positive probes provide evidence.",
+    "Runner replacement/data-schema library: outside U7."
+  ]
+}

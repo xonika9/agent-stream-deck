@@ -363,6 +363,7 @@ test("bounds and sanitizes titles before local rendering", async () => {
 
   assert.ok(title?.startsWith("Visible chat "));
   assert.ok(Buffer.byteLength(title ?? "", "utf8") <= 256);
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: Reject or strip untrusted control characters deliberately.
   assert.doesNotMatch(title ?? "", /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u);
 });
 

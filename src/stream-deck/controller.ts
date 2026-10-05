@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { codexDeckStateRoot } from "../runtime/paths.js";
 import { ActiveQueueRankIndex, projectActiveQueue } from "#agents";
-import { CodexSource } from "#codex";
+import type { CodexSource } from "#codex";
 import { readCodexBarUsage } from "#usage";
 import type { OfficialKeycapId } from "#codex";
 import { LocalActivityIndex } from "#agents";
@@ -12,7 +12,7 @@ import {
   renderRateLimitResetKey, renderUsageLimitKey, renderUsageOverviewKey, type BuiltinIconName
 } from "./render.js";
 import { openCodexThread } from "#codex";
-import { OpenCodeSource } from "#opencode";
+import type { OpenCodeSource } from "#opencode";
 import { visualStatusFromMicro } from "#agents";
 import { parseTaskSource, selectTaskCandidates, usesActiveQueue } from "#agents";
 import type {

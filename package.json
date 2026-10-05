@@ -23,13 +23,16 @@
     "test": "tsx --test test/*.test.ts",
     "validate": "npm run build && streamdeck validate dist/com.xonika9.codex-deck.sdPlugin",
     "pack": "npm run build && streamdeck pack dist/com.xonika9.codex-deck.sdPlugin --force",
-    "release:prepare": "node scripts/prepare-release.mjs"
+    "release:prepare": "node scripts/prepare-release.mjs",
+    "lint": "biome check . --error-on-warnings",
+    "check:boundaries": "biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings"
   },
   "dependencies": {
     "@elgato/streamdeck": "3.0.1",
     "ws": "^8.22.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.15",
     "@elgato/cli": "1.10.1",
     "@types/node": "^24.19.1",
     "@types/ws": "^8.18.2",

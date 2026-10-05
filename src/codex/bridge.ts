@@ -453,7 +453,7 @@ export class CodexMicroRendererBridge {
     if (act === 0 && signal) {
       const pressed = this.agentPresses.get(signal);
       this.agentPresses.delete(signal);
-      if (!pressed || pressed.kind !== "native" || signal.aborted) return;
+      if (pressed?.kind !== "native" || signal.aborted) return;
       await this.dispatch("codex-micro-hid-event", {
         event: { key: `AG0${pressed.slot}`, act: 0, slot: pressed.slot, threadKey: pressed.threadKey }
       }, "codex-micro-hid-event");
