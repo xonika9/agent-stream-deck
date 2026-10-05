@@ -1,0 +1,44 @@
+{
+  "version": "2.0.0",
+  "releasedCommit": "f69c4758308bc4f82e84c046cb0bd81fa32b6548",
+  "annotatedTagObject": "31c957e15eec492e8a85b502cbd01ab40d2f9773",
+  "tag": "v2.0.0",
+  "releaseId": 403517244,
+  "url": "https://github.com/xonika9/codex-stream-deck/releases/tag/v2.0.0",
+  "public": true,
+  "latest": true,
+  "assets": [
+    {
+      "name": "codex-deck-launcher-macos-v2.0.0.zip",
+      "sha256": "bd7bbf9ec027a2f3723d72caee6c9a6b20ba53e9829f6bd30b85bff16c619b4f",
+      "downloadVerified": true
+    },
+    {
+      "name": "codex-deck-launcher-windows-v2.0.0.zip",
+      "sha256": "ea238b378f9e06449daecb2eee8e51160421c0172c67c878f8c7dc9afefb4fd1",
+      "downloadVerified": true
+    },
+    {
+      "name": "com.xonika9.codex-deck.streamDeckPlugin",
+      "sha256": "f0d4f1568dfbfa990f24808cc3e45dc08b4386819f0a187ad2d55eed4dd18ead",
+      "downloadVerified": true
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "sha256": "e6cf1cd047b31ae0820f9d07189c47daa8665bd16731728e299661a4a353ac40",
+      "downloadVerified": true
+    }
+  ],
+  "downloadedAllAssets": true,
+  "publicationCommands": [
+    "git push origin main",
+    "git tag -a v2.0.0 f69c4758308bc4f82e84c046cb0bd81fa32b6548 -m Codex Deck v2.0.0",
+    "git push origin refs/tags/v2.0.0",
+    "gh release create v2.0.0 --repo xonika9/codex-stream-deck --draft --verify-tag --notes-file <2.0.0 changelog> <four audited assets>",
+    "gh release edit v2.0.0 --repo xonika9/codex-stream-deck --draft=false --latest",
+    "gh release download v2.0.0 --repo xonika9/codex-stream-deck --dir <temporary-directory>"
+  ],
+  "CI": "No runs observed in origin; no remote pass claimed",
+  "liveDevice": "Ordinary Mac scenarios user-confirmed; Windows and rare holds deferred",
+  "disposableDownloadedCopies": "removed after SHA256 verification"
+}

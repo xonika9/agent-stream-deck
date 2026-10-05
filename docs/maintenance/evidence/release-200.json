@@ -54,9 +54,9 @@
   },
   "network": {
     "publicVersionCollisionCheck": "pass after connectivity restored: release and remote tag API returned HTTP404; fetched tags have no v2.0.0",
-    "push": "main57f4f8989da312480f10718bf32dbaac57aee313 pushed; remote branch verified exact",
-    "tag": "not created",
-    "release": "not created",
+    "push": "published release candidate f69c4758308bc4f82e84c046cb0bd81fa32b6548 verified on origin/main before tag",
+    "tag": "v2.0.0 created and pushed; peeled target f69c4758308bc4f82e84c046cb0bd81fa32b6548",
+    "release": "public/latest; all four assets downloaded and checksums verified",
     "CI": "no runs returned for origin repository after push; Actions enabled and workflow active; cause not established; no pass claimed",
     "previousFailures": [
       "gh api TLS handshake timeouts",
@@ -67,7 +67,7 @@
       "additional web retrieval stalled and cancelled"
     ]
   },
-  "next": "Push final document checkpoint, create immutable annotated tag, draft/upload/verify/publish, download all assets and compare SHA256",
+  "next": "publication complete; deferred application/device acceptance remains separate",
   "liveAndDevice": "Ordinary Mac scenarios user-confirmed; Windows and rare device holds deferred; see implementation report",
-  "publicationTarget": "final release-document checkpoint after 57f4f89; resolve immutable v2.0.0 tag when published"
+  "publicationTarget": "f69c4758308bc4f82e84c046cb0bd81fa32b6548"
 }
