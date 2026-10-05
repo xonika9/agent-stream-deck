@@ -3,7 +3,7 @@ import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { nodeOpenCodeFileAccess } from "../src/opencode/secure-files.js";
+import { nodeOpenCodeFileAccess } from "#opencode";
 
 test("service secrets require private mode while Desktop settings may be owner-write-only", {
   skip: process.platform === "win32"

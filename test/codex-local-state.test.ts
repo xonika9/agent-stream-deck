@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { LocalActivityIndex } from "../src/codex-local-state.js";
-import type { CodexHost, MicroSnapshot } from "../src/types.js";
+import { LocalActivityIndex } from "#agents";
+import type { CodexHost, MicroSnapshot } from "#agents";
 
 const host: CodexHost = { hostId: "56fd97ad-7073-42cc-85ce-befa17546d7c", hostName: "Test Mac", platform: "darwin" };
 const snapshot: MicroSnapshot = {

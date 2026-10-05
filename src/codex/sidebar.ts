@@ -1,4 +1,4 @@
-import type { MicroAgentSlot } from "./types.js";
+import type { MicroAgentSlot } from "#agents";
 
 /** Runs inside the renderer; keep this function self-contained for CDP injection. */
 export function readPinnedSidebarSlots(

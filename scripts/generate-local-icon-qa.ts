@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { renderImportedKeycap } from "../src/render.js";
+import { renderImportedKeycap } from "#stream-deck";
 
 const iconRoot = process.env.CODEX_DECK_ICON_DIR ?? join(
   process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local"),

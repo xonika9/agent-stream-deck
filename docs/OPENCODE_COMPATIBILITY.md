@@ -69,3 +69,16 @@ Desktop `2.0.10` still clears its own renderer notification locally when a chat
 opens, so opening a chat does not reliably publish `time.viewed` by itself.
 When no Codex renderer snapshot is available to supply a theme, OpenCode Agent
 and usage keys use the renderer's light fallback rather than changing to dark.
+
+
+Saved SSH profiles are compared by their normalized target, in addition to their
+stable opaque identity. After an authoritative protected settings read, a
+changed or removed profile closes only its collector-owned tunnel. An unreadable
+settings file does not prove that a profile was removed. An authenticated
+PID/version mismatch closes that connection's owned tunnel and requires fresh
+discovery on the next poll; other sources remain independent.
+
+The source-separation update preserves the characterized API contract above.
+Its automated fixtures cover tunnel replacement, local acknowledgement before
+best-effort publication, new terminal revisions, and cancellation of old demand
+generations. No additional live OpenCode or Fedora version is claimed here.

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { parseTaskSource, selectTaskCandidates, shouldCollectOpenCode, usesActiveQueue } from "../src/task-source.js";
+import { parseTaskSource, selectTaskCandidates, shouldCollectOpenCode, usesActiveQueue } from "#agents";
 
 test("task source defaults upgrades and invalid values to Codex", () => {
   assert.equal(parseTaskSource(undefined), "Codex");

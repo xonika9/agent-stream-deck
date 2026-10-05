@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { visualStatusFromMicro } from "../src/status.js";
+import { visualStatusFromMicro } from "#agents";
 
 test("native Micro states map to the Stream Deck status palette", () => {
   assert.equal(visualStatusFromMicro("off"), "empty");

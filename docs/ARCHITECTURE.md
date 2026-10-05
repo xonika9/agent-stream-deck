@@ -2,6 +2,16 @@
 
 ## Components
 
+The implementation remains one package. `src/plugin.ts` composes the Codex and
+OpenCode sources with the Stream Deck controller. Cross-area imports use the
+public `#codex`, `#opencode`, `#agents`, `#stream-deck`, and `#usage` entries.
+`agents` owns pure task types, identity, selection, and queue rules; the two task
+sources do not import each other. OpenCode separates protected discovery, SSH,
+authenticated requests, external session data, and process-local revision state.
+Only shared state paths and local host identity remain under `src/runtime`.
+The launcher imports the SDK-free Codex entry. Its Windows runtime bundles
+internal code while retaining the explicitly allowlisted `ws` dependency.
+
 ### Launcher
 
 `Start-CodexDeck.ps1` finds the installed Microsoft Store Codex package. If a healthy debug-enabled Codex process already exists, it reuses its loopback port. Starting an already-running normal session requires an explicit launcher/recovery path; a read-only `-DryRun` never changes it. The launcher chooses an unused loopback port, writes it to `%LOCALAPPDATA%\CodexDeck\codex-micro-bridge.json`, and starts `ChatGPT.exe` with:
@@ -153,7 +163,7 @@ diagnostic rendering path. Completion freshness remains bounded by the existing
 upstream structural-event window and acknowledgement behavior: the projection
 adds no task database, durable queue, or restart persistence.
 
-Local snapshot activity, exact task identity, and timestamps live in `codex-local-state.ts`, independently of network transport. Only a trusted local rollout owner contributes the atomic `workStartedAt` / `workStartRevision` pair; temporary task aliases do not borrow it. Agent key-down saves the exact assignment or empty position by action context. Queue changes and duplicate instances of the same slot cannot change the corresponding release; disappearance clears only that instance's captured state.
+Local snapshot activity, exact task identity, and timestamps live in `src/agents/local-state.ts`, independently of network transport. Only a trusted local rollout owner contributes the atomic `workStartedAt` / `workStartRevision` pair; temporary task aliases do not borrow it. Agent key-down saves the exact assignment or empty position by action context. Queue changes and duplicate instances of the same slot cannot change the corresponding release. Press and release are serialized per action context, so a delayed native refresh cannot send release first; other buttons remain independent. Disappearance cancels that context's pending work. Reasoning holds also keep their own context and generation, retaining the initial 500 ms and subsequent 300 ms repeat intervals.
 
 
 Usage data remains local and account-scoped. On macOS, quota windows come from the newest valid CodexBar `widget-snapshot.json` Codex entry and expire after five minutes; this path does not start or attach Codex Desktop and does not fall back to renderer quota from another host. Reset-credit counters may still be overlaid from an already-attached local Codex bridge. Windows retains the local renderer-owned usage query. Window identity is derived from duration rather than primary/secondary ordering. A missing 5-hour window is unavailable, and Automatic mode falls back to weekly. Usage controls display and fill the consumed percentage while retaining warning colors derived from remaining capacity. Without a renderer theme, usage controls use the same light fallback as OpenCode Agent keys.
@@ -212,3 +222,10 @@ Codex Deck has no Codex relay server, analytics endpoint, or update service. Run
 ## Compatibility boundary
 
 This is not a public Codex extension API. Export names, internal commands, or event shapes can change. The code avoids fixed bundle hashes where possible, but semantic changes still require a release update.
+
+
+The source-separation update preserves the characterized renderer shapes and
+native event families above. Automatic fixtures verify press/release ordering,
+finite HTTP/WebSocket/CDP budgets, and disposal of unsuccessful connection
+attempts, including a peer that never completes a close handshake. They do not
+add a newly verified live Codex version or replace application/device acceptance.

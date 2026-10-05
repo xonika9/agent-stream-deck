@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { foregroundOpenCode } from "../src/opencode-open.js";
+import { foregroundOpenCode } from "#opencode";
 
 test("foregrounds OpenCode Desktop by bundle id without a shell", async () => {
   const calls: Array<{ file: string; args: readonly string[] }> = [];

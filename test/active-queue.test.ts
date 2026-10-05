@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ActiveQueueRankIndex, projectActiveQueue } from "../src/active-queue.js";
-import { LocalActivityIndex, type HostSnapshot } from "../src/codex-local-state.js";
-import type { CodexHost, MicroSnapshot, RoutedAgentSlot } from "../src/types.js";
+import { ActiveQueueRankIndex, projectActiveQueue } from "#agents";
+import { LocalActivityIndex, type HostSnapshot } from "#agents";
+import type { CodexHost, MicroSnapshot, RoutedAgentSlot } from "#agents";
 
 const mac: CodexHost = {
   hostId: "56fd97ad-7073-42cc-85ce-befa17546d7c", hostName: "Test Mac", platform: "darwin"

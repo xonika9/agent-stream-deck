@@ -8,7 +8,7 @@ import { createServer } from "node:net";
 import { homedir, hostname, platform, tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { applyRuntimeOverride, verifyMicroRuntime } from "../runtime-override.js";
+import { applyRuntimeOverride, verifyMicroRuntime } from "#codex";
 import {
   createWatcherPolicyState,
   evaluateWatcherPolicy,

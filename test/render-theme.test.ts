@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { renderAgentBlackKey, renderAgentBlackSvg, renderAgentKey, renderAgentSvg, renderBuiltinKeycap, renderFallbackKeycap, renderHostTargetKey, renderImportedKeycap, SIGNAL_COLORS } from "../src/render.js";
+import { renderAgentBlackKey, renderAgentBlackSvg, renderAgentKey, renderAgentSvg, renderBuiltinKeycap, renderFallbackKeycap, renderHostTargetKey, renderImportedKeycap, SIGNAL_COLORS } from "#stream-deck";
 
 test("healthy empty queue positions use a dedicated solid-black data URI", () => {
   const svg = renderAgentBlackSvg();
@@ -122,7 +122,7 @@ test("original navigation icons use the same dark keycap system", () => {
 });
 
 test("renderer snapshot derives a theme without a versioned asset hash", async () => {
-  const source = await readFile(new URL("../src/codex-micro-renderer-bridge.ts", import.meta.url), "utf8");
+  const source = await readFile(new URL("../src/codex/bridge.ts", import.meta.url), "utf8");
   assert.match(source, /backgroundColor/);
   assert.match(source, /prefers-color-scheme: dark/);
   assert.match(source, /theme\s*=\s*explicitDark/);

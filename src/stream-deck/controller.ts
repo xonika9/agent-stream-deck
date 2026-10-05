@@ -1,32 +1,25 @@
 import streamDeck, { type KeyAction } from "@elgato/streamdeck";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { codexDeckStateRoot } from "./codex-deck-paths.js";
-import { ActiveQueueRankIndex, projectActiveQueue } from "./active-queue.js";
-import { CodexMicroRendererBridge, localBridgeFailureReason } from "./codex-micro-renderer-bridge.js";
-import { readCodexBarUsage } from "./codex-bar-usage.js";
-import { getOrCreateHostIdentity } from "./host-identity.js";
-import type { OfficialKeycapId } from "./keycaps.js";
-import { LocalActivityIndex, type HostSnapshot } from "./codex-local-state.js";
+import { codexDeckStateRoot } from "../runtime/paths.js";
+import { ActiveQueueRankIndex, projectActiveQueue } from "#agents";
+import { CodexSource } from "#codex";
+import { readCodexBarUsage } from "#usage";
+import type { OfficialKeycapId } from "#codex";
+import { LocalActivityIndex } from "#agents";
 import {
   renderAgentBlackKey, renderAgentKey, renderBuiltinKeycap, renderFallbackKeycap, renderHostTargetKey, renderImportedKeycap,
   renderRateLimitResetKey, renderUsageLimitKey, renderUsageOverviewKey, type BuiltinIconName
 } from "./render.js";
-import { openCodexThread } from "./codex-open.js";
-import { foregroundOpenCode } from "./opencode-open.js";
-import { getOrCreateOpenCodeIdentitySecret } from "./opencode-secret.js";
-import {
-  OpenCodeCollector,
-  type OpenCodeCollectorSnapshot,
-  type OpenCodeTask
-} from "./opencode/index.js";
-import { visualStatusFromMicro } from "./status.js";
-import { parseTaskSource, selectTaskCandidates, shouldCollectOpenCode, usesActiveQueue } from "./task-source.js";
+import { openCodexThread } from "#codex";
+import { OpenCodeSource } from "#opencode";
+import { visualStatusFromMicro } from "#agents";
+import { parseTaskSource, selectTaskCandidates, usesActiveQueue } from "#agents";
 import type {
-  CodexHost, HostHealth, MicroActionSlot, MicroDirection, MicroSnapshot, ReasoningAdjustment,
+  HostHealth, MicroActionSlot, MicroDirection, MicroSnapshot, ReasoningAdjustment,
   RoutedAgentSlot, TaskSource, UsageLimitMode, UsageSnapshot, UsageWindowKind
-} from "./types.js";
-import { composeMacUsage, selectUsageWindow, usageTheme, type AccountUsageSource } from "./usage.js";
+} from "#agents";
+import { selectAccountUsage, selectUsageWindow, usageTheme, type AccountUsageSource } from "#usage";
 
 export type FixedIconSource =
   | { kind: "local"; keycapId: string }
@@ -37,22 +30,20 @@ type AgentRegistration = { action: KeyAction<{}>; slot: number };
 type MicroActionRegistration = { action: KeyAction<{}>; slot: MicroActionSlot };
 type UsageLimitRegistration = { action: KeyAction<{}>; mode: UsageLimitMode };
 type ActionIdentity = { id: string };
+type AgentPress = { assignment?: RoutedAgentSlot; down: Promise<void>; abort: AbortController };
+type AgentButton = { press?: AgentPress; active: Set<AgentPress>; tail?: Promise<void> };
 export type AgentDisplaySettings = {
   showContextRings?: boolean;
   activeQueueEnabled?: boolean;
   taskSource?: TaskSource;
 };
 
-type DeckControllerDependencies = {
-  foregroundOpenCode: () => Promise<void>;
-};
+type DeckControllerDependencies = { codex: CodexSource; openCode: OpenCodeSource };
 
 const USER_ICON_ROOT = join(codexDeckStateRoot(), "icons");
 const RESET_HOLD_MS = 1_200;
 
 export class DeckController {
-  private readonly foregroundOpenCodeAction: () => Promise<void>;
-  private readonly microBridge = new CodexMicroRendererBridge((message) => streamDeck.logger.info(message));
   private readonly agents = new Map<string, AgentRegistration>();
   private readonly microActions = new Map<string, MicroActionRegistration>();
   private readonly fixedActions = new Map<string, FixedIconRegistration>();
@@ -65,23 +56,14 @@ export class DeckController {
   private readonly resetHolds = new Map<string, number>();
   private readonly activityIndex = new LocalActivityIndex();
   private readonly activeQueueRankIndex = new ActiveQueueRankIndex();
-  private readonly pressedAgents = new Map<string, RoutedAgentSlot>();
-  private readonly emptyAgentPresses = new Set<string>();
-  private localHost?: CodexHost;
-  private localSnapshot?: HostSnapshot;
+  private readonly agentButtons = new Map<string, AgentButton>();
   private codexBarUsage?: UsageSnapshot;
-  private openCodeSlots: RoutedAgentSlot[] = [];
-  private openCodeHealth: HostHealth = { state: "connecting", reason: "awaiting-snapshot", changedAt: Date.now() };
-  private openCodeCollector?: OpenCodeCollector;
-  private openCodeDemandGeneration = 0;
   private routedSlots: RoutedAgentSlot[] = [];
-  private localHealth: HostHealth = { state: "connecting", reason: "awaiting-snapshot", changedAt: Date.now() };
   private poll?: NodeJS.Timeout;
   private animation?: NodeJS.Timeout;
   private refreshInFlight?: Promise<void>;
   private stopped = false;
   private animationFrame = 0;
-  private lastError = "";
   private lastAssignmentSignature = "";
   private lastStatusSignature = "";
   private lastLayoutSignature = "";
@@ -90,14 +72,15 @@ export class DeckController {
   private activeQueueEnabled = false;
   private taskSource: TaskSource = "Codex";
 
-  constructor(dependencies: Partial<DeckControllerDependencies> = {}) {
-    this.foregroundOpenCodeAction = dependencies.foregroundOpenCode ?? foregroundOpenCode;
-  }
+  constructor(private readonly sources: DeckControllerDependencies) {}
+
+  private get codex(): CodexSource { return this.sources.codex; }
+  private get openCode(): OpenCodeSource { return this.sources.openCode; }
 
   async start(): Promise<void> {
     this.stopped = false;
     await this.loadAgentDisplaySettings();
-    this.localHost = await getOrCreateHostIdentity();
+    await this.codex.start();
     await this.syncOpenCodeCollectorDemand();
     await this.refresh();
     this.scheduleRefresh();
@@ -117,13 +100,12 @@ export class DeckController {
 
   stop(): void {
     this.stopped = true;
-    this.openCodeDemandGeneration++;
     if (this.poll) clearInterval(this.poll);
     if (this.animation) clearInterval(this.animation);
-    this.microBridge.close();
-    const collector = this.openCodeCollector;
-    this.openCodeCollector = undefined;
-    void collector?.stop();
+    for (const button of this.agentButtons.values()) for (const press of button.active) press.abort.abort();
+    this.agentButtons.clear();
+    this.codex.stop();
+    this.openCode.stop();
   }
 
   registerAgent(slot: number, action: KeyAction<{}>): void {
@@ -132,8 +114,9 @@ export class DeckController {
   }
 
   unregisterAgent(action: ActionIdentity): void {
-    this.pressedAgents.delete(action.id);
-    this.emptyAgentPresses.delete(action.id);
+    const button = this.agentButtons.get(action.id);
+    if (button) for (const press of button.active) press.abort.abort();
+    this.agentButtons.delete(action.id);
     this.unregister(action, this.agents);
   }
 
@@ -172,7 +155,7 @@ export class DeckController {
     this.unregister(action, this.microActions);
   }
 
-  registerFixedAction(id: string, action: KeyAction<{}>, source: FixedIconSource): void {
+  registerFixedAction(action: KeyAction<{}>, source: FixedIconSource): void {
     this.fixedActions.set(action.id, { action, source });
     void this.renderFixedAction({ action, source });
   }
@@ -239,10 +222,10 @@ export class DeckController {
     if (registered) await this.renderRateLimitReset(registered);
     if (startedAt == null || Date.now() - startedAt < RESET_HOLD_MS) return false;
     const source = this.accountUsageSource();
-    const usage = source.usage ?? source.snapshot?.usage;
+    const usage = source.usage;
     if ((usage?.resetCreditsAvailable ?? 0) <= 0) throw new Error("No rate-limit reset credit is available.");
     if (usage?.resetCreditsApplicable === 0) throw new Error("No rate-limit reset credit is currently applicable.");
-    await this.microBridge.consumeRateLimitReset();
+    await this.codex.microBridge.consumeRateLimitReset();
     await this.refresh();
     return true;
   }
@@ -251,66 +234,75 @@ export class DeckController {
     await this.renderAll();
   }
 
-  async sendAgent(slot: number, act: 0 | 1, action: ActionIdentity): Promise<void> {
-    if (act === 0 && this.emptyAgentPresses.delete(action.id)) {
-      this.pressedAgents.delete(action.id);
-      return;
+  sendAgent(slot: number, act: 0 | 1, action: ActionIdentity): Promise<void> {
+    if (act === 0) {
+      const button = this.agentButtons.get(action.id);
+      const press = button?.press;
+      if (!button || !press) return Promise.resolve();
+      button.press = undefined;
+      return this.enqueueAgent(action.id, button, async () => {
+        try {
+          try { await press.down; } catch { /* The native owner may already have delivered the press. */ }
+          if (press.abort.signal.aborted || !press.assignment || press.assignment.taskSource === "opencode") return;
+          await this.codex.microBridge.sendAgent(press.assignment.sourceSlot, 0, press.assignment.threadKey!, press.abort.signal);
+          void this.refresh();
+        } finally { button.active.delete(press); }
+      });
     }
-    const assignment = act === 0 ? this.pressedAgents.get(action.id) : this.routedSlots[slot];
-    if (act === 1 && this.effectiveActiveQueueEnabled() && !assignment) {
-      this.pressedAgents.delete(action.id);
-      this.emptyAgentPresses.add(action.id);
-      return;
-    }
-    if (act === 1) this.emptyAgentPresses.delete(action.id);
-    if (act === 0 && !assignment) return;
-    if (this.effectiveActiveQueueEnabled() && !assignment) return;
-    if (!assignment) throw new Error(`No Codex task is assigned to global agent slot ${slot + 1}.`);
-    if (assignment.taskSource === "opencode") {
-      if (act === 1) this.pressedAgents.set(action.id, assignment);
-      else this.pressedAgents.delete(action.id);
-      if (act === 1) {
-        await this.foregroundOpenCodeAction();
-        const separator = assignment.threadKey?.indexOf("\0") ?? -1;
-        const collector = this.openCodeCollector;
-        if (collector && separator > 0 && assignment.threadKey) {
-          const connectionId = assignment.threadKey.slice(0, separator);
-          const sessionId = assignment.threadKey.slice(separator + 1);
-          if (assignment.activityAt !== undefined &&
-            collector.acknowledgeTask(connectionId, sessionId, assignment.activityAt)) {
-            const publication = collector.publishTaskViewed(connectionId, sessionId);
-            await this.refreshDisplay();
-            void publication.catch(() => undefined);
-          }
-        }
+    const button = this.agentButtons.get(action.id) ?? { active: new Set<AgentPress>() };
+    this.agentButtons.set(action.id, button);
+    const assignment = this.routedSlots[slot];
+    const emptyAllowed = this.effectiveActiveQueueEnabled();
+    const abort = new AbortController();
+    const down = this.enqueueAgent(action.id, button, async () => {
+      if (abort.signal.aborted) return;
+      if (!assignment) {
+        if (emptyAllowed) return;
+        throw new Error(`No Codex task is assigned to global agent slot ${slot + 1}.`);
       }
-      return;
-    }
-    if (act === 1) this.pressedAgents.set(action.id, assignment);
-    else this.pressedAgents.delete(action.id);
-    if (!assignment.threadKey) throw new Error("The selected Codex task has no stable thread identity.");
-    await this.microBridge.sendAgent(assignment.sourceSlot, act, assignment.threadKey);
-    if (act === 0) void this.refresh();
+      if (assignment.taskSource === "opencode") {
+        if (await this.openCode.open(assignment, abort.signal)) await this.refreshDisplay();
+        return;
+      }
+      if (!assignment.threadKey) throw new Error("The selected Codex task has no stable thread identity.");
+      await this.codex.microBridge.sendAgent(assignment.sourceSlot, 1, assignment.threadKey, abort.signal);
+    });
+    const press = { assignment, down, abort };
+    button.press = press;
+    button.active.add(press);
+    return down;
+  }
+
+  private enqueueAgent(id: string, button: AgentButton, operation: () => Promise<void>): Promise<void> {
+    const previous = button.tail;
+    const pending = previous ? previous.catch(() => undefined).then(operation) : operation();
+    button.tail = pending;
+    void pending.finally(() => {
+      if (button.tail !== pending) return;
+      button.tail = undefined;
+      if (button.active.size === 0 && this.agentButtons.get(id) === button) this.agentButtons.delete(id);
+    }).catch(() => undefined);
+    return pending;
   }
 
   async sendMicroAction(slot: MicroActionSlot, act: 0 | 1): Promise<void> {
-    await this.microBridge.sendAction(slot, act);
+    await this.codex.microBridge.sendAction(slot, act);
   }
 
   async sendJoystick(direction: MicroDirection, distance: 0 | 1): Promise<void> {
-    await this.microBridge.sendJoystick(direction, distance);
+    await this.codex.microBridge.sendJoystick(direction, distance);
   }
 
   async sendEncoder(act: 0 | 1): Promise<void> {
-    await this.microBridge.sendEncoder(act);
+    await this.codex.microBridge.sendEncoder(act);
   }
 
   async adjustReasoning(direction: ReasoningAdjustment): Promise<void> {
-    await this.microBridge.adjustReasoning(direction);
+    await this.codex.microBridge.adjustReasoning(direction);
   }
 
   async runKeycap(keycapId: OfficialKeycapId): Promise<void> {
-    await this.microBridge.runKeycap(keycapId);
+    await this.codex.microBridge.runKeycap(keycapId);
   }
 
   async createTask(): Promise<void> {
@@ -327,118 +319,31 @@ export class DeckController {
 
   private async refreshOnce(): Promise<void> {
     if (process.platform === "darwin") this.codexBarUsage = await readCodexBarUsage();
-    try {
-      const snapshot = await this.microBridge.refresh();
-      this.localHost = await getOrCreateHostIdentity();
-      this.localSnapshot = { host: this.localHost, snapshot, observedAt: Date.now() };
-      this.localHealth = { state: "ready", changedAt: Date.now() };
-      this.lastError = "";
-    } catch (error) {
-      this.localHealth = { state: "degraded", reason: localBridgeFailureReason(error), changedAt: Date.now() };
-      const message = String(error);
-      if (message !== this.lastError) {
-        this.lastError = message;
-        streamDeck.logger.warn(`Codex Micro bridge unavailable: ${message}`);
-      }
-    }
+    await this.codex.refresh();
     await this.refreshDisplay();
   }
 
-  private async syncOpenCodeCollectorDemand(): Promise<void> {
-    const demanded = this.openCodeDemanded();
-    if (demanded && this.openCodeCollector) return;
-    const generation = ++this.openCodeDemandGeneration;
-    if (!demanded) {
-      const collector = this.openCodeCollector;
-      this.openCodeCollector = undefined;
-      this.openCodeSlots = [];
-      this.openCodeHealth = { state: "connecting", reason: "awaiting-snapshot", changedAt: Date.now() };
-      await collector?.stop();
-      return;
-    }
-    this.openCodeHealth = { state: "connecting", reason: "awaiting-snapshot", changedAt: Date.now() };
-    try {
-      const secret = await getOrCreateOpenCodeIdentitySecret();
-      if (generation !== this.openCodeDemandGeneration || !this.openCodeDemanded()) return;
-      const collector = new OpenCodeCollector({ identitySecret: secret });
-      this.openCodeCollector = collector;
-      const snapshot = await collector.start();
-      if (generation !== this.openCodeDemandGeneration || !this.openCodeDemanded()) {
-        if (this.openCodeCollector === collector) this.openCodeCollector = undefined;
-        await collector.stop();
-        return;
-      }
-      this.applyOpenCodeSnapshot(snapshot);
-    } catch {
-      if (generation !== this.openCodeDemandGeneration) return;
-      const collector = this.openCodeCollector;
-      this.openCodeCollector = undefined;
-      await collector?.stop();
-      this.openCodeSlots = [];
-      this.openCodeHealth = { state: "degraded", reason: "native-signals-unavailable", changedAt: Date.now() };
-      streamDeck.logger.warn("OpenCode collector is unavailable.");
-    }
-  }
-
-  private refreshOpenCodeSnapshot(): void {
-    const collector = this.openCodeCollector;
-    if (!collector) return;
-    this.applyOpenCodeSnapshot(collector.snapshot());
-  }
-
-  private openCodeDemanded(): boolean {
-    return !this.stopped && shouldCollectOpenCode(this.taskSource, process.platform);
-  }
-
-  private applyOpenCodeSnapshot(snapshot: OpenCodeCollectorSnapshot): void {
-    if (!this.localHost) return;
-    const healthy = snapshot.connections.some((connection) => connection.health === "ready" || connection.health === "capacity-exceeded");
-    const observedAt = snapshot.observedAt || Date.now();
-    this.openCodeHealth = healthy
-      ? { state: "ready", changedAt: observedAt }
-      : { state: "degraded", reason: "native-signals-unavailable", changedAt: observedAt };
-    this.openCodeSlots = snapshot.connections
-      .flatMap((connection) => connection.tasks.map((task) => ({ task, observedAt: connection.observedAt })))
-      .map(({ task, observedAt: connectionObservedAt }, sourceSlot) =>
-        this.openCodeSlot(task, sourceSlot, connectionObservedAt));
-  }
-
-  private openCodeSlot(task: OpenCodeTask, sourceSlot: number, observedAt: number): RoutedAgentSlot {
-    return {
-      id: sourceSlot,
-      sourceSlot,
-      catalogIndex: sourceSlot,
-      taskSource: "opencode",
-      host: this.localHost!,
-      threadKey: `${task.connectionId}\0${task.sessionId}`,
-      conversationId: `${task.connectionId}\0${task.sessionId}`,
-      title: task.displayTitle ?? task.label,
-      status: task.status,
-      selected: false,
-      activityAt: task.terminalAt ?? task.workStartedAt,
-      workStartedAt: task.workStartedAt,
-      workStartRevision: task.workStartRevision,
-      observedAt
-    };
+  private syncOpenCodeCollectorDemand(): Promise<void> {
+    return this.openCode.syncDemand(this.taskSource, this.codex.localHost, this.stopped);
   }
 
   private async refreshDisplay(): Promise<void> {
-    this.refreshOpenCodeSnapshot();
-    const inputs = this.localSnapshot ? [this.localSnapshot] : [];
-    const healthSignature = `${this.localHealth.state}:${this.localHealth.reason ?? ""}`;
+    this.openCode.refreshOpenCodeSnapshot();
+    const inputs = this.codex.localSnapshot ? [this.codex.localSnapshot] : [];
+    const healthSignature = `${this.codex.localHealth.state}:${this.codex.localHealth.reason ?? ""}`;
     if (healthSignature !== this.lastHostHealthSignature) {
       this.lastHostHealthSignature = healthSignature;
       streamDeck.logger.info(`Local Codex health: ${healthSignature}`);
     }
     const now = Date.now();
     const activeQueueEnabled = this.effectiveActiveQueueEnabled();
-    const queueInputs = activeQueueEnabled && this.localHealth.reason === "codex-not-running"
+    const queueInputs = activeQueueEnabled && this.codex.localHealth.reason === "codex-not-running"
       ? []
       : inputs;
     const codexSlots = activeQueueEnabled
       ? this.activityIndex.mergeActiveCatalog(queueInputs[0], now)
-      : this.activityIndex.merge(this.localSnapshot, now);
-    const merged = selectTaskCandidates(this.taskSource, codexSlots, this.openCodeSlots);
+      : this.activityIndex.merge(this.codex.localSnapshot, now);
+    const merged = selectTaskCandidates(this.taskSource, codexSlots, this.openCode.openCodeSlots);
     this.routedSlots = activeQueueEnabled
       ? projectActiveQueue(merged, queueInputs, this.activeQueueRankIndex, now)
       : merged;
@@ -479,8 +384,8 @@ export class DeckController {
 
   private async renderAgent({ action, slot }: AgentRegistration): Promise<void> {
     const agent = this.routedSlots[slot];
-    const health = agent?.taskSource === "opencode" ? this.openCodeHealth
-      : agent ? this.localHealth : this.selectedTaskHealth();
+    const health = agent?.taskSource === "opencode" ? this.openCode.openCodeHealth
+      : agent ? this.codex.localHealth : this.selectedTaskHealth();
     const codexStopped = slot < 4 && health.state === "degraded" && health.reason === "codex-not-running";
     const healthyQueueGap = this.effectiveActiveQueueEnabled() && !agent && health.state === "ready";
     if (codexStopped || healthyQueueGap) {
@@ -492,7 +397,7 @@ export class DeckController {
         : health.state === "connecting" ? "Connecting" : "Not assigned";
     const title = agent?.title ?? (agent?.threadKey && health.state === "ready" ? "New chat" : unavailableTitle);
     const status = agent ? visualStatusFromMicro(agent.status) : "empty";
-    const theme = this.targetSnapshot()?.theme ?? this.localSnapshot?.snapshot.theme ?? "light";
+    const theme = this.targetSnapshot()?.theme ?? this.codex.localSnapshot?.snapshot.theme ?? "light";
     const hostBadge = agent?.taskSource === "opencode" ? "O" : undefined;
     await this.setImage(action, renderAgentKey(
       slot, title, status, agent?.selected ?? false, this.animationFrame, theme, hostBadge,
@@ -528,14 +433,14 @@ export class DeckController {
   }
 
   private async renderHostToggle(action: KeyAction<{}>): Promise<void> {
-    const label = (this.localHost?.platform ?? process.platform) === "darwin" ? "MAC" : "WIN";
+    const label = (this.codex.localHost?.platform ?? process.platform) === "darwin" ? "MAC" : "WIN";
     const theme = this.targetSnapshot()?.theme ?? "dark";
     await this.setImage(action, renderHostTargetKey(label, this.targetHealth().state, theme));
   }
 
   private async renderUsageLimit({ action, mode }: UsageLimitRegistration): Promise<void> {
     const source = this.accountUsageSource();
-    const usage = source.usage ?? source.snapshot?.usage;
+    const usage = source.usage;
     const window = selectUsageWindow(usage, mode);
     const requestedKind: UsageWindowKind = mode === "auto" ? (window?.kind ?? "other") : mode;
     await this.setImage(action, renderUsageLimitKey(window, requestedKind, usageTheme(source), source.health.state));
@@ -543,13 +448,13 @@ export class DeckController {
 
   private async renderUsageOverview(action: KeyAction<{}>): Promise<void> {
     const source = this.accountUsageSource();
-    const usage = source.usage ?? source.snapshot?.usage;
+    const usage = source.usage;
     await this.setImage(action, renderUsageOverviewKey(usage?.windows ?? [], usageTheme(source), source.health.state));
   }
 
   private async renderRateLimitReset(action: KeyAction<{}>): Promise<void> {
     const source = this.accountUsageSource();
-    const usage = source.usage ?? source.snapshot?.usage;
+    const usage = source.usage;
     const startedAt = this.resetHolds.get(action.id);
     const progress = startedAt == null ? 0 : Math.min(1, (Date.now() - startedAt) / RESET_HOLD_MS);
     await this.setImage(action, renderRateLimitResetKey(
@@ -568,44 +473,25 @@ export class DeckController {
   }
 
   private targetHealth(): HostHealth {
-    return this.localHealth;
+    return this.codex.localHealth;
   }
 
   private selectedTaskHealth(): HostHealth {
-    if (this.taskSource === "OpenCode") return this.openCodeHealth;
+    if (this.taskSource === "OpenCode") return this.openCode.openCodeHealth;
     if (this.taskSource === "Codex") return this.targetHealth();
     const codex = this.targetHealth();
-    if (codex.state === "ready" || this.openCodeHealth.state === "ready") {
-      return { state: "ready", changedAt: Math.max(codex.changedAt, this.openCodeHealth.changedAt) };
+    if (codex.state === "ready" || this.openCode.openCodeHealth.state === "ready") {
+      return { state: "ready", changedAt: Math.max(codex.changedAt, this.openCode.openCodeHealth.changedAt) };
     }
-    return this.openCodeHealth.state === "connecting" ? codex : this.openCodeHealth;
+    return this.openCode.openCodeHealth.state === "connecting" ? codex : this.openCode.openCodeHealth;
   }
 
   private targetSnapshot(): MicroSnapshot | undefined {
-    return this.localSnapshot?.snapshot;
+    return this.codex.localSnapshot?.snapshot;
   }
 
   private accountUsageSource(): AccountUsageSource {
-    const bridgeUsage = this.localSnapshot?.snapshot.usage;
-    const macUsage = composeMacUsage(this.codexBarUsage, bridgeUsage);
-    const localUsage = this.localHost?.platform === "darwin" ? macUsage : bridgeUsage;
-    const localUsageHealth: HostHealth = this.localHost?.platform === "darwin"
-      ? this.codexBarUsage
-        ? { state: "ready", changedAt: this.codexBarUsage.observedAt }
-        : this.localHealth.state === "ready"
-          ? { state: "degraded", reason: "snapshot-stale", changedAt: Date.now() }
-          : this.localHealth
-      : localUsage
-        ? { state: "ready", changedAt: localUsage.observedAt }
-        : this.localHealth;
-    const local: AccountUsageSource = {
-      health: localUsageHealth,
-      hostId: this.localHost?.hostId,
-      snapshot: this.localSnapshot?.snapshot,
-      usage: localUsage,
-      theme: this.localSnapshot?.snapshot.theme
-    };
-    return local;
+    return selectAccountUsage(this.codex.localHost, this.codex.localSnapshot, this.codex.localHealth, this.codexBarUsage);
   }
 
   private async setImage(action: KeyAction<{}>, image: string): Promise<void> {

@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { constants } from "node:fs";
 import { lstat, mkdir, open } from "node:fs/promises";
 import { join } from "node:path";
-import { codexDeckStateRoot } from "./codex-deck-paths.js";
+import { codexDeckStateRoot } from "../runtime/paths.js";
 
 const SECRET_BYTES = 32;
 

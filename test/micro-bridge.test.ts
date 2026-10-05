@@ -6,14 +6,14 @@ import {
   ACTIVE_CATALOG_RETRY_DELAY_MS,
   buildActiveCatalogDiscoveryExpression,
   buildSnapshotPayloadExpression
-} from "../src/codex-active-catalog-expression.js";
+} from "#codex";
 import {
   buildEnsureThreadActivatedExpression, canonicalThreadId, CodexMicroRendererBridge, CodexNotRunningError, hasMacCodexExecutable, localBridgeFailureReason, macCodexExecutablePathFromWatcherState, nativeActionKey, REASONING_ENCODER_KEYS, resolveAgentDispatch,
   retainEvaluationPromise, selectCodexMainTarget, selectSidebarThreadId, threadKeysEquivalent
-} from "../src/codex-micro-renderer-bridge.js";
-import { ADDITIONAL_KEYCAPS, OFFICIAL_KEYCAP_IDS } from "../src/keycaps.js";
-import { visualStatusFromMicro } from "../src/status.js";
-import type { MicroSnapshot } from "../src/types.js";
+} from "#codex";
+import { ADDITIONAL_KEYCAPS, OFFICIAL_KEYCAP_IDS } from "#codex";
+import { visualStatusFromMicro } from "#agents";
+import type { MicroSnapshot } from "#agents";
 
 test("official Micro statuses map to the Stream Deck color states", () => {
   assert.equal(visualStatusFromMicro("off"), "empty");
@@ -47,14 +47,14 @@ test("macOS watcher state excludes CodexBar false positives before bridge discov
 });
 
 test("official keycap SVG contents are not bundled in the public source", async () => {
-  const controller = await readFile(new URL("../src/controller.ts", import.meta.url), "utf8");
+  const controller = await readFile(new URL("../src/stream-deck/controller.ts", import.meta.url), "utf8");
   assert.match(controller, /codexDeckStateRoot\(\)[\s\S]*icons/);
   assert.doesNotMatch(controller, /static\/imgs\/official/);
 });
 
 test("renderer bridge uses native Micro events and discovers hashed modules at runtime", async () => {
-  const bridgeSource = await readFile(new URL("../src/codex-micro-renderer-bridge.ts", import.meta.url), "utf8");
-  const catalogSource = await readFile(new URL("../src/codex-active-catalog-expression.ts", import.meta.url), "utf8");
+  const bridgeSource = await readFile(new URL("../src/codex/bridge.ts", import.meta.url), "utf8");
+  const catalogSource = await readFile(new URL("../src/codex/active-catalog-expression.ts", import.meta.url), "utf8");
   const source = `${bridgeSource}\n${catalogSource}`;
   for (const eventName of ["codex-micro-device-state-changed", "codex-micro-hid-event", "codex-micro-joystick-event"]) {
     assert.match(source, new RegExp(eventName));
@@ -523,7 +523,7 @@ test("reasoning controls use the official native encoder rotation events", async
     decrease: "ENC_CW",
     increase: "ENC_CC"
   });
-  const source = await readFile(new URL("../src/codex-micro-renderer-bridge.ts", import.meta.url), "utf8");
+  const source = await readFile(new URL("../src/codex/bridge.ts", import.meta.url), "utf8");
   assert.match(source, /act: 2/);
   assert.match(source, /codex-micro-hid-event/);
 });
@@ -549,7 +549,7 @@ test("all official keycaps are covered by standalone or native actions", async (
 });
 
 test("standalone keycaps resolve Codex's live registry instead of hardcoding commands", async () => {
-  const source = await readFile(new URL("../src/codex-micro-renderer-bridge.ts", import.meta.url), "utf8");
+  const source = await readFile(new URL("../src/codex/bridge.ts", import.meta.url), "utf8");
   assert.match(source, /codex-micro-layout-/);
   assert.match(source, /keycapGetter/);
   assert.match(source, /codex-micro-bridge-/);
@@ -560,18 +560,17 @@ test("standalone keycaps resolve Codex's live registry instead of hardcoding com
 });
 
 test("controller avoids overlapping polls and redundant image writes", async () => {
-  const source = await readFile(new URL("../src/controller.ts", import.meta.url), "utf8");
+  const source = await readFile(new URL("../src/stream-deck/controller.ts", import.meta.url), "utf8");
   assert.match(source, /lastImages/);
   assert.match(source, /this\.lastImages\.get\(action\.id\) === image/);
   assert.match(source, /scheduleRefresh/);
   assert.match(source, /status === "thinking" \|\| status === "input"/);
-  assert.match(source, /pressedAgents/);
   assert.doesNotMatch(source, /if \(act === 1\) await this\.refresh\(\)/);
   assert.doesNotMatch(source, /setInterval\(/);
 });
 
 test("assigned titleless threads use a new-chat label instead of Not assigned", async () => {
-  const source = await readFile(new URL("../src/controller.ts", import.meta.url), "utf8");
+  const source = await readFile(new URL("../src/stream-deck/controller.ts", import.meta.url), "utf8");
   assert.match(source, /agent\?\.threadKey\s*&&\s*health\.state\s*===\s*"ready"\s*\?\s*"New chat"/);
   assert.match(source, /:\s*"Not assigned"/);
 });

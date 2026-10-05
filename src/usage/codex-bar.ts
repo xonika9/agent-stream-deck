@@ -2,7 +2,7 @@ import { constants } from "node:fs";
 import { open } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { UsageSnapshot, UsageWindow, UsageWindowKind } from "./types.js";
+import type { UsageSnapshot, UsageWindow, UsageWindowKind } from "#agents";
 
 const MAX_SNAPSHOT_BYTES = 1024 * 1024;
 export const CODEX_BAR_FRESH_MS = 5 * 60 * 1_000;

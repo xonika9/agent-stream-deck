@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { codexOpenSpec, codexThreadUrl } from "../src/codex-open.js";
+import { codexOpenSpec, codexThreadUrl } from "#codex";
 
 test("Codex task deep links only accept task UUIDs or new", () => {
   assert.equal(codexThreadUrl("new"), "codex://threads/new");

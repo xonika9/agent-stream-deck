@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { renderAgentSvg, renderRateLimitResetKey, renderUsageLimitKey, renderUsageOverviewKey } from "../src/render.js";
-import type { ThemeMode, UsageWindow } from "../src/types.js";
+import { renderAgentSvg, renderRateLimitResetKey, renderUsageLimitKey, renderUsageOverviewKey } from "#stream-deck";
+import type { ThemeMode, UsageWindow } from "#agents";
 
 function renderPreview(theme: ThemeMode): string {
   const agents = [

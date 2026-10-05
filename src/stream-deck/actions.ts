@@ -1,8 +1,8 @@
 import streamDeck, { action, type DidReceiveSettingsEvent, type KeyDownEvent, type KeyUpEvent, type WillAppearEvent, type WillDisappearEvent, SingletonAction } from "@elgato/streamdeck";
 import type { DeckController, FixedIconSource } from "./controller.js";
-import type { OfficialKeycapId } from "./keycaps.js";
-import type { MicroActionSlot, MicroDirection, ReasoningAdjustment } from "./types.js";
-import { parseUsageLimitMode } from "./usage.js";
+import type { OfficialKeycapId } from "#codex";
+import type { MicroActionSlot, MicroDirection, ReasoningAdjustment } from "#agents";
+import { parseUsageLimitMode } from "#usage";
 
 abstract class AgentAction extends SingletonAction {
   constructor(private readonly controller: DeckController, private readonly slot: number) { super(); }
@@ -75,7 +75,7 @@ abstract class JoystickAction extends SingletonAction {
   ) { super(); }
 
   override onWillAppear(ev: WillAppearEvent): void {
-    if (ev.action.isKey()) this.controller.registerFixedAction(`joystick-${this.direction}`, ev.action, this.icon);
+    if (ev.action.isKey()) this.controller.registerFixedAction(ev.action, this.icon);
   }
 
   override onWillDisappear(ev: WillDisappearEvent): void {
@@ -103,7 +103,7 @@ class EncoderAction extends SingletonAction {
   constructor(private readonly controller: DeckController) { super(); }
 
   override onWillAppear(ev: WillAppearEvent): void {
-    if (ev.action.isKey()) this.controller.registerFixedAction("reasoning", ev.action, { kind: "local", keycapId: "MIND-" });
+    if (ev.action.isKey()) this.controller.registerFixedAction(ev.action, { kind: "local", keycapId: "MIND-" });
   }
 
   override onWillDisappear(ev: WillDisappearEvent): void {
@@ -128,52 +128,50 @@ class EncoderAction extends SingletonAction {
 }
 
 abstract class ReasoningAdjustmentAction extends SingletonAction {
-  private pressed = false;
-  private repeatTimer?: NodeJS.Timeout;
+  private readonly holds = new Map<string, { timer?: NodeJS.Timeout }>();
 
   constructor(private readonly controller: DeckController, private readonly direction: ReasoningAdjustment) { super(); }
 
   override onWillAppear(ev: WillAppearEvent): void {
     if (ev.action.isKey()) {
-      this.controller.registerFixedAction(`reasoning-${this.direction}`, ev.action, {
-        kind: "local",
-        keycapId: this.direction === "increase" ? "MIND+" : "MIND-"
+      this.controller.registerFixedAction(ev.action, {
+        kind: "local", keycapId: this.direction === "increase" ? "MIND+" : "MIND-"
       });
     }
   }
 
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
-    if (this.pressed) return;
-    this.pressed = true;
-    await this.send(ev);
-    if (this.pressed) this.repeatTimer = setTimeout(() => void this.repeat(ev), 500);
+    if (this.holds.has(ev.action.id)) return;
+    const hold = {};
+    this.holds.set(ev.action.id, hold);
+    await this.repeat(ev, hold, 500);
   }
 
-  override onKeyUp(_ev: KeyUpEvent): void { this.stop(); }
+  override onKeyUp(ev: KeyUpEvent): void { this.stop(ev.action.id); }
   override onWillDisappear(ev: WillDisappearEvent): void {
-    this.stop();
+    this.stop(ev.action.id);
     this.controller.unregisterFixedAction(ev.action);
   }
 
-  private async repeat(ev: KeyDownEvent): Promise<void> {
-    if (!this.pressed) return;
-    await this.send(ev);
-    if (this.pressed) this.repeatTimer = setTimeout(() => void this.repeat(ev), 300);
-  }
-
-  private async send(ev: KeyDownEvent): Promise<void> {
+  private async repeat(ev: KeyDownEvent, hold: { timer?: NodeJS.Timeout }, delay: number): Promise<void> {
+    if (this.holds.get(ev.action.id) !== hold) return;
     try { await this.controller.adjustReasoning(this.direction); }
     catch (error) {
-      this.stop();
+      if (this.holds.get(ev.action.id) !== hold) return;
+      this.stop(ev.action.id);
       streamDeck.logger.error(`Reasoning ${this.direction} failed: ${String(error)}`);
       await ev.action.showAlert();
+      return;
+    }
+    if (this.holds.get(ev.action.id) === hold) {
+      hold.timer = setTimeout(() => void this.repeat(ev, hold, 300), delay);
     }
   }
 
-  private stop(): void {
-    this.pressed = false;
-    if (this.repeatTimer) clearTimeout(this.repeatTimer);
-    this.repeatTimer = undefined;
+  private stop(id: string): void {
+    const hold = this.holds.get(id);
+    if (hold?.timer) clearTimeout(hold.timer);
+    this.holds.delete(id);
   }
 }
 
@@ -181,7 +179,7 @@ abstract class DirectKeycapAction extends SingletonAction {
   constructor(private readonly controller: DeckController, private readonly keycapId: OfficialKeycapId) { super(); }
 
   override onWillAppear(ev: WillAppearEvent): void {
-    if (ev.action.isKey()) this.controller.registerFixedAction(`keycap-${this.keycapId}`, ev.action, { kind: "local", keycapId: this.keycapId });
+    if (ev.action.isKey()) this.controller.registerFixedAction(ev.action, { kind: "local", keycapId: this.keycapId });
   }
 
   override onWillDisappear(ev: WillDisappearEvent): void {
@@ -246,7 +244,7 @@ export class NewTask extends SingletonAction {
   constructor(private readonly controller: DeckController) { super(); }
 
   override onWillAppear(ev: WillAppearEvent): void {
-    if (ev.action.isKey()) this.controller.registerFixedAction("new-task", ev.action, { kind: "local", keycapId: "NEW" });
+    if (ev.action.isKey()) this.controller.registerFixedAction(ev.action, { kind: "local", keycapId: "NEW" });
   }
 
   override onWillDisappear(ev: WillDisappearEvent): void {

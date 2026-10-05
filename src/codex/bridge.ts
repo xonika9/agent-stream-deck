@@ -4,12 +4,12 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import WebSocket from "ws";
-import { buildActiveCatalogDiscoveryExpression, buildSnapshotPayloadExpression } from "./codex-active-catalog-expression.js";
-import { readPinnedSidebarSlots } from "./codex-sidebar.js";
-import { codexDeckStateRoot } from "./codex-deck-paths.js";
+import { buildActiveCatalogDiscoveryExpression, buildSnapshotPayloadExpression } from "./active-catalog-expression.js";
+import { readPinnedSidebarSlots } from "./sidebar.js";
+import { codexDeckStateRoot } from "../runtime/paths.js";
 import { OFFICIAL_KEYCAP_IDS, type OfficialKeycapId } from "./keycaps.js";
 import { CodexSessionOwnershipIndex } from "./session-ownership.js";
-import type { MicroActionSlot, MicroDirection, MicroSnapshot, ReasoningAdjustment } from "./types.js";
+import type { MicroActionSlot, MicroDirection, MicroSnapshot, ReasoningAdjustment } from "#agents";
 
 type DebugTarget = {
   type: string;
@@ -429,6 +429,7 @@ export class CodexMicroRendererBridge {
   private pending = new Map<number, { resolve: (value: CdpResponse) => void; reject: (error: Error) => void; timer: NodeJS.Timeout }>();
   private connecting?: Promise<void>;
   private lastSnapshot?: MicroSnapshot;
+  private readonly agentPresses = new WeakMap<AbortSignal, AgentDispatchPlan>();
   private readonly sessionOwnership = new CodexSessionOwnershipIndex();
   private readonly evaluationNamespace = randomUUID();
 
@@ -447,9 +448,19 @@ export class CodexMicroRendererBridge {
     }
   }
 
-  async sendAgent(slot: number, act: 0 | 1, expectedThreadKey?: string): Promise<void> {
+  async sendAgent(slot: number, act: 0 | 1, expectedThreadKey?: string, signal?: AbortSignal): Promise<void> {
     if (!Number.isInteger(slot) || slot < 0 || slot > 5) throw new Error(`Ungültiger Micro-Agent-Slot: ${slot}`);
+    if (act === 0 && signal) {
+      const pressed = this.agentPresses.get(signal);
+      this.agentPresses.delete(signal);
+      if (!pressed || pressed.kind !== "native" || signal.aborted) return;
+      await this.dispatch("codex-micro-hid-event", {
+        event: { key: `AG0${pressed.slot}`, act: 0, slot: pressed.slot, threadKey: pressed.threadKey }
+      }, "codex-micro-hid-event");
+      return;
+    }
     const snapshot = act === 1 ? await this.refresh() : this.lastSnapshot ?? await this.refresh();
+    if (signal?.aborted) return;
     const plan = resolveAgentDispatch(snapshot, slot, expectedThreadKey);
     if (plan.kind === "native") {
       if (plan.slot !== slot) {
@@ -459,6 +470,7 @@ export class CodexMicroRendererBridge {
         event: { key: `AG0${plan.slot}`, act, slot: plan.slot, threadKey: plan.threadKey }
       }, "codex-micro-hid-event");
       if (act === 0) return;
+      if (signal) this.agentPresses.set(signal, plan);
     } else {
       if (act === 0) return;
       this.log(`Selecting Codex task ${plan.threadKey} by its exact native thread identity.`);
@@ -718,9 +730,25 @@ export class CodexMicroRendererBridge {
 
     const socket = new WebSocket(target.webSocketDebuggerUrl);
     await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("Zeitüberschreitung beim Verbinden mit Codex.")), 3000);
-      socket.once("open", () => { clearTimeout(timer); resolve(); });
-      socket.once("error", (error) => { clearTimeout(timer); reject(error); });
+      const cleanup = () => {
+        clearTimeout(timer);
+        socket.removeListener("open", opened);
+        socket.removeListener("error", failed);
+        socket.removeListener("close", closed);
+      };
+      const opened = () => { cleanup(); resolve(); };
+      const failed = (error: Error) => {
+        cleanup();
+        // ws emits an error when terminating a CONNECTING handshake.
+        socket.once("error", () => undefined);
+        socket.terminate();
+        reject(error);
+      };
+      const closed = () => failed(new Error("Codex closed the bridge during connection."));
+      const timer = setTimeout(() => failed(new Error("Zeitüberschreitung beim Verbinden mit Codex.")), 3000);
+      socket.once("open", opened);
+      socket.once("error", failed);
+      socket.once("close", closed);
     });
     socket.on("message", (raw) => this.handleMessage(String(raw)));
     socket.on("close", () => this.disconnect(socket));

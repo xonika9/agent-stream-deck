@@ -1,4 +1,4 @@
-import type { HostHealth, MicroSnapshot, ThemeMode, UsageLimitMode, UsageSnapshot, UsageWindow, UsageWindowKind } from "./types.js";
+import type { CodexHost, HostSnapshot, HostHealth, MicroSnapshot, ThemeMode, UsageLimitMode, UsageSnapshot, UsageWindow, UsageWindowKind } from "#agents";
 
 export type AccountUsageSource = {
   health: HostHealth;
@@ -62,3 +62,30 @@ export function composeMacUsage(
     resetCreditsApplicable: bridge.resetCreditsApplicable
   };
 }
+
+export function selectAccountUsage(
+  localHost: CodexHost | undefined,
+  localSnapshot: HostSnapshot | undefined,
+  localHealth: HostHealth,
+  codexBarUsage: UsageSnapshot | undefined
+): AccountUsageSource {
+    const bridgeUsage = localSnapshot?.snapshot.usage;
+    const macUsage = composeMacUsage(codexBarUsage, bridgeUsage);
+    const localUsage = localHost?.platform === "darwin" ? macUsage : bridgeUsage;
+    const localUsageHealth: HostHealth = localHost?.platform === "darwin"
+      ? codexBarUsage
+        ? { state: "ready", changedAt: codexBarUsage.observedAt }
+        : localHealth.state === "ready"
+          ? { state: "degraded", reason: "snapshot-stale", changedAt: Date.now() }
+          : localHealth
+      : localUsage
+        ? { state: "ready", changedAt: localUsage.observedAt }
+        : localHealth;
+    return {
+      health: localUsageHealth,
+      hostId: localHost?.hostId,
+      snapshot: localSnapshot?.snapshot,
+      usage: localUsage,
+      theme: localSnapshot?.snapshot.theme
+    };
+  }

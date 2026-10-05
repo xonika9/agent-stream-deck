@@ -1,5 +1,7 @@
+import { CodexSource } from "#codex";
+import { OpenCodeSource } from "#opencode";
 import streamDeck from "@elgato/streamdeck";
-import { DeckController, type AgentDisplaySettings } from "./controller.js";
+import { DeckController, type AgentDisplaySettings } from "#stream-deck";
 import {
   Agent1, Agent2, Agent3, Agent4, Agent5, Agent6,
   Approve, Back, Decline, Dictation, Fast, Fork, Forward, NewTask,
@@ -11,9 +13,12 @@ import {
   KeycapSideChat, KeycapSkills, KeycapSplit, KeycapTasks, KeycapTerminal,
   Plan, RateLimitReset, Reasoning, ReasoningDown, ReasoningUp, Send, Sidebar,
   UsageLimit, UsageOverview
-} from "./actions.js";
+} from "#stream-deck";
 
-const controller = new DeckController();
+const controller = new DeckController({
+  codex: new CodexSource(message => streamDeck.logger.info(message), message => streamDeck.logger.warn(message)),
+  openCode: new OpenCodeSource(message => streamDeck.logger.warn(message))
+});
 
 streamDeck.settings.onDidReceiveGlobalSettings<AgentDisplaySettings>((event) => {
   controller.setAgentDisplaySettings(event.settings);

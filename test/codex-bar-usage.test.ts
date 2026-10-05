@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CODEX_BAR_FRESH_MS, parseCodexBarUsage } from "../src/codex-bar-usage.js";
+import { CODEX_BAR_FRESH_MS, parseCodexBarUsage } from "#usage";
 
 const NOW = Date.parse("2026-09-17T20:00:00Z");
 

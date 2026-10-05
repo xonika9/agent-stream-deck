@@ -36,5 +36,12 @@
     "esbuild": "0.28.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
+  },
+  "imports": {
+    "#codex": "./src/codex/index.ts",
+    "#opencode": "./src/opencode/index.ts",
+    "#agents": "./src/agents/index.ts",
+    "#stream-deck": "./src/stream-deck/index.ts",
+    "#usage": "./src/usage/index.ts"
   }
 }

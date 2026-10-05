@@ -1,4 +1,4 @@
-import { threadIdentity, validTimestamp, type HostSnapshot } from "./codex-local-state.js";
+import { threadIdentity, validTimestamp, type HostSnapshot } from "./local-state.js";
 import type { RoutedAgentSlot } from "./types.js";
 
 type QueueCandidate = {

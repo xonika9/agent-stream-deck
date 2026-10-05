@@ -3,8 +3,8 @@ import { appendFile, mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promi
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { CodexSessionOwnershipIndex, sessionIdFromRolloutFilename, sessionIdFromThreadKey } from "../src/session-ownership.js";
-import type { MicroSnapshot } from "../src/types.js";
+import { CodexSessionOwnershipIndex, sessionIdFromRolloutFilename, sessionIdFromThreadKey } from "#codex";
+import type { MicroSnapshot } from "#agents";
 
 const owned = "019f7336-04a2-72f1-af41-2f216ccdc3d0";
 const mirrored = "019f6de7-44c2-7fe2-9d17-9322c952e626";

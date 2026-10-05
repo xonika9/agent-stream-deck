@@ -7,7 +7,7 @@ test("context rings are optional in Stream Deck", async () => {
     readFile(new URL("../static/manifest.json", import.meta.url), "utf8"),
     readFile(new URL("../static/property-inspector/agent.html", import.meta.url), "utf8"),
     readFile(new URL("../src/plugin.ts", import.meta.url), "utf8"),
-    readFile(new URL("../src/render.ts", import.meta.url), "utf8")
+    readFile(new URL("../src/stream-deck/render.ts", import.meta.url), "utf8")
   ]);
   assert.equal((manifest.match(/static\/property-inspector\/agent\.html/g) ?? []).length, 6);
   assert.match(inspector, /getGlobalSettings/);

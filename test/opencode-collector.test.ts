@@ -4,7 +4,7 @@ import {
   OpenCodeCollector,
   type OpenCodeCollectorDependencies,
   type OpenCodeProcess
-} from "../src/opencode/collector.js";
+} from "#opencode";
 
 const SECRET = "0123456789abcdef0123456789abcdef";
 const HOME = "/fixture/home";
@@ -704,4 +704,77 @@ test("stop tears down every SSH process group", async () => {
   assert.equal(Object.keys(setup.spawnCalls[0]!.env).some((key) => /password|token|secret/iu.test(key)), false);
   assert.equal(JSON.stringify(snapshot).includes("test-host"), false);
   assert.equal(JSON.stringify(snapshot).includes("Private name"), false);
+});
+
+
+function sshProcesses(discoveryPid: number, tunnelPid: number, servicePid = 77): OpenCodeProcess[] {
+  return [
+    { pid: discoveryPid, stdout: `OPENCODE_SERVICE_STATUS=http://0.0.0.0:4096\nOPENCODE_REGISTRATION_BEGIN\n${JSON.stringify(localRegistration({ url: "http://0.0.0.0:4096", pid: servicePid }))}\nOPENCODE_REGISTRATION_END\n`, stderr: "", exited: Promise.resolve(0), write() {}, end() {}, kill() {} },
+    { pid: tunnelPid, stdout: "", stderr: "", exited: new Promise(() => undefined), write() {}, end() {}, kill() {} }
+  ];
+}
+
+test("SSH identity replacement evicts its tunnel and rediscovers without interrupting the local source", async () => {
+  let pid = 77;
+  const routes = basicRoutes();
+  routes["127.0.0.1:43123/api/info"] = ({ authorization }) => authorization ? response({ version: "2.0.5", pid }) : response({}, 401);
+  const setup = fixture({ files: { [SETTINGS]: { body: { "ssh.servers": [{ id: "saved", target: "fixture-host", name: "Fixture" }] } }, [`${STATE}/service.json`]: { body: localRegistration() } }, routes, processes: [...sshProcesses(8001, 8002), ...sshProcesses(8003, 8004, 78)] });
+  const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
+  try {
+    assert.ok((await collector.start()).connections.every(item => item.health === "ready"));
+    pid = 78;
+    const incompatible = await collector.refresh();
+    assert.deepEqual(incompatible.connections.map(item => item.health).sort(), ["incompatible", "ready"]);
+    assert.deepEqual(setup.terminated, [8002]);
+    const recovered = await collector.refresh();
+    assert.ok(recovered.connections.every(item => item.health === "ready"));
+    assert.equal(setup.spawnCalls.length, 4);
+  } finally { await collector.stop(); }
+});
+
+test("authoritative SSH settings replace changed targets and remove only their own tunnels", async () => {
+  const files: Record<string, FileEntry> = { [SETTINGS]: { body: { "ssh.servers": [{ id: "saved", target: "fixture-one", name: "Fixture" }, { id: "retained", target: "fixture-retained", name: "Retained" }] } } };
+  const routes = basicRoutes();
+  routes["/api/info"] = ({ authorization }) => authorization ? response({ version: "2.0.5", pid: 77 }) : response({}, 401);
+  const setup = fixture({ files, routes, processes: [sshProcesses(8101, 8102)[0]!, sshProcesses(8111, 8112)[0]!, sshProcesses(8101, 8102)[1]!, sshProcesses(8111, 8112)[1]!, ...sshProcesses(8103, 8104)] });
+  const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
+  try {
+    await collector.start();
+    files[SETTINGS]!.safe = false;
+    await collector.refresh();
+    assert.deepEqual(setup.terminated, [], "unreadable settings cannot prove removal");
+    files[SETTINGS] = { body: { "ssh.servers": [{ id: "saved", target: "fixture-two", name: "Fixture" }, { id: "retained", target: "fixture-retained", name: "Retained" }] } };
+    await collector.refresh();
+    assert.deepEqual(setup.terminated, [8102]);
+    assert.ok(setup.spawnCalls[4]!.args.includes("fixture-two"));
+    files[SETTINGS] = { body: { "ssh.servers": [{ id: "retained", target: "fixture-retained", name: "Retained" }] } };
+    const retained = await collector.refresh();
+    assert.equal(retained.connections.length, 1);
+    assert.equal(retained.connections[0]!.health, "ready");
+    assert.equal(setup.spawnCalls.length, 6);
+    assert.deepEqual(setup.terminated, [8102, 8104]);
+  } finally { await collector.stop(); }
+});
+
+test("stop discards a late authenticated snapshot and never starts its polling interval", async () => {
+  let arrived!: () => void;
+  const arrival = new Promise<void>(resolve => { arrived = resolve; });
+  let finish!: () => void;
+  const delayed = new Promise<void>(resolve => { finish = resolve; });
+  const routes = basicRoutes();
+  routes["/api/session/active"] = async () => {
+    arrived();
+    await delayed;
+    return response({ data: { ses_late: { type: "running" } } });
+  };
+  routes["/api/session/ses_late"] = response({ data: session("ses_late", 999_900) });
+  const setup = fixture({ files: { [`${STATE}/service.json`]: { body: localRegistration() } }, routes });
+  const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
+  const started = collector.start();
+  await arrival;
+  const stopped = collector.stop();
+  finish();
+  await Promise.all([started, stopped]);
+  assert.deepEqual(collector.snapshot(), { version: 1, observedAt: 0, connections: [] });
+  assert.deepEqual(setup.intervals, []);
 });

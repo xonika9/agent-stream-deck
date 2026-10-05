@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildCodexLaunchSpec, buildLaunchAgentPlist, buildWatcherLaunchScript, parseDebugPort } from "../launcher/macos/codex-deck-macos.js";
-import { codexDeckStateRoot } from "../src/codex-deck-paths.js";
+import { codexDeckStateRoot } from "../src/runtime/paths.js";
 
 test("macOS launcher uses LaunchServices and passes loopback-only CDP arguments", () => {
   const spec = buildCodexLaunchSpec({ appPath: "/Applications/Unexpected Codex Name.app" }, 43123);

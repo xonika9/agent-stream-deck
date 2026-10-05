@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { renderRateLimitResetKey, renderUsageLimitKey, renderUsageOverviewKey } from "../src/render.js";
-import type { MicroSnapshot, UsageSnapshot, UsageWindow } from "../src/types.js";
-import { composeMacUsage, parseUsageLimitMode, selectUsageWindow, usageTheme, usageWindowKind } from "../src/usage.js";
+import { renderRateLimitResetKey, renderUsageLimitKey, renderUsageOverviewKey } from "#stream-deck";
+import type { MicroSnapshot, UsageSnapshot, UsageWindow } from "#agents";
+import { composeMacUsage, parseUsageLimitMode, selectUsageWindow, usageTheme, usageWindowKind } from "#usage";
 
 const fiveHour: UsageWindow = {
   id: "five-hour", kind: "five-hour", usedPercent: 26, remainingPercent: 74,
@@ -64,7 +64,7 @@ test("macOS never falls back to renderer quota windows", () => {
 });
 
 test("renderer refreshes stale account usage without waiting for application focus", async () => {
-  const bridge = await readFile(new URL("../src/codex-micro-renderer-bridge.ts", import.meta.url), "utf8");
+  const bridge = await readFile(new URL("../src/codex/bridge.ts", import.meta.url), "utf8");
   assert.match(bridge, /Symbol\.for\('codex-deck-rate-limit-refresh-at'\)/);
   assert.match(bridge, /now - dataUpdatedAt >= 15000/);
   assert.match(bridge, /Promise\.resolve\(query\.fetch\(\)\)\.catch/);
@@ -111,7 +111,7 @@ test("usage actions and property inspector are packaged without official keycap 
   const [manifestSource, inspector, bridge] = await Promise.all([
     readFile(new URL("../static/manifest.json", import.meta.url), "utf8"),
     readFile(new URL("../static/property-inspector/usage-limit.html", import.meta.url), "utf8"),
-    readFile(new URL("../src/codex-micro-renderer-bridge.ts", import.meta.url), "utf8")
+    readFile(new URL("../src/codex/bridge.ts", import.meta.url), "utf8")
   ]);
   const manifest = JSON.parse(manifestSource) as { Actions: Array<{ UUID: string; PropertyInspectorPath?: string }> };
   const actions = new Map(manifest.Actions.map((action) => [action.UUID, action]));

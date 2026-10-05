@@ -1,5 +1,5 @@
-import type { AgentVisualStatus, HostHealthState, ThemeMode, UsageWindow, UsageWindowKind } from "./types.js";
-import { clampPercent, usageLabel } from "./usage.js";
+import type { AgentVisualStatus, HostHealthState, ThemeMode, UsageWindow, UsageWindowKind } from "#agents";
+import { clampPercent, usageLabel } from "#usage";
 
 export type BuiltinIconName = "back" | "forward" | "sidebar" | "home" | "navigation";
 

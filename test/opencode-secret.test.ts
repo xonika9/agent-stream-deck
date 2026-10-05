@@ -3,7 +3,7 @@ import { chmod, mkdtemp, readFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { getOrCreateOpenCodeIdentitySecret } from "../src/opencode-secret.js";
+import { getOrCreateOpenCodeIdentitySecret } from "#opencode";
 
 test("creates and reuses a user-only OpenCode identity secret", async () => {
   const root = await mkdtemp(join(tmpdir(), "codex-deck-secret-"));

@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { hostname } from "node:os";
 import { dirname, join } from "node:path";
-import { codexDeckStateRoot } from "./codex-deck-paths.js";
-import type { CodexHost } from "./types.js";
+import { codexDeckStateRoot } from "./paths.js";
+import type { CodexHost } from "#agents";
 
 const HOST_FILE = join(codexDeckStateRoot(), "host.json");
 
