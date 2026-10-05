@@ -8,8 +8,8 @@ Until the first xonika9 release is published, security fixes target the current
 ## Reporting
 
 Report vulnerabilities through GitHub's private vulnerability reporting for
-`xonika9/codex-stream-deck`:
-<https://github.com/xonika9/codex-stream-deck/security/advisories/new>.
+`xonika9/agent-stream-deck`:
+<https://github.com/xonika9/agent-stream-deck/security/advisories/new>.
 Do not publish a working exploit, authentication data, Codex databases, rollout
 files, or local official SVG assets in a public issue.
 

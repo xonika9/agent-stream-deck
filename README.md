@@ -8,7 +8,7 @@
 
 # Agent Deck
 
-[![CI workflow status](https://github.com/xonika9/codex-stream-deck/actions/workflows/ci.yml/badge.svg)](https://github.com/xonika9/codex-stream-deck/actions/workflows/ci.yml)
+[![CI workflow status](https://github.com/xonika9/agent-stream-deck/actions/workflows/ci.yml/badge.svg)](https://github.com/xonika9/agent-stream-deck/actions/workflows/ci.yml)
 
 Agent Deck brings Codex, OpenCode, and T3 Code tasks together on an Elgato Stream Deck. On macOS, six dynamic keys show tasks from one source or all three; Windows retains the local Codex integration. Codex also supports native Micro controls for task selection, actions, navigation, and reasoning effort. OpenCode and T3 Code keys show task status and bring their application to the foreground.
 
@@ -59,7 +59,7 @@ Other Stream Deck models may work, but the included layout and physical-device t
 ## Quick install
 
 > [!NOTE]
-> Download the plugin and launcher archives from the [releases page](https://github.com/xonika9/codex-stream-deck/releases). Contributors can build the source with the commands in [Build and release validation](#build-and-release-validation).
+> Download the plugin and launcher archives from the [releases page](https://github.com/xonika9/agent-stream-deck/releases). Contributors can build the source with the commands in [Build and release validation](#build-and-release-validation).
 
 1. Download `com.xonika9.codex-deck.streamDeckPlugin` from the matching xonika9 release and open it on the computer running Stream Deck.
 2. Download only the launcher for that computer:
@@ -186,7 +186,7 @@ Do not use the launcher while running untrusted local software. See [SECURITY.md
 
 ## Compatibility
 
-Compatibility is versioned with each release because Agent Deck depends on undocumented Codex desktop internals. Consult the notes and validation evidence on the [releases page](https://github.com/xonika9/codex-stream-deck/releases) for the tested combinations.
+Compatibility is versioned with each release because Agent Deck depends on undocumented Codex desktop internals. Consult the notes and validation evidence on the [releases page](https://github.com/xonika9/agent-stream-deck/releases) for the tested combinations.
 
 OpenCode and T3 Code support is macOS-only and depends on their supported API contracts; see [OpenCode compatibility](docs/OPENCODE_COMPATIBILITY.md) and [T3 setup and compatibility](docs/T3CODE_COMPATIBILITY.md).
 

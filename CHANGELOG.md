@@ -15,7 +15,7 @@ Versions through `0.7.0.2` below are the historical upstream releases by Dazer. 
 
 - T3 collection is macOS-only. Windows installation and existing actions remain supported; remote Linux hosts supply tasks rather than running the Stream Deck plugin.
 - T3 button presses bring T3 Code to the foreground without selecting a specific conversation. Fresh completed/failed results leave the queue when their button is pressed, the result is reported viewed, or five minutes pass; a newer result can return.
-- T3 setup requires a separate read-only connection; SSH setup requires a trusted saved host, Python 3, and an already-running remote T3 server. No desktop credential decryption, service startup, relay, or Codex endpoint forwarding is added. See [T3 setup and compatibility](https://github.com/xonika9/codex-stream-deck/blob/v2.1.0/docs/T3CODE_COMPATIBILITY.md).
+- T3 setup requires a separate read-only connection; SSH setup requires a trusted saved host, Python 3, and an already-running remote T3 server. No desktop credential decryption, service startup, relay, or Codex endpoint forwarding is added. See [T3 setup and compatibility](https://github.com/xonika9/agent-stream-deck/blob/v2.1.0/docs/T3CODE_COMPATIBILITY.md).
 - The Both selector option is removed. Its stored value is accepted as All, which includes T3 tasks when connected.
 
 ### Validation
