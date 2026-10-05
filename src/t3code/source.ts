@@ -6,6 +6,8 @@ import { join } from "node:path";
 import type { CodexHost, HostHealth, RoutedAgentSlot, TaskSource } from "#agents";
 import { codexDeckStateRoot } from "../runtime/paths.js";
 
+import { t3SshRequest, validateSshConnection } from "./ssh.js";
+
 const TERMINAL_WINDOW_MS = 5 * 60_000;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 type RecordValue = Record<string, unknown>;
@@ -59,49 +61,49 @@ export class T3CodeSource {
     this.request = request;
     try {
       const config = await readPrivateConfig(this.configPath);
-      const origin = loopbackOrigin(config.origin);
-      const token = config.token;
-      if (typeof token !== "string" || !/^[A-Za-z0-9._~+/-]{1,8192}={0,2}$/u.test(token))
-        throw new Error("Invalid token");
-      const runtime = object(JSON.parse(await readFile(this.runtimePath, "utf8")));
-      if (
-        runtime.version !== 1 ||
-        runtime.origin !== origin ||
-        !Number.isSafeInteger(runtime.pid) ||
-        Number(runtime.pid) <= 0
-      )
-        throw new Error("Invalid runtime");
-      process.kill(Number(runtime.pid), 0);
-      const response = await fetch(`${origin}/api/orchestration/shell`, {
-        headers: { authorization: `Bearer ${token}`, "x-t3-orchestration-protocol": "2" },
-        redirect: "error",
-        signal: AbortSignal.any([request.signal, AbortSignal.timeout(4_000)]),
-      });
-      if (!response.ok || !response.body) throw new Error("Shell unavailable");
-      const chunks: Uint8Array[] = [];
-      let bytes = 0;
-      for await (const chunk of response.body) {
-        bytes += chunk.byteLength;
-        if (bytes > MAX_RESPONSE_BYTES) {
-          request.abort();
-          throw new Error("Shell too large");
-        }
-        chunks.push(chunk);
-      }
-      const shell = object(JSON.parse(Buffer.concat(chunks).toString("utf8")));
-      if (!Number.isSafeInteger(shell.schemaVersion) || !Array.isArray(shell.threads) || shell.threads.length > 10_000)
-        throw new Error("Unsupported shell");
       const now = Date.now();
-      const slots = shell.threads.flatMap((value, index) => {
-        const slot = this.taskSlot(object(value), index, now);
-        return slot ? [slot] : [];
+      const environments = new Set<string>();
+      const snapshots = [
+        this.localShell(config, request),
+        ...(Array.isArray(config.sshConnections) && config.sshConnections.length <= 8
+          ? config.sshConnections.map(async (value) => {
+              const connection = validateSshConnection(value);
+              if (environments.has(connection.environmentId)) throw new Error("Duplicate T3 environment");
+              environments.add(connection.environmentId);
+              const shell = object(await t3SshRequest(connection.host, connection, request.signal));
+              return { shell, namespace: `ssh:${connection.environmentId}:` };
+            })
+          : config.sshConnections === undefined
+            ? []
+            : [Promise.reject(new Error("Invalid SSH connections"))]),
+      ];
+      const results = await Promise.allSettled(
+        snapshots.map(async (snapshot) => {
+          const { shell, namespace } = await snapshot;
+          if (
+            !Number.isSafeInteger(shell.schemaVersion) ||
+            !Array.isArray(shell.threads) ||
+            shell.threads.length > 10_000
+          )
+            throw new Error("Unsupported shell");
+          return shell.threads.flatMap((value, index) => {
+            const slot = this.taskSlot(object(value), index, Date.now(), namespace);
+            return slot ? [slot] : [];
+          });
+        }),
+      );
+      const slots = results.flatMap((result) => {
+        if (result.status === "rejected") return [];
+        return result.value;
       });
       if (generation !== this.generation || request.signal.aborted) return;
       this.slots = slots;
       const present = new Set(slots.map((slot) => slot.threadKey));
       for (const [id, at] of this.acknowledged)
         if (!present.has(id) && now - at > TERMINAL_WINDOW_MS) this.acknowledged.delete(id);
-      this.health = { state: "ready", changedAt: now };
+      this.health = results.some((result) => result.status === "rejected")
+        ? { state: "degraded", reason: "native-signals-unavailable", changedAt: now }
+        : { state: "ready", changedAt: now };
     } catch {
       if (generation !== this.generation || (request.signal.aborted && this.request !== request)) return;
       const wasDegraded = this.health.state === "degraded";
@@ -111,6 +113,42 @@ export class T3CodeSource {
     } finally {
       if (this.request === request) this.request = undefined;
     }
+  }
+
+  private async localShell(
+    config: RecordValue,
+    request: AbortController,
+  ): Promise<{ shell: RecordValue; namespace: string }> {
+    const origin = loopbackOrigin(config.origin);
+    const token = config.token;
+    if (typeof token !== "string" || !/^[A-Za-z0-9._~+/-]{1,8192}={0,2}$/u.test(token))
+      throw new Error("Invalid token");
+    const runtime = object(JSON.parse(await readFile(this.runtimePath, "utf8")));
+    if (
+      runtime.version !== 1 ||
+      runtime.origin !== origin ||
+      !Number.isSafeInteger(runtime.pid) ||
+      Number(runtime.pid) <= 0
+    )
+      throw new Error("Invalid runtime");
+    process.kill(Number(runtime.pid), 0);
+    const response = await fetch(`${origin}/api/orchestration/shell`, {
+      headers: { authorization: `Bearer ${token}`, "x-t3-orchestration-protocol": "2" },
+      redirect: "error",
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(4_000)]),
+    });
+    if (!response.ok || !response.body) throw new Error("Shell unavailable");
+    const chunks: Uint8Array[] = [];
+    let bytes = 0;
+    for await (const chunk of response.body) {
+      bytes += chunk.byteLength;
+      if (bytes > MAX_RESPONSE_BYTES) {
+        throw new Error("Shell too large");
+      }
+      chunks.push(chunk);
+    }
+    const shell = object(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+    return { shell, namespace: "" };
   }
 
   async open(assignment: RoutedAgentSlot, signal: AbortSignal): Promise<boolean> {
@@ -127,7 +165,7 @@ export class T3CodeSource {
     return true;
   }
 
-  private taskSlot(thread: RecordValue, index: number, now: number): RoutedAgentSlot | null {
+  private taskSlot(thread: RecordValue, index: number, now: number, namespace = ""): RoutedAgentSlot | null {
     if (
       typeof thread.id !== "string" ||
       !thread.id ||
@@ -163,7 +201,7 @@ export class T3CodeSource {
         terminalAt === undefined ||
         now - terminalAt > TERMINAL_WINDOW_MS ||
         terminalAt > now + 60_000 ||
-        this.acknowledged.get(thread.id) === terminalAt ||
+        this.acknowledged.get(namespace + thread.id) === terminalAt ||
         (timestamp(thread.lastVisitedAt) ?? 0) >= terminalAt
       )
         return null;
@@ -175,8 +213,8 @@ export class T3CodeSource {
       catalogIndex: index,
       taskSource: "t3code",
       host: this.host!,
-      threadKey: thread.id,
-      conversationId: thread.id,
+      threadKey: namespace + thread.id,
+      conversationId: namespace + thread.id,
       title:
         thread.title
           .replace(/[\p{Cc}\p{Cf}]/gu, " ")

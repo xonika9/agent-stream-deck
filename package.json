@@ -26,7 +26,8 @@
     "release:prepare": "node scripts/prepare-release.mjs",
     "lint": "biome check . --error-on-warnings",
     "check:boundaries": "biome lint src --only=suspicious/noImportCycles --only=style/noRestrictedImports --only=style/noRestrictedGlobals --only=plugin --error-on-warnings",
-    "connect:t3": "node scripts/connect-t3.mjs"
+    "connect:t3": "node scripts/connect-t3.mjs",
+    "connect:t3:ssh": "tsx scripts/connect-t3-ssh.ts"
   },
   "dependencies": {
     "@elgato/streamdeck": "3.0.1",

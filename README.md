@@ -218,4 +218,5 @@ Current local metadata identifies OpenCode `2.0.22`, Stream Deck `7.6.0` (build 
 
 Agent keys offer `Codex`, `OpenCode`, `T3 Code`, and `All` (all three sources).
 Saved `Both` settings migrate to `All`. Connect the local T3 server using its separate read-only
-session before selecting these modes; see [setup and compatibility](docs/T3CODE_COMPATIBILITY.md).
+session before selecting these modes. Remote Linux T3 tasks can be added with
+`npm run connect:t3:ssh -- <ssh-alias>`; see [setup and compatibility](docs/T3CODE_COMPATIBILITY.md).

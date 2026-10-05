@@ -233,7 +233,9 @@ add a newly verified live Codex version or replace application/device acceptance
 Launcher updates validate their complete autonomous runtime before replacing the owned watcher. Startup acknowledgement belongs to the newly launched process; a historical log line is insufficient. Windows recovery reserves a global ten-minute cooldown before attempting a restart and retains it on failure.
 
 T3 Code is an independent macOS source under `src/t3code`, using the local V2
-HTTP shell and a separately paired read-only session. The selector offers each source separately
+HTTP shell and separately paired read-only sessions. Explicitly configured remote
+Linux environments are polled through strict non-interactive SSH; they use their
+own loopback shell and retain environment-scoped task identities. The selector offers each source separately
 and `All` for all three; legacy `Both` settings resolve to `All`. Its opaque task identities are isolated
 from Codex conversation mirrors. See [T3 Code compatibility](T3CODE_COMPATIBILITY.md)
 for setup, queue acknowledgement, limits and validation boundaries.

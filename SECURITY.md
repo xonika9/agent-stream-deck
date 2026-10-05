@@ -33,4 +33,13 @@ and group/other-readable configuration. The saved origin must be loopback HTTP
 and match T3 runtime registration with a live process. Redirects are rejected,
 requests are bounded, and credentials are never logged or put in Stream Deck
 global settings. No T3 command dispatch, database access, desktop credential
-decryption, or remote transport is added. See `docs/T3CODE_COMPATIBILITY.md`.
+decryption, or public network HTTP access is added. See `docs/T3CODE_COMPATIBILITY.md`.
+
+T3 remote monitoring accepts explicitly configured SSH aliases only. It uses
+non-interactive SSH with strict existing host-key checking and disables local
+commands and forwarding. A setup command pairs a separate read-only session using
+the already-running Linux server executable; polling checks its registered runtime
+and saved environment identity and performs loopback HTTP inside that SSH host.
+Tokens pass through stdin, never argv or logs. Responses are bounded and each
+failed environment loses its stale cards without erasing successful snapshots.
+No remote service, relay or tunnel is started.

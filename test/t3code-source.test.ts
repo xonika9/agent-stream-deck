@@ -84,6 +84,15 @@ test("authenticated T3 shell becomes a queue, acknowledges only the displayed re
         ["failed", "error"],
       ],
     );
+    await writeFile(
+      configPath,
+      JSON.stringify({ origin, token: "fixture-token", sshConnections: [{ host: "-invalid" }] }),
+    );
+    await source.refresh();
+    assert.equal(source.health.state, "degraded");
+    assert.equal(source.slots.length, 4, "an unavailable SSH source must preserve the successful local snapshot");
+    await writeFile(configPath, JSON.stringify({ origin, token: "fixture-token" }));
+    await source.refresh();
     const assignment = source.slots[1]!;
     assert.equal(await source.open(assignment, new AbortController().signal), true);
     assert.equal(opened, 1);

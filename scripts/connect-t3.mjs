@@ -2,6 +2,7 @@ import { constants } from "node:fs";
 import { mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { withT3ConfigLock } from "./t3-config-lock.mjs";
 
 async function connect() {
   // A pairing credential arrives through stdin, never argv, logs, or Stream Deck global settings.
@@ -60,6 +61,22 @@ async function connect() {
   const root = join(homedir(), "Library", "Application Support", "CodexDeck");
   await mkdir(root, { recursive: true, mode: 0o700 });
   const path = join(root, "t3code.json");
+  let sshConnections;
+  try {
+    const existing = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    try {
+      const info = await existing.stat();
+      if (!info.isFile() || info.uid !== process.getuid() || (info.mode & 0o077) !== 0 || info.size > 16384)
+        throw new Error("Unprotected configuration");
+      sshConnections = JSON.parse(await existing.readFile("utf8")).sshConnections;
+    } finally {
+      await existing.close();
+    }
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  const contents = `${JSON.stringify({ origin: url.origin, token, sshConnections })}\n`;
+  if (Buffer.byteLength(contents) > 16384) throw new Error("Configuration too large");
   const temporary = `${path}.${process.pid}.tmp`;
   const file = await open(
     temporary,
@@ -67,7 +84,7 @@ async function connect() {
     0o600,
   );
   try {
-    await file.writeFile(`${JSON.stringify({ origin: url.origin, token })}\n`);
+    await file.writeFile(contents);
     await file.close();
     await rename(temporary, path);
   } catch (error) {
@@ -79,7 +96,7 @@ async function connect() {
 }
 
 try {
-  await connect();
+  await withT3ConfigLock(connect);
 } catch {
   console.error(
     "T3 Code connection failed. Check the running local server and create a fresh pairing credential; existing configuration was preserved unless pairing succeeded.",

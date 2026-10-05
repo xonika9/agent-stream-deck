@@ -32,7 +32,28 @@ sessions require connecting again. The plugin never issues credentials itself.
 The adapter reads `~/.t3/userdata/server-runtime.json`, checks that the recorded
 process is alive and its origin matches the connection, and sends only loopback
 HTTP requests. A changed server port requires connecting again. Custom base
-folders and remote T3 servers are outside this initial integration.
+folders remain unsupported. Remote Linux T3 servers can be added over SSH as described below.
+
+## Connect a remote Linux server
+
+With T3 already running remotely and the SSH host saved in your SSH configuration,
+run `npm run connect:t3:ssh -- <ssh-alias>`. Python 3 must be available on the remote
+host; its existing host key must already be trusted. The connector uses non-interactive
+SSH with strict host-key checking, discovers the already-running T3 executable, and
+creates a separate `orchestration:read` session through its official pairing CLI.
+Both setup commands serialize configuration updates with a user-private lock, so
+concurrent connections cannot overwrite each other. If a setup process is forcibly
+killed, confirm no setup command is running before removing the private
+`t3code-connect.lock` file and retrying. The connector preserves the local connection. Re-running for an already connected alias checks
+and reuses that session. To replace a revoked session, remove only its entry from the
+private `sshConnections` array and reconnect. Up to eight remote connections are supported.
+
+The plugin polls each saved environment over SSH. Credentials travel through stdin,
+never command arguments, desktop credential decryption, or public HTTP. The remote
+runtime must remain live and its environment identity must match the saved identity.
+No service is started, no tunnel is opened, and no Codex endpoint is forwarded.
+The remote server uses its loopback HTTP endpoint internally. Remote identities are
+namespaced by environment, so equal thread IDs cannot collide with local tasks.
 
 ## Queue behavior
 
@@ -54,9 +75,11 @@ It does not navigate to a specific chat or publish a visited update. A newer
 terminal timestamp admits the result again. Key-up sends no Codex command.
 T3 keys display `T3` and have no Codex context ring.
 
-Missing credentials, unsupported response shapes, HTTP failure, excessive
-response size or timeouts produce degraded health and clear stale tasks.
+Missing credentials, unsupported response shapes, HTTP/SSH failure, excessive
+response size or timeouts produce degraded health and clear stale tasks from the
+failing connection while retaining successful environments.
 HTTP requests have a four-second budget and a two-MiB response limit.
+SSH polling has a four-second total budget (pairing setup allows ten seconds) and the same two-MiB output limit.
 Acknowledgements are process-local and are never distributed or persisted.
 
 ## Evidence
@@ -69,3 +92,7 @@ revision acknowledgement. Build/package checks do not establish live-app or
 physical Stream Deck acceptance. Live acceptance requires creating the separate
 connection above and checking running, approval, completion and failure states
 in the installed plugin; physical-device testing must be recorded separately.
+
+Live macOS verification on 2026-10-05 confirmed two running local tasks and one
+running Fedora task in the same source. This is application validation, not physical
+button testing; Windows T3 collection remains unsupported.

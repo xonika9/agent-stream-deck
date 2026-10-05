@@ -58,13 +58,17 @@ test("T3 connector requests only read access, saves a protected token, and never
       join(home, ".t3", "userdata", "server-runtime.json"),
       JSON.stringify({ version: 1, origin, pid: process.pid }),
     );
+    const privateRoot = join(home, "Library", "Application Support", "CodexDeck");
+    await mkdir(privateRoot, { recursive: true });
+    const remote = { host: "fixture-host", environmentId: "fixture-environment", token: "remote-fixture" };
+    await writeFile(join(privateRoot, "t3code.json"), JSON.stringify({ sshConnections: [remote] }), { mode: 0o600 });
     const result = await run(JSON.stringify({ credential: "pairing-fixture" }));
     assert.equal(result.code, 0, result.output);
     assert.match(result.output, /T3 Code connected/u);
     assert.doesNotMatch(result.output, /pairing-fixture|access-fixture/u);
     const configPath = join(home, "Library", "Application Support", "CodexDeck", "t3code.json");
     const contents = await readFile(configPath, "utf8");
-    assert.deepEqual(JSON.parse(contents), { origin, token: "access-fixture" });
+    assert.deepEqual(JSON.parse(contents), { origin, token: "access-fixture", sshConnections: [remote] });
     assert.equal((await stat(configPath)).mode & 0o777, 0o600);
     const invalid = await run('{"credential":"private-malformed-fixture"');
     assert.equal(invalid.code, 1);
@@ -75,4 +79,15 @@ test("T3 connector requests only read access, saves a protected token, and never
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await rm(home, { recursive: true, force: true });
   }
+});
+
+test("T3 SSH monitoring rejects command syntax and SSH options before starting a connection", async () => {
+  const { t3SshRequest, validateSshConnection } = await import("#t3code");
+  for (const host of ["-oProxyCommand=command", "host;command", "host\ncommand", "ssh user@host", "$(command)"]) {
+    await assert.rejects(t3SshRequest(host, {}, new AbortController().signal), /Invalid T3 SSH host/u);
+  }
+  assert.throws(
+    () => validateSshConnection({ host: "saved-host", environmentId: "identity", token: "token\nheader" }),
+    /Invalid T3 SSH connection/u,
+  );
 });
