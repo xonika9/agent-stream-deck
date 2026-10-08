@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { getOrCreateOpenCodeIdentitySecret } from "#opencode";
 
-test("creates and reuses a user-only OpenCode identity secret", async () => {
+test("creates and reuses a user-only OpenCode identity secret", { skip: process.platform === "win32" }, async () => {
   const root = await mkdtemp(join(tmpdir(), "codex-deck-secret-"));
   try {
     const first = await getOrCreateOpenCodeIdentitySecret(root);

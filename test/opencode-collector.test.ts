@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import nodeTest, { type TestContext } from "node:test";
 import { OpenCodeCollector, type OpenCodeCollectorDependencies, type OpenCodeProcess } from "#opencode";
 import { findOrphanedTunnels, sshCommonArgs, sshTunnelArgs, TUNNEL_FORWARD_PLACEHOLDER } from "../src/opencode/ssh.js";
+
+// OpenCode collection is macOS-only (`shouldCollectOpenCode` returns false on Windows), so its tests skip there.
+const OPENCODE_PLATFORM_SKIP = process.platform === "win32" ? "OpenCode collection runs only on macOS" : false;
+
+function test(name: string, fn: (context: TestContext) => void | Promise<void>): void {
+  void nodeTest(name, { skip: OPENCODE_PLATFORM_SKIP }, fn);
+}
 
 const SECRET = "0123456789abcdef0123456789abcdef";
 const HOME = "/fixture/home";

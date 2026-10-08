@@ -37,7 +37,8 @@ try {
   $fallback = Join-Path $fixture 'release/codex-deck-launcher'
   New-Item -ItemType Directory -Path $fallback -Force | Out-Null
   # Exercise the actual autonomous CLI bundle, including its entry-point guard.
-  & node --input-type=module -e 'import { build } from "esbuild"; await build({entryPoints:[process.argv[1]],outfile:process.argv[2],bundle:true,external:["ws"],platform:"node",format:"esm",target:"node24"});' (Join-Path $Repository 'launcher/runtime-override.ts') (Join-Path $fallback 'runtime-override.mjs')
+  # Single-quoted JS literals: Windows PowerShell strips embedded double quotes from native arguments.
+  & node --input-type=module -e 'import { build } from ''esbuild''; await build({entryPoints:[process.argv[1]],outfile:process.argv[2],bundle:true,external:[''ws''],platform:''node'',format:''esm'',target:''node24''});' (Join-Path $Repository 'launcher/runtime-override.ts') (Join-Path $fallback 'runtime-override.mjs')
   if ($LASTEXITCODE -ne 0) { throw 'Fixture runtime build failed' }
   New-Item -ItemType Directory -Path (Join-Path $fixture 'node_modules') | Out-Null
   Copy-Item (Join-Path $Repository 'node_modules/ws') (Join-Path $fixture 'node_modules/ws') -Recurse
