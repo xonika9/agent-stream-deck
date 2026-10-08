@@ -45,6 +45,9 @@ import {
   reserveLoopbackPort,
   waitForLoopbackPort,
   terminateProcessGroup,
+  sshTunnelArgs,
+  reapOrphanedTunnels,
+  TUNNEL_FORWARD_PLACEHOLDER,
 } from "./ssh.js";
 import { mapConcurrent, unavailable } from "./collection-utils.js";
 
@@ -64,6 +67,7 @@ function defaultDependencies(): OpenCodeCollectorDependencies {
     reserveLoopbackPort,
     waitForLoopbackPort,
     terminateProcessGroup,
+    reapOrphanedTunnels,
   };
 }
 
@@ -77,6 +81,7 @@ export class OpenCodeCollector {
   private readonly client: AuthenticatedOpenCodeClient;
   private interval?: NodeJS.Timeout;
   private running = false;
+  private orphansReaped = false;
   private generation = 0;
   private inFlight?: Promise<OpenCodeCollectorSnapshot>;
   private current: OpenCodeCollectorSnapshot = { version: 1, observedAt: 0, connections: [] };
@@ -247,6 +252,17 @@ export class OpenCodeCollector {
     } catch {
       return { connections: [], failures: [] };
     }
+    if (!this.orphansReaped) {
+      const templates = this.tunnelTemplates(servers);
+      if (templates.length > 0) {
+        try {
+          await this.deps.reapOrphanedTunnels(templates);
+          this.orphansReaped = true;
+        } catch {
+          // Retried on the next discovery.
+        }
+      }
+    }
     const targets = new Map(
       servers.map((server) => {
         const id = this.opaqueId(`ssh\0${server.id}`);
@@ -323,23 +339,10 @@ export class OpenCodeCollector {
     const remote = loopbackAddress(registration.url, true);
     const localPort = await this.deps.reserveLoopbackPort();
     const forward = `127.0.0.1:${localPort}:${remote.host}:${remote.port}`;
-    const tunnel = await this.deps.spawn(
-      SSH_EXECUTABLE,
-      [
-        ...common,
-        "-o",
-        "ExitOnForwardFailure=yes",
-        "-o",
-        "ControlMaster=no",
-        "-o",
-        "ControlPath=none",
-        "-L",
-        forward,
-        "-N",
-        target.host,
-      ],
-      { env: minimalSshEnvironment(this.deps.homeDirectory), detached: true },
-    );
+    const tunnel = await this.deps.spawn(SSH_EXECUTABLE, sshTunnelArgs(common, forward, target.host), {
+      env: minimalSshEnvironment(this.deps.homeDirectory),
+      detached: true,
+    });
     this.children.add(tunnel);
     try {
       if (!(await this.deps.waitForLoopbackPort(localPort, FETCH_TIMEOUT_MS))) throw new Error("ssh-forward");
@@ -424,6 +427,20 @@ export class OpenCodeCollector {
     }
     const rootSessions = [...sessions.values()].filter((session) => session.parentID === undefined);
     return this.state.project(connection.connectionId, rootSessions, attentionRoots, activeRoots, now, complete);
+  }
+
+  // Command lines a tunnel for each saved target would have; an earlier plugin process killed without
+  // stop() leaves such tunnels reparented to init.
+  private tunnelTemplates(servers: SshServer[]): string[] {
+    return servers.flatMap((server) => {
+      try {
+        const target = parseSshTarget(server.target);
+        const args = sshTunnelArgs(sshCommonArgs(target.args), TUNNEL_FORWARD_PLACEHOLDER, target.host);
+        return [[SSH_EXECUTABLE, ...args].join(" ")];
+      } catch {
+        return [];
+      }
+    });
   }
 
   private opaqueId(value: string): string {

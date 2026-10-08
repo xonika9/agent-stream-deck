@@ -2,6 +2,16 @@
 
 Versions through `0.7.0.2` below are the historical upstream releases by Dazer. Starting with `1.0.0`, releases belong to the xonika9 fork and use its own plugin identity.
 
+## Unreleased
+
+### Fixes
+
+- OpenCode SSH tunnels no longer accumulate on the Mac when Stream Deck kills the plugin without a graceful stop. On its first SSH discovery with a successful process listing, the macOS collector terminates only tunnels that were reparented to `launchd`, belong to the current user, and carry exactly the command line it builds for a saved connection with a loopback forward. Tunnels of the running plugin and any other SSH processes are left alone.
+
+### Validation
+
+- Automated macOS validation passed: lint, import boundaries, type checking, tests (216 passed, two existing platform skips), and plugin validation. Live macOS check: an orphaned tunnel with the plugin's exact command line was terminated after a plugin restart, and the new tunnel answered the OpenCode authentication boundary. Physical Stream Deck hardware and Windows were not tested.
+
 ## 2.1.0 - 2026-10-05
 
 ### Highlights

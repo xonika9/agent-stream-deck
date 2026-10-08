@@ -60,6 +60,7 @@ export interface OpenCodeCollectorDependencies {
   reserveLoopbackPort(): Promise<number>;
   waitForLoopbackPort(port: number, timeoutMs: number): Promise<boolean>;
   terminateProcessGroup(process: OpenCodeProcess): Promise<void>;
+  reapOrphanedTunnels(templates: string[]): Promise<void>;
 }
 
 export type Registration = { id?: string; url: string; password: string; version: string; pid: number };

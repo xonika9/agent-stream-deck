@@ -88,7 +88,11 @@ For the characterized macOS OpenCode setup, the plugin starts a separate
 collector only when the global Agent source is `OpenCode` or `All`. It discovers
 the managed local service from its user-owned loopback registration and saved SSH
 connections from `opencode.settings`. SSH uses non-interactive authentication and
-a temporary loopback forward. If a CLI-managed remote service has no registration
+a temporary loopback forward. On macOS, a tunnel left by an earlier plugin process killed
+before its graceful stop is terminated on the first SSH discovery with a
+successful process listing when it was reparented to init, belongs to the
+current user, and matches exactly the command line the collector builds for a
+currently saved connection. If a CLI-managed remote service has no registration
 file, bounded `opencode pair` and authenticated `opencode api` output supply the
 same private registration inside the adapter. Compatibility is decided from the
 authenticated identity and bounded API shapes rather than an exact version. The adapter publishes only opaque identities,

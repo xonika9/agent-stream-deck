@@ -1,4 +1,4 @@
-import { spawn as nodeSpawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { execFile, spawn as nodeSpawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createServer, connect } from "node:net";
 import type { OpenCodeProcess } from "./contracts.js";
 import { boundedString } from "./validation.js";
@@ -132,6 +132,87 @@ export function sshCommonArgs(userArgs: string[]): string[] {
     "-o",
     "PermitLocalCommand=no",
   ];
+}
+
+export const TUNNEL_FORWARD_PLACEHOLDER = "\0forward\0";
+const ORPHAN_FORWARD = /^127\.0\.0\.1:\d{1,5}:(?:127\.0\.0\.1|\[::1\]):\d{1,5}$/u;
+
+export function sshTunnelArgs(common: string[], forward: string, host: string): string[] {
+  return [
+    ...common,
+    "-o",
+    "ExitOnForwardFailure=yes",
+    "-o",
+    "ControlMaster=no",
+    "-o",
+    "ControlPath=none",
+    "-L",
+    forward,
+    "-N",
+    host,
+  ];
+}
+
+/**
+ * Returns PIDs of tunnels left by an earlier plugin process that was killed before it could stop them.
+ * A process qualifies only when it was reparented to init, belongs to the current user, and its command
+ * line equals one of the templates (built by `sshTunnelArgs` with `TUNNEL_FORWARD_PLACEHOLDER`) with a
+ * loopback forward in place of the placeholder.
+ */
+export function findOrphanedTunnels(psOutput: string, templates: string[], uid: number): number[] {
+  const parts = templates.flatMap((template) => {
+    const index = template.indexOf(TUNNEL_FORWARD_PLACEHOLDER);
+    if (index < 0) return [];
+    const before = template.slice(0, index);
+    const after = template.slice(index + TUNNEL_FORWARD_PLACEHOLDER.length);
+    // ps escapes control characters, so such a command line can never match verbatim.
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: detecting control characters is the intent.
+    return /[\u0000-\u001f\u007f]/u.test(before + after) ? [] : [[before, after]];
+  });
+  const pids: number[] = [];
+  for (const line of psOutput.split("\n")) {
+    const match = /^\s*(\d+)\s+(\d+)\s+(\d+)\s(.+)$/u.exec(line);
+    if (!match || Number(match[2]) !== 1 || Number(match[3]) !== uid) continue;
+    const command = match[4]!.trimEnd();
+    for (const [before, after] of parts) {
+      if (!command.startsWith(before!) || !command.endsWith(after!)) continue;
+      const forward = command.slice(before!.length, command.length - after!.length);
+      if (ORPHAN_FORWARD.test(forward)) {
+        pids.push(Number(match[1]));
+        break;
+      }
+    }
+  }
+  return pids;
+}
+
+export async function reapOrphanedTunnels(templates: string[]): Promise<void> {
+  if (process.platform !== "darwin" || typeof process.getuid !== "function" || templates.length === 0) return;
+  const uid = process.getuid();
+  const output = await new Promise<string>((resolve, reject) => {
+    execFile(
+      "/bin/ps",
+      ["-ww", "-axo", "pid=,ppid=,uid=,command="],
+      {
+        timeout: 2_000,
+        maxBuffer: 4 * 1024 * 1024,
+        // A UTF-8 locale keeps non-ASCII arguments verbatim; the C locale prints them as M-escapes.
+        env: { PATH: "/usr/bin:/bin", LC_ALL: "en_US.UTF-8" },
+      },
+      (error, stdout) => (error ? reject(error) : resolve(stdout)),
+    );
+  });
+  for (const pid of findOrphanedTunnels(output, templates, uid)) {
+    try {
+      process.kill(-pid, "SIGTERM");
+    } catch {
+      try {
+        process.kill(pid, "SIGTERM");
+      } catch {
+        // The orphan already exited.
+      }
+    }
+  }
 }
 
 export function minimalSshEnvironment(home: string): NodeJS.ProcessEnv {

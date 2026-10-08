@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { OpenCodeCollector, type OpenCodeCollectorDependencies, type OpenCodeProcess } from "#opencode";
+import { findOrphanedTunnels, sshCommonArgs, sshTunnelArgs, TUNNEL_FORWARD_PLACEHOLDER } from "../src/opencode/ssh.js";
 
 const SECRET = "0123456789abcdef0123456789abcdef";
 const HOME = "/fixture/home";
@@ -60,6 +61,7 @@ function fixture(input: {
   const terminated: number[] = [];
   const intervals: number[] = [];
   const spawnCalls: Array<{ command: string; args: string[]; env: NodeJS.ProcessEnv; detached: boolean }> = [];
+  const reaped: string[][] = [];
   const dependencies: OpenCodeCollectorDependencies = {
     homeDirectory: HOME,
     stateDirectory: STATE,
@@ -119,8 +121,11 @@ function fixture(input: {
       terminated.push(process.pid);
       process.kill("SIGTERM");
     },
+    async reapOrphanedTunnels(templates) {
+      reaped.push([...templates]);
+    },
   };
-  return { dependencies, requests, terminated, spawnCalls, intervals };
+  return { dependencies, requests, terminated, spawnCalls, intervals, reaped };
 }
 
 function localRegistration(extra: Record<string, unknown> = {}) {
@@ -911,4 +916,99 @@ test("stop discards a late authenticated snapshot and never starts its polling i
   await Promise.all([started, stopped]);
   assert.deepEqual(collector.snapshot(), { version: 1, observedAt: 0, connections: [] });
   assert.deepEqual(setup.intervals, []);
+});
+
+test("reaps orphaned tunnels once, using the exact command line the collector spawns", async () => {
+  const settings = { "ssh.servers": [{ id: "desktop-id", target: "test-host", name: "Private name" }] };
+  const routes = basicRoutes();
+  const setup = fixture({
+    files: { [SETTINGS]: { body: settings } },
+    routes: {
+      ...routes,
+      "/api/info": ({ authorization }) => (authorization ? response({ version: "2.0.5", pid: 77 }) : response({}, 401)),
+    },
+    processes: sshProcesses(7101, 7102),
+  });
+  const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
+
+  await collector.start();
+  await collector.refresh();
+  await collector.stop();
+
+  assert.equal(setup.reaped.length, 1);
+  assert.equal(setup.reaped[0]!.length, 1);
+  const tunnelCall = setup.spawnCalls[1]!;
+  const forward = tunnelCall.args.find((argument) => argument.startsWith("127.0.0.1:43123:"))!;
+  assert.equal(
+    setup.reaped[0]![0]!.replace(TUNNEL_FORWARD_PLACEHOLDER, forward),
+    [tunnelCall.command, ...tunnelCall.args].join(" "),
+  );
+});
+
+test("orphan detection accepts only reparented loopback tunnels of the current user", () => {
+  const template = ["/usr/bin/ssh", ...sshTunnelArgs(sshCommonArgs([]), TUNNEL_FORWARD_PLACEHOLDER, "x9-fedora")].join(
+    " ",
+  );
+  const command = (forward: string, host = "x9-fedora") =>
+    ["/usr/bin/ssh", ...sshTunnelArgs(sshCommonArgs([]), forward, host)].join(" ");
+  const ps = [
+    `  101     1   501 ${command("127.0.0.1:50281:127.0.0.1:4096")}`,
+    `  102     1   501 ${command("127.0.0.1:50282:[::1]:4096")}`,
+    `  103  2821   501 ${command("127.0.0.1:50283:127.0.0.1:4096")}`,
+    `  104     1   502 ${command("127.0.0.1:50284:127.0.0.1:4096")}`,
+    `  105     1   501 ${command("127.0.0.1:50285:10.0.0.5:4096")}`,
+    `  106     1   501 ${command("127.0.0.1:50286:127.0.0.1:4096", "other-host")}`,
+    "  107     1   501 /usr/bin/ssh -L 127.0.0.1:50287:127.0.0.1:4096 -N x9-fedora",
+    `  108     1   501 ${command("0.0.0.0:50288:127.0.0.1:4096")}`,
+    "garbage line",
+  ].join("\n");
+
+  assert.deepEqual(findOrphanedTunnels(ps, [template], 501), [101, 102]);
+  assert.deepEqual(findOrphanedTunnels(ps, [], 501), []);
+});
+
+test("orphan detection matches user arguments with spaces and non-ASCII text, never control characters", () => {
+  const userArgs = ["-o", "ProxyCommand=ssh -W %h:%p jump", "-i", "/Users/тест/key file"];
+  const build = (forward: string, args: string[]) =>
+    ["/usr/bin/ssh", ...sshTunnelArgs(sshCommonArgs(args), forward, "x9-fedora")].join(" ");
+  const tabbed = ["-i", "/Users/me/key\tfile"];
+  const ps = [
+    `  201     1   501 ${build("127.0.0.1:50301:127.0.0.1:4096", userArgs)}`,
+    `  202     1   501 ${build("127.0.0.1:50302:127.0.0.1:4096", [])}`,
+    `  203     1   501 ${build("127.0.0.1:50303:127.0.0.1:4096", tabbed)}`,
+  ].join("\n");
+
+  assert.deepEqual(findOrphanedTunnels(ps, [build(TUNNEL_FORWARD_PLACEHOLDER, userArgs)], 501), [201]);
+  assert.deepEqual(findOrphanedTunnels(ps, [build(TUNNEL_FORWARD_PLACEHOLDER, tabbed)], 501), []);
+});
+
+test("orphan reaping is retried after a failed process listing and skipped without saved targets", async () => {
+  const settings = { "ssh.servers": [{ id: "desktop-id", target: "test-host", name: "Private name" }] };
+  const routes = basicRoutes();
+  const setup = fixture({
+    files: { [SETTINGS]: { body: settings } },
+    routes: {
+      ...routes,
+      "/api/info": ({ authorization }) => (authorization ? response({ version: "2.0.5", pid: 77 }) : response({}, 401)),
+    },
+    processes: sshProcesses(7201, 7202),
+  });
+  let calls = 0;
+  setup.dependencies.reapOrphanedTunnels = async () => {
+    calls++;
+    if (calls === 1) throw new Error("ps-timeout");
+  };
+  const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
+
+  await collector.start();
+  await collector.refresh();
+  await collector.refresh();
+  await collector.stop();
+  assert.equal(calls, 2);
+
+  const empty = fixture({ files: { [SETTINGS]: { body: { "ssh.servers": [] } } }, routes: basicRoutes() });
+  const idle = new OpenCodeCollector({ identitySecret: SECRET, dependencies: empty.dependencies });
+  await idle.start();
+  await idle.stop();
+  assert.deepEqual(empty.reaped, []);
 });
