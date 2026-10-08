@@ -4,6 +4,7 @@
 
 - Use `CONTRIBUTING.md` for setup and required validation commands; `package.json` and the lockfile own dependency requirements and resolved versions.
 - For code changes, run the complete automated validation prescribed in `CONTRIBUTING.md`.
+- Follow `TESTING.md` when writing, changing, or removing tests.
 - Never create branches — always commit and work directly on `main`.
 - After building release artifacts, run the release audit prescribed in `CONTRIBUTING.md`.
 - Report automated, live-app, and physical-device validation separately. Never describe fixture, compile, build, or package validation as physical-device testing.
