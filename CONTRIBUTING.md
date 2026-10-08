@@ -47,7 +47,8 @@ release/codex-deck-launcher-macos/start-codex-deck.sh install
 2. Do not commit OpenAI/Elgato proprietary assets, Codex installation files, databases, logs, rollout files, personal paths, or generated release bundles.
 3. Do not add hotkey or task-database fallbacks to the native bridge without a separate design discussion.
 4. Update compatibility notes when changing renderer integration behavior.
-5. Install and run the automated checks:
+5. Follow [TESTING.md](TESTING.md) when adding, changing, or removing tests.
+6. Install and run the automated checks:
 
 ```sh
 npm ci
@@ -58,7 +59,7 @@ npm test
 npm run validate
 ```
 
-6. Build distributable Stream Deck artifacts with:
+7. Build distributable Stream Deck artifacts with:
 
 ```sh
 npm run pack

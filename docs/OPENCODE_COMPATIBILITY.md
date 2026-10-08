@@ -77,6 +77,12 @@ changed or removed profile closes only its collector-owned tunnel. An unreadable
 settings file does not prove that a profile was removed. An authenticated
 PID/version mismatch closes that connection's owned tunnel and requires fresh
 discovery on the next poll; other sources remain independent.
+On macOS, a tunnel left behind by a plugin process that was killed before its
+graceful stop is terminated on the first SSH discovery with a successful process
+listing, but only when it was reparented to `launchd`, belongs to the current
+user, and carries exactly the command line the collector builds for a saved
+connection. The running plugin's tunnels and all other SSH processes are left
+alone.
 
 The source-separation update preserves the characterized API contract above.
 Its automated fixtures cover tunnel replacement, local acknowledgement before
