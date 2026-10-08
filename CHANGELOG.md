@@ -2,15 +2,22 @@
 
 Versions through `0.7.0.2` below are the historical upstream releases by Dazer. Starting with `1.0.0`, releases belong to the xonika9 fork and use its own plugin identity.
 
-## Unreleased
+## 2.1.1 - 2026-10-08
 
 ### Fixes
 
 - OpenCode SSH tunnels no longer accumulate on the Mac when Stream Deck kills the plugin without a graceful stop. On its first SSH discovery with a successful process listing, the macOS collector terminates only tunnels that were reparented to `launchd`, belong to the current user, and carry exactly the command line it builds for a saved connection with a loopback forward. Tunnels of the running plugin and any other SSH processes are left alone.
 
+### Maintenance
+
+- CI now runs on this repository for every push and pull request on macOS 15 and Windows 2025, with checkout and setup-node pinned to commit SHAs. The Windows job runs the PowerShell watcher and updater tests that local macOS runs skip.
+- Tests exercise behavior instead of source text: controller tests use the public API, renderer and launcher expressions execute in `node:vm`, and the property inspector script runs against a fake DOM. Platform-only tests skip with a stated reason; `TESTING.md` records the testing rules.
+- Release checksums and the post-checksum audit moved into `scripts/finalize-release.mjs`; the produced `SHA256SUMS.txt` format is unchanged.
+
 ### Validation
 
-- Automated macOS validation passed: lint, import boundaries, type checking, tests (216 passed, two existing platform skips), and plugin validation. Live macOS check: an orphaned tunnel with the plugin's exact command line was terminated after a plugin restart, and the new tunnel answered the OpenCode authentication boundary. Physical Stream Deck hardware and Windows were not tested.
+- Automated macOS validation passed: clean dependency install, lint, import boundaries, type checking, tests (229 passed, two existing platform skips), plugin validation, packaging, archive integrity, checksums, and release artifact audit. GitHub CI passed the same checks on macOS 15 and Windows 2025.
+- Live macOS check: an orphaned tunnel with the plugin's exact command line was terminated after a plugin restart, and the new tunnel answered the OpenCode authentication boundary. User-reported: Agent keys, the OpenCode SSH source, and tunnel cleanup after a forced plugin kill work on a physical Stream Deck. Native Windows application and device validation were not run.
 
 ## 2.1.0 - 2026-10-05
 
