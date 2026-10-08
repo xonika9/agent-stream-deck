@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   renderAgentBlackKey,
@@ -10,7 +9,6 @@ import {
   renderFallbackKeycap,
   renderHostTargetKey,
   renderImportedKeycap,
-  SIGNAL_COLORS,
 } from "#stream-deck";
 
 test("healthy empty queue positions use a dedicated solid-black data URI", () => {
@@ -29,16 +27,19 @@ test("dark agent tiles use Codex-like charcoal surfaces without pure black", () 
   assert.match(svg, /#343638/);
   assert.match(svg, /#222426/);
   assert.match(svg, /#F2F2EF/);
-  assert.match(svg, new RegExp(SIGNAL_COLORS.dark.thinking, "i"));
+  assert.match(svg, /#1683FF/i);
   assert.doesNotMatch(svg, /#000(?:000)?\b/i);
 });
 
-test("light and dark agent themes remain visually distinct", () => {
+test("light and dark agent themes use their own keycap surfaces and title colors", () => {
   const light = renderAgentSvg(0, "Ready", "idle", false, 0, "light");
   const dark = renderAgentSvg(0, "Ready", "idle", false, 0, "dark");
   assert.match(light, /data-theme="light"/);
-  assert.match(light, /#FFFFFF/);
-  assert.notEqual(light, dark);
+  assert.deepEqual(keycapStops(light), ["#FFFFFF", "#F0F3F4", "#D6DBDE"]);
+  assert.deepEqual(titleFills(light), ["#171C20"]);
+  assert.match(dark, /data-theme="dark"/);
+  assert.deepEqual(keycapStops(dark), ["#343638", "#2A2C2E", "#222426"]);
+  assert.deepEqual(titleFills(dark), ["#F2F2EF"]);
 });
 
 test("agent context ring is bounded and can be hidden globally", () => {
@@ -46,7 +47,7 @@ test("agent context ring is bounded and can be hidden globally", () => {
   assert.match(visible, /data-context-used="84"/);
   assert.match(visible, /cx="116" cy="25"/);
   assert.match(visible, /data-agent-host="M"><rect x="86" y="16"/);
-  assert.match(visible, new RegExp(SIGNAL_COLORS.dark.input, "i"));
+  assert.match(visible, /#FF9A3D/i);
 
   const hidden = renderAgentSvg(0, "Context test", "thinking", false, 0, "dark", "M", "ready", 84, false);
   assert.doesNotMatch(hidden, /data-context-used=/);
@@ -136,15 +137,18 @@ test("original navigation icons use the same dark keycap system", () => {
   }
 });
 
-test("renderer snapshot derives a theme without a versioned asset hash", async () => {
-  const source = await readFile(new URL("../src/codex/bridge.ts", import.meta.url), "utf8");
-  assert.match(source, /backgroundColor/);
-  assert.match(source, /prefers-color-scheme: dark/);
-  assert.match(source, /theme\s*=\s*explicitDark/);
-});
-
-test("dark title contrast stays above WCAG AA for small text", () => {
-  assert.ok(contrast("#F2F2EF", "#2A2C2E") > 7);
+test("rendered agent titles keep at least 7:1 contrast against every keycap surface stop", () => {
+  for (const theme of ["light", "dark"] as const) {
+    const svg = renderAgentSvg(0, "Ready", "idle", false, 0, theme);
+    const [title] = titleFills(svg);
+    const stops = keycapStops(svg);
+    assert.ok(title, `${theme} title fill`);
+    assert.equal(stops.length, 3, `${theme} keycap gradient`);
+    for (const stop of stops) {
+      const ratio = contrast(title, stop);
+      assert.ok(ratio >= 7, `${theme} title ${title} on ${stop} has contrast ${ratio.toFixed(2)}`);
+    }
+  }
 });
 
 test("missing local assets receive a readable themed fallback", () => {
@@ -164,7 +168,7 @@ test("host target and affected agent keys expose degraded and offline state", ()
   );
   assert.match(target, /data-host-health="degraded"/);
   assert.match(target, />DEGRADED<\/text>/);
-  assert.match(target, new RegExp(SIGNAL_COLORS.dark.input, "i"));
+  assert.match(target, /#FF9A3D/i);
 
   const degradedAgent = renderAgentSvg(0, "Last known task", "idle", false, 0, "dark", "M", "degraded");
   assert.match(degradedAgent, /data-agent-host="M"/);
@@ -175,6 +179,15 @@ test("host target and affected agent keys expose degraded and offline state", ()
   assert.match(offlineAgent, /data-agent-host-health="offline"/);
   assert.doesNotMatch(offlineAgent, /data-agent-motion=/);
 });
+
+function keycapStops(svg: string): string[] {
+  const gradient = svg.match(/<linearGradient id="keycap"[^>]*>([\s\S]*?)<\/linearGradient>/)?.[1] ?? "";
+  return [...gradient.matchAll(/stop-color="(#[0-9A-F]{6})"/gi)].map((match) => match[1]!);
+}
+
+function titleFills(svg: string): string[] {
+  return [...svg.matchAll(/<text\b[^>]*\bfill="(#[0-9A-F]{6})"/gi)].map((match) => match[1]!);
+}
 
 function contrast(foreground: string, background: string): number {
   const [lighter, darker] = [luminance(foreground), luminance(background)].sort((a, b) => b - a);

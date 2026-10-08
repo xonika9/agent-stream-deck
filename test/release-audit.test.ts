@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { deflateRawSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
+import { OFFICIAL_KEYCAP_IDS } from "#codex";
 
 const auditScript = fileURLToPath(new URL("../scripts/audit-release.mjs", import.meta.url));
 
@@ -79,6 +80,31 @@ test("release audit accepts explicit clean roots and rejects private state", asy
     const metadataResult = spawnSync(process.execPath, [auditScript, clean], { encoding: "utf8" });
     assert.equal(metadataResult.status, 1);
     assert.match(metadataResult.stderr, /platform metadata must not be packaged/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("release audit rejects every official Codex keycap SVG, regardless of case", async () => {
+  const root = await mkdtemp(join(tmpdir(), "codex-deck-keycap-audit-"));
+  try {
+    await writeFile(join(root, "category-icon.svg"), "<svg/>\n", "utf8");
+    const publicResult = spawnSync(process.execPath, [auditScript, root], { encoding: "utf8" });
+    assert.equal(publicResult.status, 0, publicResult.stderr);
+    for (const [index, id] of OFFICIAL_KEYCAP_IDS.entries()) {
+      await writeFile(join(root, `${index % 2 ? id.toLowerCase() : id}.svg`), "<svg/>\n", "utf8");
+    }
+    const result = spawnSync(process.execPath, [auditScript, root], { encoding: "utf8" });
+    assert.equal(result.status, 1);
+    for (const id of OFFICIAL_KEYCAP_IDS) {
+      const escaped = id.replace(/[+]/g, "\\+");
+      assert.match(
+        result.stderr,
+        new RegExp(`[\\\\/]${escaped}\\.svg: protected Codex keycap SVG must not be packaged`, "i"),
+        id,
+      );
+    }
+    assert.doesNotMatch(result.stderr, /category-icon\.svg/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
+import { finalizeReleaseDirectory } from "../scripts/finalize-release.mjs";
 
 async function text(path: string): Promise<string> {
   return readFile(new URL(`../${path}`, import.meta.url), "utf8");
@@ -13,32 +17,45 @@ test("current project docs preserve inspiration credit and independent implement
   assert.match(readme, /independent implementation/i);
 });
 
-test("release checksums use portable LF line endings on every platform", async () => {
-  const source = await text("scripts/prepare-release.mjs");
-  assert.match(source, /checksums\.join\("\\n"\)/);
-  assert.match(source, /SHA256SUMS\.txt/);
+test("release finalization writes LF checksums for every artifact before auditing the directory", async () => {
+  const root = await mkdtemp(join(tmpdir(), "codex-deck-finalize-"));
+  try {
+    await writeFile(join(root, "b-release-notes.txt"), "plugin\n", "utf8");
+    await writeFile(join(root, "a-install-guide.txt"), "launcher\n", "utf8");
+    await finalizeReleaseDirectory(root, { stdio: "pipe" });
+    const sha = (value: string) => createHash("sha256").update(value).digest("hex");
+    assert.equal(
+      await readFile(join(root, "SHA256SUMS.txt"), "utf8"),
+      `${sha("launcher\n")}  a-install-guide.txt\n${sha("plugin\n")}  b-release-notes.txt\n`,
+    );
+
+    await writeFile(join(root, "watcher-state.json"), "{}\n", "utf8");
+    await rm(join(root, "SHA256SUMS.txt"));
+    await assert.rejects(finalizeReleaseDirectory(root, { stdio: "pipe" }), (error: { stderr?: Buffer }) =>
+      /watcher-state\.json: private runtime state must not be packaged/.test(String(error.stderr)),
+    );
+    assert.match(
+      await readFile(join(root, "SHA256SUMS.txt"), "utf8"),
+      /watcher-state\.json\n$/,
+      "checksums precede the audit",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
-test("release preparation audits the completed release directory", async () => {
-  const source = await text("scripts/prepare-release.mjs");
-  const checksum = source.indexOf("SHA256SUMS.txt");
-  const audit = source.indexOf('"audit-release.mjs"');
-  assert.ok(checksum >= 0);
-  assert.ok(audit > checksum);
-});
-
-test("release preparation is cross-platform and keeps platform archive boundaries", async () => {
-  const [packageJson, source, windows] = await Promise.all([
-    text("package.json"),
+test("release preparation keeps its npm entry point, Windows npm shim, and platform packagers", async () => {
+  const [packageJson, source] = await Promise.all([
+    text("package.json").then(JSON.parse),
     text("scripts/prepare-release.mjs"),
-    text("scripts/package-windows-release.ps1"),
   ]);
-  assert.match(packageJson, /"release:prepare": "node scripts\/prepare-release\.mjs"/);
-  assert.match(source, /process\.platform === "win32"/);
-  assert.match(source, /"npm\.cmd"/);
-  assert.match(source, /process\.platform !== "darwin"/);
-  assert.match(source, /package-macos-release\.sh/);
-  assert.match(windows, /Compress-Archive/);
+  assert.equal(packageJson.scripts["release:prepare"], "node scripts/prepare-release.mjs");
+  // Windows cannot execFile npm without its .cmd shim.
+  assert.ok(source.includes('"npm.cmd"'));
+  for (const packager of ["package-windows-release.ps1", "package-macos-release.sh"]) {
+    assert.ok(source.includes(`"${packager}"`), `${packager} is referenced`);
+    await access(new URL(`../scripts/${packager}`, import.meta.url));
+  }
 });
 
 test("npm and Stream Deck release versions use their required compatible forms", async () => {

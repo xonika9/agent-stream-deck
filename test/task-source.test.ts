@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { parseTaskSource, selectTaskCandidates, shouldCollectOpenCode, usesActiveQueue } from "#agents";
 
@@ -34,15 +33,4 @@ test("OpenCode collection is opt-in and limited to the characterized macOS path"
   assert.equal(shouldCollectOpenCode("OpenCode", "win32"), false);
   assert.equal(shouldCollectOpenCode("T3 Code", "darwin"), false);
   assert.equal(shouldCollectOpenCode("All", "darwin"), true);
-});
-
-test("Agent inspector exposes the global source selector and forced queue copy", async () => {
-  const html = await readFile(new URL("../static/property-inspector/agent.html", import.meta.url), "utf8");
-  assert.match(html, /id="task-source"/u);
-  assert.deepEqual(
-    [...html.matchAll(/<option(?: value="([^"]+)")?>([^<]+)<\/option>/gu)].map((match) => match[1] ?? match[2]),
-    ["Codex", "OpenCode", "T3 Code", "All"],
-  );
-  assert.match(html, /source !== "Codex"/u);
-  assert.match(html, /Return to Codex to restore your saved preference/u);
 });

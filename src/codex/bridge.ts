@@ -101,7 +101,7 @@ const DEVICE_STATE = {
   state: { status: "connected", error: null, battery: { percentage: 100, isCharging: true } },
 };
 
-export const REASONING_ENCODER_KEYS: Record<ReasoningAdjustment, "ENC_CW" | "ENC_CC"> = {
+const REASONING_ENCODER_KEYS: Record<ReasoningAdjustment, "ENC_CW" | "ENC_CC"> = {
   decrease: "ENC_CW",
   increase: "ENC_CC",
 };

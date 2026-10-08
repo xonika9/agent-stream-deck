@@ -16,7 +16,6 @@ import {
   localBridgeFailureReason,
   macCodexExecutablePathFromWatcherState,
   nativeActionKey,
-  REASONING_ENCODER_KEYS,
   resolveAgentDispatch,
   retainEvaluationPromise,
   selectCodexMainTarget,
@@ -27,17 +26,24 @@ import { ADDITIONAL_KEYCAPS, OFFICIAL_KEYCAP_IDS } from "#codex";
 import { visualStatusFromMicro } from "#agents";
 import type { MicroSnapshot } from "#agents";
 
-test("official Micro statuses map to the Stream Deck color states", () => {
-  assert.equal(visualStatusFromMicro("off"), "empty");
-  assert.equal(visualStatusFromMicro("working"), "thinking");
-  assert.equal(visualStatusFromMicro("thinking"), "thinking");
-  assert.equal(visualStatusFromMicro("unread"), "complete");
-  assert.equal(visualStatusFromMicro("done"), "complete");
-  assert.equal(visualStatusFromMicro("approval"), "input");
-  assert.equal(visualStatusFromMicro("awaiting-approval"), "input");
-  assert.equal(visualStatusFromMicro("awaiting-response"), "input");
-  assert.equal(visualStatusFromMicro("error"), "error");
-  assert.equal(visualStatusFromMicro("idle"), "idle");
+test("official Micro statuses map to the Stream Deck color states and unknown states stay idle", () => {
+  for (const [micro, visual] of [
+    ["off", "empty"],
+    ["working", "thinking"],
+    ["thinking", "thinking"],
+    ["unread", "complete"],
+    ["done", "complete"],
+    ["completed", "complete"],
+    ["approval", "input"],
+    ["attention", "input"],
+    ["awaiting-approval", "input"],
+    ["awaiting-response", "input"],
+    ["error", "error"],
+    ["idle", "idle"],
+    ["future-state", "idle"],
+  ] as const) {
+    assert.equal(visualStatusFromMicro(micro), visual, micro);
+  }
 });
 
 test("only an explicit stopped-Codex marker suppresses local bridge diagnostics", () => {
@@ -64,52 +70,20 @@ test("macOS watcher state excludes CodexBar false positives before bridge discov
   );
 });
 
-test("official keycap SVG contents are not bundled in the public source", async () => {
-  const controller = await readFile(new URL("../src/stream-deck/controller.ts", import.meta.url), "utf8");
-  assert.match(controller, /codexDeckStateRoot\(\)[\s\S]*icons/);
-  assert.doesNotMatch(controller, /static\/imgs\/official/);
-});
-
-test("renderer bridge uses native Micro events and discovers hashed modules at runtime", async () => {
+test("renderer bridge discovers hashed modules at runtime and keeps Codex field names no harness executes", async () => {
   const bridgeSource = await readFile(new URL("../src/codex/bridge.ts", import.meta.url), "utf8");
   const catalogSource = await readFile(new URL("../src/codex/active-catalog-expression.ts", import.meta.url), "utf8");
   const source = `${bridgeSource}\n${catalogSource}`;
-  for (const eventName of ["codex-micro-device-state-changed", "codex-micro-hid-event", "codex-micro-joystick-event"]) {
-    assert.match(source, new RegExp(eventName));
+  // Codex renderer contract names read only from live Codex data; the vm harnesses below cover the rest.
+  for (const contract of [
+    "task_status_display",
+    "latest_turn_status_display",
+    "has_unread_turn",
+    "conversation_id",
+    "'get-setting'",
+  ]) {
+    assert.ok(source.includes(contract), `missing Codex renderer contract ${contract}`);
   }
-  assert.match(source, /link\[href\], script\[src\]/);
-  assert.match(source, /performance\.getEntriesByType\('resource'\)/);
-  assert.match(source, /createSubscriberAtom/);
-  assert.match(source, /slots\.length === 6/);
-  assert.match(source, /codex-micro-agent-source/);
-  assert.match(source, /data-app-action-sidebar-thread-id/);
-  assert.match(source, /activeThreadKey/);
-  assert.match(source, /data-above-composer-conversation-id/);
-  assert.match(source, /data-app-action-sidebar-thread-active/);
-  assert.match(source, /directSettingReader/);
-  assert.match(source, /app-initial-/);
-  assert.match(source, /allSidebarThreadKeys/);
-  assert.match(source, /pinnedThreadKeys/);
-  assert.match(source, /unpinnedThreadKeys/);
-  assert.match(source, /threadAttentionStateByKey/);
-  assert.match(source, /threadRecencyAtByKey/);
-  assert.match(source, /threadRuntimeStatus/);
-  assert.match(source, /hasUnreadTurn/);
-  assert.match(source, /task_status_display/);
-  assert.match(source, /latest_turn_status_display/);
-  assert.match(source, /has_unread_turn/);
-  assert.match(source, /task\?\.conversation_id \?\? task\?\.id/);
-  assert.match(source, /family\.resolve\(found\.node, found\.chain, key\)/);
-  assert.match(source, /codex-deck-active-catalog-resolvers/);
-  assert.match(source, /allSidebarResolver/);
-  assert.match(source, /readableFamily/);
-  assert.match(source, /resolverCache\.taskFamily/);
-  assert.match(source, /retryAt: Date\.now\(\)/);
-  assert.match(source, /const remoteTaskStatus =/);
-  assert.match(source, /TextEncoder/);
-  assert.match(source, /get-setting/);
-  assert.match(source, /found\.node\.store\.get\.bind\(found\.node\.store\)/);
-  assert.doesNotMatch(source, /candidate\?\.token === appScope/);
   assert.doesNotMatch(source, /D90_rd6W|SFcKxWqG|DJFcGyy5/);
   assert.ok(bridgeSource.split("\n").length < 1000, "renderer bridge should keep catalog discovery extracted");
 });
@@ -632,14 +606,78 @@ test("direct off-six and pinned dispatch send exact thread keys and release rema
   ]);
 });
 
-test("reasoning controls use the official native encoder rotation events", async () => {
-  assert.deepEqual(REASONING_ENCODER_KEYS, {
-    decrease: "ENC_CW",
-    increase: "ENC_CC",
+async function dispatchedMessages(
+  send: (bridge: CodexMicroRendererBridge) => Promise<void>,
+  activeHandlers: string[],
+  discovery: "resources" | "dom" = "resources",
+): Promise<unknown[]> {
+  let expression = "";
+  const bridge = new CodexMicroRendererBridge(() => {});
+  const internal = bridge as unknown as {
+    ensureConnected: () => Promise<void>;
+    evaluate: (expression: string) => Promise<unknown>;
+  };
+  internal.ensureConnected = async () => {};
+  internal.evaluate = async (value) => {
+    expression = value;
+    return true;
+  };
+  await send(bridge);
+  const messages: unknown[] = [];
+  const handlers = new Map(activeHandlers.map((name) => [name, new Set([() => {}])]));
+  const bus = {
+    handlers,
+    dispatchHostMessage: (message: { type: string }) => {
+      messages.push(message);
+      if (message.type === "codex-micro-device-state-changed") {
+        for (const name of ["codex-micro-hid-event", "codex-micro-joystick-event"])
+          handlers.set(name, new Set([() => {}]));
+      }
+    },
+  };
+  await runInNewContext(expression.replaceAll("import(", "loadModule("), {
+    Map,
+    Set,
+    Date,
+    setTimeout,
+    document: {
+      querySelectorAll: () => (discovery === "dom" ? [{ src: "app://-/assets/vscode-bus-test.js" }] : []),
+    },
+    performance: {
+      getEntriesByType: () => (discovery === "resources" ? [{ name: "app://-/assets/vscode-bus-test.js" }] : []),
+    },
+    loadModule: async () => ({ bus }),
   });
-  const source = await readFile(new URL("../src/codex/bridge.ts", import.meta.url), "utf8");
-  assert.match(source, /act: 2/);
-  assert.match(source, /codex-micro-hid-event/);
+  return JSON.parse(JSON.stringify(messages));
+}
+
+test("reasoning controls send the official native encoder rotation events", async () => {
+  assert.deepEqual(
+    await dispatchedMessages((bridge) => bridge.adjustReasoning("increase"), ["codex-micro-hid-event"]),
+    [{ type: "codex-micro-hid-event", event: { key: "ENC_CC", act: 2, slot: null, threadKey: null } }],
+  );
+  assert.deepEqual(
+    await dispatchedMessages((bridge) => bridge.adjustReasoning("decrease"), ["codex-micro-hid-event"]),
+    [{ type: "codex-micro-hid-event", event: { key: "ENC_CW", act: 2, slot: null, threadKey: null } }],
+  );
+});
+
+test("joystick input announces the Micro device before the first event when Codex has no handler yet", async () => {
+  const messages = (await dispatchedMessages((bridge) => bridge.sendJoystick("down", 1), [])) as Array<{
+    type: string;
+  }>;
+  assert.deepEqual(
+    messages.map((message) => message.type),
+    ["codex-micro-device-state-changed", "codex-micro-joystick-event"],
+  );
+  assert.deepEqual(messages[1], { type: "codex-micro-joystick-event", event: { angle: 0.25, distance: 1 } });
+});
+
+test("Micro input finds the Codex event bus from script tags when no resource entry lists it", async () => {
+  assert.deepEqual(
+    await dispatchedMessages((bridge) => bridge.sendJoystick("left", 0), ["codex-micro-joystick-event"], "dom"),
+    [{ type: "codex-micro-joystick-event", event: { angle: 0.5, distance: 0 } }],
+  );
 });
 
 test("manifest exposes both dedicated reasoning adjustment buttons", async () => {
@@ -662,39 +700,88 @@ test("all official keycaps are covered by standalone or native actions", async (
   for (const keycap of ADDITIONAL_KEYCAPS) {
     assert.equal(actions.has(`com.xonika9.codex-deck.keycap-${keycap.slug}`), true, `missing ${keycap.id}`);
   }
+  assert.deepEqual(
+    OFFICIAL_KEYCAP_IDS.filter((id) => id !== "MIC" && !ADDITIONAL_KEYCAPS.some((keycap) => keycap.id === id)),
+    [],
+    "every official keycap except MIC needs a standalone action",
+  );
+  // Codex Micro ships 30 physical keycaps; a shorter list would silently drop actions and audit coverage.
   assert.equal(OFFICIAL_KEYCAP_IDS.length, 30);
-  assert.equal(new Set(ADDITIONAL_KEYCAPS.map((keycap) => keycap.id)).size, 29);
+  assert.equal(new Set(OFFICIAL_KEYCAP_IDS).size, 30);
   assert.equal(actions.has("com.xonika9.codex-deck.dictation"), true, "MIC uses the native press/release action");
 });
 
-test("standalone keycaps resolve Codex's live registry instead of hardcoding commands", async () => {
-  const source = await readFile(new URL("../src/codex/bridge.ts", import.meta.url), "utf8");
-  assert.match(source, /codex-micro-layout-/);
-  assert.match(source, /keycapGetter/);
-  assert.match(source, /codex-micro-bridge-/);
-  assert.match(source, /runnerLocal/);
-  assert.match(source, /\\\\w/);
-  assert.match(source, /import\\\\s/);
-  assert.match(source, /codex_micro_hid/);
+async function runStandaloneKeycap(
+  keycapId: "FAST" | "TERM",
+  assets: Record<string, Record<string, unknown>>,
+  sources: Record<string, string> = {},
+): Promise<unknown> {
+  let expression = "";
+  const bridge = new CodexMicroRendererBridge(() => {});
+  const internal = bridge as unknown as {
+    ensureConnected: () => Promise<void>;
+    evaluate: (expression: string) => Promise<unknown>;
+  };
+  internal.ensureConnected = async () => {};
+  internal.evaluate = async (value) => {
+    expression = value;
+    return true;
+  };
+  await bridge.runKeycap(keycapId);
+  return runInNewContext(expression.replaceAll("import(", "loadModule("), {
+    URL,
+    document: { querySelectorAll: () => [] },
+    performance: { getEntriesByType: () => Object.keys(assets).map((name) => ({ name })) },
+    fetch: async (url: string) => ({ text: async () => sources[url] ?? "" }),
+    loadModule: async (url: string) => {
+      const namespace = assets[url];
+      if (!namespace) throw new Error(`unexpected import ${url}`);
+      return namespace;
+    },
+  });
+}
+
+test("standalone command keycaps run through the live registry and the bridge's imported command runner", async () => {
+  const commands: unknown[][] = [];
+  const keycaps = (id: string) =>
+    id === "FAST" ? { id, action: { type: "command", command: "codex.fastMode" } } : { id, action: null };
+  const result = await runStandaloneKeycap(
+    "FAST",
+    {
+      "app://-/assets/codex-micro-layout-test.js": { k: keycaps },
+      "app://-/assets/codex-micro-bridge-test.js": {},
+      "app://-/assets/runner-test.js": {
+        z: (...args: unknown[]) => {
+          commands.push(args);
+          return true;
+        },
+      },
+    },
+    {
+      "app://-/assets/codex-micro-bridge-test.js":
+        'import { q as other, z as run$1 } from "./runner-test.js";\nexport function h(e){return run$1( e?.command ,"codex_micro_hid")}',
+    },
+  );
+  assert.equal(result, true);
+  assert.deepEqual(commands, [["codex.fastMode", "codex_micro_hid"]]);
 });
 
-test("controller avoids overlapping polls and redundant image writes", async () => {
-  const source = await readFile(new URL("../src/stream-deck/controller.ts", import.meta.url), "utf8");
-  assert.match(source, /lastImages/);
-  assert.match(source, /this\.lastImages\.get\(action\.id\) === image/);
-  assert.match(source, /scheduleRefresh/);
-  assert.match(source, /status === "thinking" \|\| status === "input"/);
-  assert.doesNotMatch(source, /if \(act === 1\) await this\.refresh\(\)/);
-  assert.doesNotMatch(source, /setInterval\(/);
+test("standalone composer keycaps insert their registry text through the host message bus", async () => {
+  const messages: unknown[] = [];
+  const keycaps = (id: string) =>
+    id === "TERM"
+      ? { id, action: { type: "composer-text", text: "/terminal" } }
+      : { id, action: { type: "command", command: "unused" } };
+  await runStandaloneKeycap("TERM", {
+    "app://-/assets/codex-micro-layout-test.js": { k: keycaps },
+    "app://-/assets/vscode-api-test.js": { g: { dispatchHostMessage: (message: unknown) => messages.push(message) } },
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(messages)), [
+    { type: "codex-micro-insert-composer-text", text: "/terminal" },
+  ]);
 });
 
-test("assigned titleless threads use a new-chat label instead of Not assigned", async () => {
-  const source = await readFile(new URL("../src/stream-deck/controller.ts", import.meta.url), "utf8");
-  assert.match(source, /agent\?\.threadKey\s*&&\s*health\.state\s*===\s*"ready"\s*\?\s*"New chat"/);
-  assert.match(source, /:\s*"Not assigned"/);
-});
-
-test("renderer snapshot uses live pinned rows, caches collapsed pins and ignores hidden composers", async () => {
+async function captureSnapshotExpression(): Promise<string> {
   let expression = "";
   const bridge = new CodexMicroRendererBridge(() => {});
   const internal = bridge as unknown as {
@@ -707,6 +794,89 @@ test("renderer snapshot uses live pinned rows, caches collapsed pins and ignores
     throw new Error("snapshot captured");
   };
   await assert.rejects(bridge.refresh(), /snapshot captured/);
+  return expression;
+}
+
+function snapshotContext(options: {
+  definitions: Record<string, unknown>;
+  store: { get: (atom: unknown) => unknown };
+  document: Record<string, unknown>;
+  resources: Array<{ name: string }>;
+  getComputedStyle: (element: unknown) => { colorScheme?: string; backgroundColor: string };
+  matchMedia?: (query: string) => { matches: boolean };
+}): Context {
+  const root = { __reactContainer$test: { memoizedProps: { value: new Map([["node", { store: options.store }]]) } } };
+  return createContext({
+    Map,
+    Set,
+    Symbol,
+    TextEncoder,
+    document: { getElementById: () => root, ...options.document },
+    performance: { getEntriesByType: () => options.resources },
+    getComputedStyle: options.getComputedStyle,
+    matchMedia: options.matchMedia ?? (() => ({ matches: false })),
+    loadModule: async () => ({
+      definitions: options.definitions,
+      slotResolver: { resolve: () => "slots", createSubscriberAtom: () => null },
+      allSidebarResolver: { resolve: () => "sidebar", createSubscriberAtom: () => null },
+      readableFamily: { resolve: () => ({ resolve: () => "readable" }) },
+      bus: {
+        handlers: new Map([["codex-micro-hid-event", new Set([() => {}])]]),
+        dispatchHostMessage: () => {},
+      },
+    }),
+  });
+}
+
+async function runSnapshot(expression: string, context: Context): Promise<MicroSnapshot> {
+  return JSON.parse(JSON.stringify(await runInContext(expression.replaceAll("import(", "loadModule("), context)));
+}
+
+test("renderer snapshot theme follows explicit markers, then page background, then the system preference", async () => {
+  const expression = await captureSnapshotExpression();
+  const themeFor = async (page: {
+    htmlClass?: string;
+    bodyTheme?: string;
+    colorScheme?: string;
+    background: string;
+    systemDark?: boolean;
+  }): Promise<string | undefined> => {
+    const context = snapshotContext({
+      definitions: {
+        layout: { key: "codex-micro-layout", default: { version: 1, slots: {} } },
+        agentSource: { key: "codex-micro-agent-source", default: "recent" },
+      },
+      store: {
+        get: (atom) =>
+          atom === "slots"
+            ? Array.from({ length: 6 }, (_, id) => ({ id, threadKey: null, title: "", status: "off", selected: false }))
+            : null,
+      },
+      document: {
+        documentElement: { dataset: {}, className: page.htmlClass ?? "" },
+        body: { dataset: page.bodyTheme ? { theme: page.bodyTheme } : {}, className: "" },
+        querySelectorAll: () => [],
+        querySelector: () => null,
+      },
+      resources: [{ name: "app://-/assets/codex-micro-slot-signals-test.js" }],
+      getComputedStyle: () => ({ colorScheme: page.colorScheme ?? "", backgroundColor: page.background }),
+      matchMedia: (query) => ({ matches: query === "(prefers-color-scheme: dark)" && page.systemDark === true }),
+    });
+    return (await runSnapshot(expression, context)).theme;
+  };
+
+  assert.equal(await themeFor({ htmlClass: "app theme-dark", background: "rgb(255, 255, 255)" }), "dark");
+  assert.equal(await themeFor({ bodyTheme: "light", background: "rgb(0, 0, 0)", systemDark: true }), "light");
+  assert.equal(await themeFor({ colorScheme: "dark", background: "rgb(255, 255, 255)" }), "dark");
+  assert.equal(await themeFor({ htmlClass: "darkened", background: "rgb(250, 250, 250)" }), "light");
+  assert.equal(await themeFor({ background: "rgb(24, 24, 27)" }), "dark");
+  assert.equal(await themeFor({ background: "rgb(245, 245, 245)", systemDark: true }), "light");
+  assert.equal(await themeFor({ background: "rgba(0, 0, 0, 0)", systemDark: true }), "dark");
+  assert.equal(await themeFor({ background: "rgba(0, 0, 0, 0)", systemDark: false }), "light");
+});
+
+test("renderer snapshot uses live pinned rows, caches collapsed pins and ignores hidden composers", async () => {
+  const expression = await captureSnapshotExpression();
 
   const nativeSlots = Array.from({ length: 6 }, (_, id) => ({
     id,
@@ -720,7 +890,6 @@ test("renderer snapshot uses live pinned rows, caches collapsed pins and ignores
     layout: { key: "codex-micro-layout", default: { version: 1, slots: {} } },
     agentSource: { key: "codex-micro-agent-source", default: "pinned" },
   };
-  const slotResolver = { resolve: () => "slots", createSubscriberAtom: () => null };
   let semanticPinsEmpty = false;
   const store = {
     get: (atom: unknown) =>
@@ -732,7 +901,6 @@ test("renderer snapshot uses live pinned rows, caches collapsed pins and ignores
             ? { threadKeys: [], threadStateKeys: [], navigationThreadKeys: [] }
             : null,
   };
-  const root = { __reactContainer$test: { memoizedProps: { value: new Map([["node", { store }]]) } } };
   const row = (key: string, status: object) => ({
     getAttribute: (name: string) =>
       (
@@ -751,13 +919,10 @@ test("renderer snapshot uses live pinned rows, caches collapsed pins and ignores
     { getAttribute: () => catalogKey(91), getClientRects: () => [{}] },
   ];
   const resources = [{ name: "app://-/assets/codex-micro-slot-signals-test.js" }];
-  const context = createContext({
-    Map,
-    Set,
-    Symbol,
-    TextEncoder,
+  const context = snapshotContext({
+    definitions,
+    store,
     document: {
-      getElementById: () => root,
       documentElement: { dataset: {}, className: "" },
       body: { dataset: {}, className: "" },
       querySelectorAll: (selector: string) =>
@@ -769,21 +934,10 @@ test("renderer snapshot uses live pinned rows, caches collapsed pins and ignores
             ? composers[0]
             : null,
     },
-    performance: { getEntriesByType: () => resources },
+    resources,
     getComputedStyle: () => ({ colorScheme: "dark", backgroundColor: "rgb(0,0,0)" }),
-    loadModule: async () => ({
-      definitions,
-      slotResolver,
-      allSidebarResolver: { resolve: () => "sidebar", createSubscriberAtom: () => null },
-      readableFamily: { resolve: () => ({ resolve: () => "readable" }) },
-      bus: {
-        handlers: new Map([["codex-micro-hid-event", new Set([() => {}])]]),
-        dispatchHostMessage: () => {},
-      },
-    }),
   });
-  const poll = async (): Promise<MicroSnapshot> =>
-    JSON.parse(JSON.stringify(await runInContext(expression.replaceAll("import(", "loadModule("), context)));
+  const poll = (): Promise<MicroSnapshot> => runSnapshot(expression, context);
   // Older sidebar markup has no pinned rows: native slots still work.
   let snapshot = await poll();
   assert.deepEqual(

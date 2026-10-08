@@ -35,32 +35,33 @@ test("runtime override targets the main renderer instead of macOS avatar surface
   assert.equal(target?.webSocketDebuggerUrl, "ws://main");
 });
 
-test("startup monitoring survives Codex updates without duplicate watchers", async () => {
-  const [watcher, launcher, build] = await Promise.all([
+// Recovery decisions themselves are exercised by the Windows PowerShell self-test below.
+test("Windows startup shortcut, watcher, and Codex package keep their cross-script contracts", async () => {
+  const [watcher, launcher] = await Promise.all([
     readFile(new URL("../launcher/Watch-CodexDeck.ps1", import.meta.url), "utf8"),
     readFile(new URL("../launcher/Start-CodexDeck.ps1", import.meta.url), "utf8"),
-    readFile(new URL("../scripts/build-launcher.mjs", import.meta.url), "utf8"),
   ]);
-
+  // Older installed watchers hold the same mutex, so a renamed mutex would run duplicate watchers.
   assert.match(watcher, /Local\\CodexDeckBridgeWatcher/);
   assert.match(watcher, /Get-AppxPackage -Name 'OpenAI\.Codex'/);
-  assert.match(watcher, /Test-RecoveryAllowed/);
-  assert.match(watcher, /rapid main-process replacement recovers/);
-  assert.match(watcher, /current session was left untouched/i);
-  assert.match(watcher, /Clear-StalePortFile/);
-  assert.equal(watcher.match(/Invoke-CodexDeckLauncher -ForceRestart/g)?.length, 1);
-
-  assert.match(launcher, /Watch-CodexDeck\.ps1/);
-  assert.match(launcher, /-RecoverExistingSession/);
-  assert.match(launcher, /Start-BridgeWatcher/);
-  assert.match(launcher, /Get-InstalledLauncherRoot/);
-  assert.match(launcher, /Install-WatcherBundle/);
+  assert.match(watcher, /\[switch\]\$RecoverExistingSession/);
+  assert.match(launcher, /-File `"\$watcherPath`" -RecoverExistingSession/);
   assert.match(launcher, /LocalAppData.*CodexDeck.*launcher/is);
-  assert.match(build, /Watch-CodexDeck\.ps1/);
-  assert.match(build, /replace\(\/\\r\\n\/g, "\\n"\)/);
-  assert.match(build, /Cloud-sync conflict/);
+  // The self-test covers the recovery decision, not the loop: only that guarded branch may restart Codex.
+  assert.equal(watcher.match(/Invoke-CodexDeckLauncher -ForceRestart/g)?.length, 1);
+  assert.match(
+    watcher,
+    /-and \$mayRecover\) \{\s*\$nextRecoveryAt = \[DateTimeOffset\]::UtcNow\.AddMinutes\(10\)[\s\S]{0,300}Invoke-CodexDeckLauncher -ForceRestart/,
+    "the recovery restart is guarded and starts the global cooldown",
+  );
+});
+
+test("launcher build ships an explicit ws allowlist and LF macOS start scripts", async () => {
+  const build = await readFile(new URL("../scripts/build-launcher.mjs", import.meta.url), "utf8");
+  assert.match(build, /"Start-CodexDeck\.ps1", "Watch-CodexDeck\.ps1"/);
   assert.match(build, /"package\.json", "browser\.js", "index\.js", "wrapper\.mjs"/);
   assert.doesNotMatch(build, /cp\(resolve\("node_modules\/ws"\).*recursive: true/s);
+  assert.match(build, /replace\(\/\\r\\n\/g, "\\n"\)/);
 });
 
 test("watcher recovery decision self-test passes in PowerShell", async (context) => {

@@ -10,11 +10,15 @@ test("concurrent T3 setup processes preserve both configuration updates", {
 }, async () => {
   const home = await mkdtemp(join(tmpdir(), "deck-t3-lock-"));
   const helper = new URL("../scripts/t3-config-lock.mjs", import.meta.url).href;
-  const code = `import {withT3ConfigLock} from ${JSON.stringify(helper)};
-import {readFile,writeFile} from 'node:fs/promises';
+  // The fixture records a refused lock attempt, so the test waits for real contention instead of a fixed delay.
+  const code = `import fsp,{readFile,writeFile} from 'node:fs/promises';
+import {syncBuiltinESMExports} from 'node:module';
 import {homedir} from 'node:os';
 const root=homedir(), id=process.argv[1];
-await writeFile(root+'/started.'+id,'');
+const open=fsp.open;
+fsp.open=async(...args)=>{try{return await open(...args)}catch(error){if(error.code==='EEXIST')await writeFile(root+'/contended.'+id,'');throw error}};
+syncBuiltinESMExports();
+const {withT3ConfigLock}=await import(${JSON.stringify(helper)});
 await withT3ConfigLock(async()=>{
  await writeFile(root+'/entered.'+id,'');
  const path=root+'/state.json';
@@ -50,8 +54,7 @@ await withT3ConfigLock(async()=>{
     const first = launch("first");
     await waitFor("entered.first");
     const second = launch("second");
-    await waitFor("started.second");
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await waitFor("contended.second");
     await assert.rejects(access(join(home, "entered.second")), { code: "ENOENT" });
     await writeFile(join(home, "release"), "");
     await Promise.all([first, second]);

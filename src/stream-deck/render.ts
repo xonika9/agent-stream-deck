@@ -3,7 +3,7 @@ import { clampPercent, usageLabel } from "#usage";
 
 export type BuiltinIconName = "back" | "forward" | "sidebar" | "home" | "navigation";
 
-export const SIGNAL_COLORS: Record<ThemeMode, Record<AgentVisualStatus, string>> = {
+const SIGNAL_COLORS: Record<ThemeMode, Record<AgentVisualStatus, string>> = {
   light: {
     empty: "#606B75",
     idle: "#FFFFFF",

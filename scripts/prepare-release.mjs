@@ -1,8 +1,8 @@
-import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { copyFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { finalizeReleaseDirectory } from "./finalize-release.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outputsRoot = join(root, "outputs");
@@ -45,12 +45,6 @@ function assertReleaseVersion(version) {
   if (!/^\d+\.\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z.-]+)?$/u.test(version)) {
     throw new Error(`Invalid release version: ${version}`);
   }
-}
-
-async function sha256(path) {
-  return createHash("sha256")
-    .update(await readFile(path))
-    .digest("hex");
 }
 
 function packageWindowsLauncher(outputPath) {
@@ -122,12 +116,7 @@ async function main() {
     );
   }
 
-  const artifactNames = (await readdir(output)).sort();
-  const checksums = [];
-  for (const name of artifactNames) checksums.push(`${await sha256(join(output, name))}  ${name}`);
-  await writeFile(join(output, "SHA256SUMS.txt"), `${checksums.join("\n")}\n`, "utf8");
-
-  run("node", [join(root, "scripts", "audit-release.mjs"), output]);
+  await finalizeReleaseDirectory(output);
   console.log(`Release candidate prepared at: ${output}`);
 }
 

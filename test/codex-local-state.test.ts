@@ -1,34 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { LocalActivityIndex } from "#agents";
-import type { CodexHost, MicroSnapshot } from "#agents";
+import { createMicroSnapshot, host } from "./support/micro-snapshot.js";
 
-const host: CodexHost = { hostId: "56fd97ad-7073-42cc-85ce-befa17546d7c", hostName: "Test Mac", platform: "darwin" };
-const snapshot: MicroSnapshot = {
-  slots: Array.from({ length: 6 }, (_, id) => ({
-    id,
-    threadKey: `00000000-0000-4000-8000-00000000000${id}`,
-    title: `Task ${id + 1}`,
-    status: id === 0 ? "working" : "idle",
-    selected: id === 0,
-    activityAt: 1_000 - id,
-  })),
-  layout: {
-    version: 1,
-    slots: {
-      ACT06: { keycapId: "FAST" },
-      ACT07: { keycapId: "APPR" },
-      ACT08: { keycapId: "REJ" },
-      ACT09: { keycapId: "SPLIT" },
-      ACT10_ACT11: { keycapId: "CODEX" },
-      ACT12: { keycapId: "CODEX" },
-    },
-    analogStick: { up: {}, right: {}, down: {}, left: {} },
-  },
-  agentSource: "recent",
-  lightingAutoOff: "3-minutes",
-  theme: "dark",
-};
+const snapshot = createMicroSnapshot();
 
 test("single-host agent modes preserve Codex's native six-slot order", () => {
   for (const mode of ["recent", "priority", "pinned", "custom"] as const) {
