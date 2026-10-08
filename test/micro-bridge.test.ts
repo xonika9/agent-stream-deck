@@ -75,13 +75,7 @@ test("renderer bridge discovers hashed modules at runtime and keeps Codex field 
   const catalogSource = await readFile(new URL("../src/codex/active-catalog-expression.ts", import.meta.url), "utf8");
   const source = `${bridgeSource}\n${catalogSource}`;
   // Codex renderer contract names read only from live Codex data; the vm harnesses below cover the rest.
-  for (const contract of [
-    "task_status_display",
-    "latest_turn_status_display",
-    "has_unread_turn",
-    "conversation_id",
-    "'get-setting'",
-  ]) {
+  for (const contract of ["task_status_display", "latest_turn_status_display", "has_unread_turn", "conversation_id"]) {
     assert.ok(source.includes(contract), `missing Codex renderer contract ${contract}`);
   }
   assert.doesNotMatch(source, /D90_rd6W|SFcKxWqG|DJFcGyy5/);
@@ -804,6 +798,7 @@ function snapshotContext(options: {
   resources: Array<{ name: string }>;
   getComputedStyle: (element: unknown) => { colorScheme?: string; backgroundColor: string };
   matchMedia?: (query: string) => { matches: boolean };
+  exports?: Record<string, unknown>;
 }): Context {
   const root = { __reactContainer$test: { memoizedProps: { value: new Map([["node", { store: options.store }]]) } } };
   return createContext({
@@ -824,6 +819,7 @@ function snapshotContext(options: {
         handlers: new Map([["codex-micro-hid-event", new Set([() => {}])]]),
         dispatchHostMessage: () => {},
       },
+      ...options.exports,
     }),
   });
 }
@@ -873,6 +869,80 @@ test("renderer snapshot theme follows explicit markers, then page background, th
   assert.equal(await themeFor({ background: "rgb(245, 245, 245)", systemDark: true }), "light");
   assert.equal(await themeFor({ background: "rgba(0, 0, 0, 0)", systemDark: true }), "dark");
   assert.equal(await themeFor({ background: "rgba(0, 0, 0, 0)", systemDark: false }), "light");
+});
+
+function settingsSnapshotContext(
+  store: { get: (atom: unknown) => unknown },
+  exports: Record<string, unknown>,
+): Context {
+  return snapshotContext({
+    definitions: {
+      layout: { key: "codex-micro-layout", default: { version: 1, slots: {} } },
+      agentSource: { key: "codex-micro-agent-source", default: "pinned" },
+      lightingAutoOff: { key: "codex-micro-lighting-auto-off", default: "3-minutes" },
+    },
+    store,
+    document: {
+      documentElement: { dataset: {}, className: "" },
+      body: { dataset: {}, className: "" },
+      querySelectorAll: () => [],
+      querySelector: () => null,
+    },
+    resources: [{ name: "app://-/assets/codex-micro-slot-signals-test.js" }],
+    getComputedStyle: () => ({ colorScheme: "dark", backgroundColor: "rgb(0,0,0)" }),
+    exports,
+  });
+}
+
+const savedMicroSettings: Record<string, unknown> = {
+  "codex-micro-layout": { version: 1, slots: { ACT06: { keycapId: "FAST" } } },
+  "codex-micro-agent-source": "priority",
+  "codex-micro-lighting-auto-off": "never",
+};
+const offSlots = Array.from({ length: 6 }, (_, id) => ({
+  id,
+  threadKey: null,
+  title: "",
+  status: "off",
+  selected: false,
+}));
+
+test("renderer snapshot reads saved Micro settings through Codex's get-setting reader", async () => {
+  const expression = await captureSnapshotExpression();
+  // Codex's reader is recognised by its source, so it must mention the get-setting channel and the default.
+  function readMicroSetting(definition: { key: string; default: unknown }) {
+    const channel = "get-setting";
+    return channel && definition.key in savedMicroSettings ? savedMicroSettings[definition.key] : definition.default;
+  }
+  const snapshot = await runSnapshot(
+    expression,
+    settingsSnapshotContext({ get: (atom) => (atom === "slots" ? offSlots : null) }, { readMicroSetting }),
+  );
+  assert.deepEqual(
+    { layout: snapshot.layout, agentSource: snapshot.agentSource, lightingAutoOff: snapshot.lightingAutoOff },
+    {
+      layout: { version: 1, slots: { ACT06: { keycapId: "FAST" } } },
+      agentSource: "priority",
+      lightingAutoOff: "never",
+    },
+  );
+});
+
+test("renderer snapshot falls back to store setting readers bound to the Codex store", async () => {
+  const expression = await captureSnapshotExpression();
+  const store = {
+    values: new Map<unknown, unknown>([["slots", offSlots]]),
+    get(atom: unknown) {
+      return this.values.get(atom) ?? (typeof atom === "string" ? savedMicroSettings[atom] : undefined);
+    },
+  };
+  // A store reader takes (get, definition); calling get unbound would lose the store and fall back to defaults.
+  function readStoreSetting(get: (atom: unknown) => unknown, definition: { key: string; default: unknown }) {
+    return get(definition.key) ?? definition.default;
+  }
+  const snapshot = await runSnapshot(expression, settingsSnapshotContext(store, { readStoreSetting }));
+  assert.equal(snapshot.agentSource, "priority");
+  assert.equal(snapshot.lightingAutoOff, "never");
 });
 
 test("renderer snapshot uses live pinned rows, caches collapsed pins and ignores hidden composers", async () => {

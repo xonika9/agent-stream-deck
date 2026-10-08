@@ -10,13 +10,6 @@ import { buildRuntimeOverrideExpression, buildRuntimeVerificationExpression, sel
 
 const execFileAsync = promisify(execFile);
 
-test("launcher discovers the persisted-signal module without a build hash", () => {
-  const expression = buildRuntimeOverrideExpression();
-  assert.match(expression, /\/assets\/persisted-signal-/);
-  assert.doesNotMatch(expression, /persisted-signal-[A-Za-z0-9_-]+\.js/);
-  assert.match(expression, /codex-micro-has-ever-been-detected/);
-});
-
 test("launcher rejects an unsafe feature-gate expression", () => {
   assert.throws(() => buildRuntimeOverrideExpression("1);alert(1)//"), /digits only/);
 });
@@ -83,60 +76,131 @@ test("watcher recovery decision self-test passes in PowerShell", async (context)
   assert.match(stdout, /self-test passed \(8 cases\)/i);
 });
 
-test("launcher supports the current shared-chunk native detection path", () => {
-  const expression = buildRuntimeOverrideExpression();
-  assert.match(expression, /native-device-event/);
-  assert.match(expression, /codex-micro-device-state-changed/);
-  assert.match(expression, /dispatchHostMessage/);
-  assert.match(expression, /deviceEventDispatched/);
-  assert.match(expression, /3207467860/);
-});
+const MICRO_HANDLERS = ["codex-micro-device-state-changed", "codex-micro-hid-event", "codex-micro-joystick-event"];
 
-test("launcher verifies the settings gate and native Micro handlers", () => {
-  const expression = buildRuntimeVerificationExpression();
-  assert.match(expression, /settings\/codex-micro/);
-  assert.match(expression, /codex-micro-hid-event/);
-  assert.match(expression, /codex-micro-joystick-event/);
-  assert.match(expression, /nativeEventBus/);
-});
-
-test("launcher activates and verifies a native event bus exposed only by app-shared", async () => {
-  const events: unknown[] = [];
-  const bus = {
-    handlers: new Map([
-      ["codex-micro-device-state-changed", new Set([() => {}])],
-      ["codex-micro-hid-event", new Set([() => {}])],
-      ["codex-micro-joystick-event", new Set([() => {}])],
-    ]),
-    dispatchHostMessage: (message: unknown) => events.push(message),
+/** A renderer with one Statsig client whose gates read through the installed override adapter, as Statsig does. */
+function runtimeRenderer(options: {
+  resources: string[];
+  modules: Record<string, Record<string, unknown>>;
+  settingsLink?: boolean;
+}) {
+  const emitted: unknown[] = [];
+  const client = {
+    overrideAdapter: undefined as { getGateOverride?: (gate: object) => { value?: boolean } } | undefined,
+    _memoCache: { stale: true } as Record<string, unknown>,
+    checkGate(name: string): boolean {
+      const gate = { name, value: false };
+      return Boolean((client.overrideAdapter?.getGateOverride?.(gate) ?? gate).value);
+    },
+    $emt: (event: unknown) => emitted.push(event),
   };
   let now = 0;
   const context = {
     Map,
     Set,
+    Proxy,
+    Reflect,
     Date: { now: () => (now += 1_000) },
     setTimeout: (callback: () => void) => callback(),
-    __STATSIG__: { firstInstance: { checkGate: () => true } },
-    document: { querySelectorAll: () => [], querySelector: () => null },
-    performance: { getEntriesByType: () => [{ name: "app://-/assets/app-shared-fixture.js" }] },
-    loadModule: async () => ({ bus }),
+    __STATSIG__: { firstInstance: client },
+    document: {
+      querySelectorAll: () => [],
+      querySelector: () => (options.settingsLink ? {} : null),
+    },
+    performance: { getEntriesByType: () => options.resources.map((name) => ({ name })) },
+    loadModule: async (url: string) => {
+      const module = options.modules[url];
+      if (!module) throw new Error(`unexpected import ${url}`);
+      return module;
+    },
   };
-  const activate = await runInNewContext(
-    buildRuntimeOverrideExpression().replaceAll("import(", "loadModule("),
-    context,
-  );
+  const run = async (expression: string) =>
+    JSON.parse(JSON.stringify(await runInNewContext(expression.replaceAll("import(", "loadModule("), context)));
+  return {
+    client,
+    emitted,
+    activate: () => run(buildRuntimeOverrideExpression()),
+    verify: () => run(buildRuntimeVerificationExpression()),
+  };
+}
+
+function nativeBus(handlers: string[], events: unknown[] = []) {
+  return {
+    handlers: new Map(handlers.map((name) => [name, new Set([() => {}])])),
+    dispatchHostMessage: (message: unknown) => events.push(message),
+  };
+}
+
+test("launcher enables only the Micro gate and records detection through any persisted-signal build", async () => {
+  const signals = new Map<string, unknown>();
+  const persistedUrl = "app://-/assets/persisted-signal-Zq81_x.js";
+  const renderer = runtimeRenderer({
+    resources: [persistedUrl],
+    modules: {
+      [persistedUrl]: {
+        p: (key: string, fallback: unknown) => (signals.has(key) ? signals.get(key) : fallback),
+        b: (key: string, value: unknown) => signals.set(key, value),
+      },
+    },
+  });
+
+  const result = await renderer.activate();
+  assert.equal(result.ready, true);
+  assert.equal(result.detectionMethod, "persisted-signal");
+  assert.equal(signals.get("codex-micro-has-ever-been-detected"), true);
+  assert.equal(renderer.client.checkGate("3207467860"), true);
+  assert.equal(renderer.client.checkGate("1234"), false, "other gates keep their real value");
+  assert.deepEqual(Object.keys(renderer.client._memoCache), [], "cached gate results are cleared");
+  assert.deepEqual(JSON.parse(JSON.stringify(renderer.emitted)), [{ name: "values_updated" }]);
+});
+
+test("launcher reports a changed persisted-signal API instead of guessing", async () => {
+  const persistedUrl = "app://-/assets/persisted-signal-changed.js";
+  const renderer = runtimeRenderer({ resources: [persistedUrl], modules: { [persistedUrl]: { p: () => true } } });
+  assert.deepEqual(await renderer.activate(), { ready: false, reason: "persisted-signal-api-changed" });
+});
+
+test("launcher activates and verifies a native event bus exposed only by app-shared", async () => {
+  const events: unknown[] = [];
+  const renderer = runtimeRenderer({
+    resources: ["app://-/assets/app-shared-fixture.js"],
+    modules: { "app://-/assets/app-shared-fixture.js": { bus: nativeBus(MICRO_HANDLERS, events) } },
+  });
+  const activate = await renderer.activate();
   assert.equal(activate.ready, true);
+  assert.equal(activate.detectionMethod, "native-device-event");
   assert.deepEqual(JSON.parse(JSON.stringify(events)), [
     {
       type: "codex-micro-device-state-changed",
       state: { status: "connected", error: null, battery: { percentage: 100, isCharging: true } },
     },
   ]);
-  const verify = await runInNewContext(
-    buildRuntimeVerificationExpression().replaceAll("import(", "loadModule("),
-    context,
-  );
+  const verify = await renderer.verify();
   assert.equal(verify.ready, true);
+  assert.equal(verify.menuEnabled, true, "the activated gate enables the Micro menu");
+});
+
+test("launcher verification requires both native input handlers and an enabled Micro menu", async () => {
+  const url = "app://-/assets/app-shared-fixture.js";
+  const missingJoystick = runtimeRenderer({
+    resources: [url],
+    modules: { [url]: { bus: nativeBus(MICRO_HANDLERS.slice(0, 2)) } },
+    settingsLink: true,
+  });
+  assert.equal((await missingJoystick.verify()).ready, false);
+
+  const gateOff = runtimeRenderer({ resources: [url], modules: { [url]: { bus: nativeBus(MICRO_HANDLERS) } } });
+  assert.deepEqual(
+    { ready: (await gateOff.verify()).ready, menuEnabled: (await gateOff.verify()).menuEnabled },
+    { ready: false, menuEnabled: false },
+  );
+
+  const settingsLinkOnly = runtimeRenderer({
+    resources: [url],
+    modules: { [url]: { bus: nativeBus(MICRO_HANDLERS) } },
+    settingsLink: true,
+  });
+  assert.equal((await settingsLinkOnly.verify()).ready, true, "a visible Micro settings link counts as enabled");
 });
 
 test("Windows updater preserves unproven SSH and cleans only retired same-root bundle files", (context) => {
