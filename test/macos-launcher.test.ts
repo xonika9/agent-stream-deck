@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { spawnSync } from "node:child_process";
 import { build } from "esbuild";
-import { chmod, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -80,6 +80,11 @@ test("macOS watcher update fails before stopping on preflight failure and report
 }, async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "codex-watcher-install-")));
   try {
+    // The installed launch script only searches fixed Node locations; give the fixture HOME one so the
+    // test does not depend on Homebrew or a Codex app providing Node 24 on this machine.
+    const fixtureNode = join(root, ".nvm/versions/node/v24.0.0/bin");
+    await mkdir(fixtureNode, { recursive: true });
+    await symlink(process.execPath, join(fixtureNode, "node"));
     const fixtureRuntime = join(root, "runtime.mjs");
     await build({
       entryPoints: [fileURLToPath(new URL("../launcher/macos/codex-deck-macos.ts", import.meta.url))],
