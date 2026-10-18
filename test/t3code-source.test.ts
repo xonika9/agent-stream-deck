@@ -633,17 +633,22 @@ test("T3 runtime disappearance retires a held local response without cancelling 
   }
 });
 
-test("T3 accepts local and SSH shell history above two MiB", {
+test("T3 streams local history above eight MiB and ten thousand inactive threads", {
   skip: process.platform === "win32",
 }, async (context) => {
   const fixture = await t3Fixture(context);
   const { source, wait, waitJob, local } = fixture;
-  const history = "x".repeat(3 * 1024 * 1024);
-  const localShell = { ...shell("local", "Local"), projects: [{ history }] };
-  local.payload = localShell;
+  const history = Array.from({ length: 12_000 }, (_, index) => ({
+    id: `old-${index}`,
+    title: "Old task",
+    status: "completed",
+    latestRunCompletedAt: "2020-01-01T00:00:00.000Z",
+    lineage: "x".repeat(800),
+  }));
+  local.payload = { schemaVersion: 2, threads: [...history, ...shell("local", "Local").threads] };
   try {
     source.syncDemand("All", host, false);
-    (await waitJob(1)).finish({ ...shell("task", "Remote"), projects: [{ history }] });
+    (await waitJob(1)).finish(shell("task", "Remote"));
     await wait(() => source.health.state !== "connecting");
     assert.equal(source.health.state, "ready");
     assert.deepEqual(

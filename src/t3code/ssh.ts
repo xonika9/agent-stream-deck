@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { REMOTE_SHELL_READER } from "./remote-shell.js";
 
 export type T3SshConnection = { host: string; environmentId: string; token: string };
 
@@ -18,6 +19,7 @@ def request(path, token=None, body=None):
   raw = response.read(${MAX_RESPONSE_BYTES + 1})
   if len(raw) > ${MAX_RESPONSE_BYTES}: raise ValueError("size")
   return json.loads(raw)
+${REMOTE_SHELL_READER}
 try:
  data = json.loads(sys.stdin.read(16385))
  root = os.path.expanduser("~/.t3/userdata")
@@ -41,11 +43,11 @@ try:
   session = request("/oauth/token", body=body)
   if session["token_type"] != "Bearer" or session["scope"] != "orchestration:read": raise ValueError("scope")
   token = session["access_token"]
-  request("/api/orchestration/shell", token)
+  read_shell(token, data["observedAt"])
   print(json.dumps({"environmentId":identity, "token":token}))
  else:
   if identity != data["environmentId"]: raise ValueError("identity")
-  print(json.dumps(request("/api/orchestration/shell", data["token"])))
+  print(json.dumps(read_shell(data["token"], data["observedAt"])))
 except Exception:
  sys.exit(1)
 `;
@@ -102,7 +104,7 @@ export async function t3SshRequest(host: string, input: object, signal: AbortSig
     },
   );
   child.stdin.on("error", () => {});
-  child.stdin.end(JSON.stringify(input));
+  child.stdin.end(JSON.stringify({ ...input, observedAt: Date.now() }));
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let size = 0;

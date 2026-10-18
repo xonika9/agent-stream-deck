@@ -98,11 +98,31 @@ before. Exact terminal acknowledgements are checked again at commit, so a
 pending response cannot restore an acknowledged revision. These changes are
 covered by local fixtures; they do not establish a new live T3/Fedora or physical
 device compatibility result.
-HTTP requests have a four-second budget and an eight-MiB response limit.
-SSH polling has a four-second total budget (pairing setup allows ten seconds) and the same eight-MiB output limit.
-The shell endpoint includes inactive chat history without a filtering option. The
-former two-MiB limit rejected otherwise healthy environments with roughly 2000
-saved chats; both remote HTTP reads and SSH output now use the larger bounded limit.
+HTTP requests retain their four-second budget. The shell is read incrementally,
+one JSON record at a time; inactive history counts toward neither the retained
+task limit nor an aggregate response-size cap. Each record is limited to 262144
+decoded characters and 64 nested containers. At most 10000 relevant tasks and
+eight MiB of their JSON are retained. Malformed or incomplete snapshots are
+rejected atomically, preserving successful environments as before.
+
+SSH polling retains its four-second total budget (pairing setup allows ten
+seconds). The existing remote Python 3 reader performs the same incremental
+scan, removes inactive history and unused metadata on Fedora, and sends only
+queue-relevant fields. Its compact output remains limited to eight MiB. The
+reader also has its own four-second wall deadline, covering processing as well
+as socket waits, so it stops even if its SSH client disconnects mid-scan. The
+ordinary plugin collection still makes the final status, freshness and exact
+acknowledgement checks.
+
+The installed T3 HTTP shell has no filter or pagination. Its WebSocket
+`orchestration.subscribeShell` supports deltas but begins with the same full
+snapshot; switching transports alone would retain the startup size problem.
+The read-only HTTP session is not accepted at `/mcp`. Collection therefore
+continues through the existing authenticated shell API. History growth no
+longer requires raising a whole-snapshot byte or row limit in the plugin, but
+the server still sends all history over its loopback HTTP connection and must
+finish within the existing time budget. A server-side filtered API is still
+needed to remove that remaining scan and transfer cost.
 Acknowledgements are process-local and are never distributed or persisted.
 
 ## Evidence
@@ -119,3 +139,9 @@ in the installed plugin; physical-device testing must be recorded separately.
 Live macOS verification on 2026-10-05 confirmed two running local tasks and one
 running Fedora task in the same source. This is application validation, not physical
 button testing; Windows T3 collection remains unsupported.
+
+On 2026-10-19 the remote reader was exercised on Fedora with 12000 inactive
+records (over eleven MB), five relevant tasks, split UTF-8/JSON input, malformed
+snapshots and the per-record, depth and relevant-task guards. Local fixtures
+execute the actual Python program with an isolated HOME and HTTP service. These
+checks verify collection and guards, not physical Stream Deck operation.

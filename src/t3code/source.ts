@@ -7,10 +7,9 @@ import type { CodexHost, HostHealth, RoutedAgentSlot, TaskSource } from "#agents
 import { codexDeckStateRoot } from "../runtime/paths.js";
 
 import { t3SshRequest, validateSshConnection } from "./ssh.js";
+import { readShell } from "./shell-reader.js";
 
 const TERMINAL_WINDOW_MS = 5 * 60_000;
-// Shell snapshots include inactive chat history; large environments exceed two MiB.
-const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 type RecordValue = Record<string, unknown>;
 type Options = { configPath?: string; runtimePath?: string; foreground?: () => Promise<void> };
 type LocalRuntime = { origin: string; token: string; pid: number };
@@ -255,17 +254,8 @@ export class T3CodeSource {
       signal: AbortSignal.any([request.signal, AbortSignal.timeout(4_000)]),
     });
     if (!response.ok || !response.body) throw new Error("Shell unavailable");
-    const chunks: Uint8Array[] = [];
-    let bytes = 0;
-    for await (const chunk of response.body) {
-      bytes += chunk.byteLength;
-      if (bytes > MAX_RESPONSE_BYTES) {
-        throw new Error("Shell too large");
-      }
-      chunks.push(chunk);
-    }
-    const shell = object(JSON.parse(Buffer.concat(chunks).toString("utf8")));
-    return shell;
+    const now = Date.now();
+    return readShell(response.body, (thread) => this.taskSlot(thread, 0, now) !== null);
   }
 
   async open(assignment: RoutedAgentSlot, signal: AbortSignal): Promise<boolean> {

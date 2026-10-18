@@ -4,6 +4,8 @@ Thanks for helping improve Codex Deck.
 
 Use Node.js 24 or newer for development and launchers. The plugin uses SDK 3
 and requires Stream Deck 7.1 or newer.
+The macOS test suite also requires Python 3.9 or newer to execute the remote T3
+reader against isolated local HTTP fixtures.
 
 Mac is the primary platform; standalone Windows installation, startup, and
 existing actions remain supported. Mac retains `Codex`, `OpenCode`, `T3 Code`, and `All`,
