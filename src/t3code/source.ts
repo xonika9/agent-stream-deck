@@ -9,7 +9,8 @@ import { codexDeckStateRoot } from "../runtime/paths.js";
 import { t3SshRequest, validateSshConnection } from "./ssh.js";
 
 const TERMINAL_WINDOW_MS = 5 * 60_000;
-const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+// Shell snapshots include inactive chat history; large environments exceed two MiB.
+const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 type RecordValue = Record<string, unknown>;
 type Options = { configPath?: string; runtimePath?: string; foreground?: () => Promise<void> };
 type LocalRuntime = { origin: string; token: string; pid: number };

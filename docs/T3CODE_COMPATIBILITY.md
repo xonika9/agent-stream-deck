@@ -98,8 +98,11 @@ before. Exact terminal acknowledgements are checked again at commit, so a
 pending response cannot restore an acknowledged revision. These changes are
 covered by local fixtures; they do not establish a new live T3/Fedora or physical
 device compatibility result.
-HTTP requests have a four-second budget and a two-MiB response limit.
-SSH polling has a four-second total budget (pairing setup allows ten seconds) and the same two-MiB output limit.
+HTTP requests have a four-second budget and an eight-MiB response limit.
+SSH polling has a four-second total budget (pairing setup allows ten seconds) and the same eight-MiB output limit.
+The shell endpoint includes inactive chat history without a filtering option. The
+former two-MiB limit rejected otherwise healthy environments with roughly 2000
+saved chats; both remote HTTP reads and SSH output now use the larger bounded limit.
 Acknowledgements are process-local and are never distributed or persisted.
 
 ## Evidence

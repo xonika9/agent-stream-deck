@@ -633,6 +633,31 @@ test("T3 runtime disappearance retires a held local response without cancelling 
   }
 });
 
+test("T3 accepts local and SSH shell history above two MiB", {
+  skip: process.platform === "win32",
+}, async (context) => {
+  const fixture = await t3Fixture(context);
+  const { source, wait, waitJob, local } = fixture;
+  const history = "x".repeat(3 * 1024 * 1024);
+  const localShell = { ...shell("local", "Local"), projects: [{ history }] };
+  local.payload = localShell;
+  try {
+    source.syncDemand("All", host, false);
+    (await waitJob(1)).finish({ ...shell("task", "Remote"), projects: [{ history }] });
+    await wait(() => source.health.state !== "connecting");
+    assert.equal(source.health.state, "ready");
+    assert.deepEqual(
+      source.slots.map((slot) => [slot.threadKey, slot.status]),
+      [
+        ["local", "working"],
+        ["ssh:remote:task", "working"],
+      ],
+    );
+  } finally {
+    await fixture.close();
+  }
+});
+
 test("T3 rejects an oversized local response without erasing an authenticated remote snapshot", {
   skip: process.platform === "win32",
 }, async (context) => {
@@ -644,7 +669,7 @@ test("T3 rejects an oversized local response without erasing an authenticated re
     (await waitJob(1)).finish(shell("task", "Remote"));
     await wait(() => source.health.state === "ready");
     const remote = source.slots.find((slot) => slot.threadKey === "ssh:remote:task");
-    local.payload = shell("local", "x".repeat(2 * 1024 * 1024));
+    local.payload = shell("local", "x".repeat(8 * 1024 * 1024));
     context.mock.timers.tick(1200);
     await source.refresh();
     const pending = await waitJob(2);
@@ -655,6 +680,24 @@ test("T3 rejects an oversized local response without erasing an authenticated re
     );
     assert.equal(source.slots[0], remote);
     assert.equal(pending.signal.aborted, false);
+  } finally {
+    await fixture.close();
+  }
+});
+
+test("T3 rejects an oversized SSH response without erasing the local snapshot", {
+  skip: process.platform === "win32",
+}, async (context) => {
+  const fixture = await t3Fixture(context);
+  const { source, wait, waitJob } = fixture;
+  try {
+    source.syncDemand("All", host, false);
+    (await waitJob(1)).finish(shell("task", "x".repeat(8 * 1024 * 1024)));
+    await wait(() => source.health.state === "degraded" && source.slots.length === 1);
+    assert.deepEqual(
+      source.slots.map((slot) => [slot.threadKey, slot.status]),
+      [["local", "working"]],
+    );
   } finally {
     await fixture.close();
   }

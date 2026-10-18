@@ -2,6 +2,8 @@ import { spawn } from "node:child_process";
 
 export type T3SshConnection = { host: string; environmentId: string; token: string };
 
+const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
+
 // Read only through the authenticated SSH host, never a network HTTP origin.
 // Pairing uses the already-running server's official CLI; it never starts a service.
 const T3_REMOTE_SCRIPT = `import json, os, stat, sys, subprocess, urllib.request, urllib.parse
@@ -13,8 +15,8 @@ def request(path, token=None, body=None):
  if token: headers["Authorization"] = "Bearer " + token
  if body is not None: headers["Content-Type"] = "application/x-www-form-urlencoded"
  with opener.open(urllib.request.Request(origin + path, data=body, headers=headers), timeout=4) as response:
-  raw = response.read(2097153)
-  if len(raw) > 2097152: raise ValueError("size")
+  raw = response.read(${MAX_RESPONSE_BYTES + 1})
+  if len(raw) > ${MAX_RESPONSE_BYTES}: raise ValueError("size")
   return json.loads(raw)
 try:
  data = json.loads(sys.stdin.read(16385))
@@ -106,7 +108,7 @@ export async function t3SshRequest(host: string, input: object, signal: AbortSig
     let size = 0;
     child.stdout.on("data", (chunk: Buffer) => {
       size += chunk.length;
-      if (size > 2 * 1024 * 1024) {
+      if (size > MAX_RESPONSE_BYTES) {
         child.kill();
         reject(new Error("T3 SSH response too large"));
       } else chunks.push(chunk);
