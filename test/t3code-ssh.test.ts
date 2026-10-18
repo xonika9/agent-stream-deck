@@ -87,10 +87,16 @@ test("remote Python reader filters growing history before SSH and fails closed o
       '{"schemaVersion":2}',
       '{"schemaVersion":[2],"threads":[]}',
       '{"schemaVersion":2,"threads":[],"threads":[]}',
-      '{"schemaVersion":2,"threads":[{},]}',
+      `{"schemaVersion":2,"threads":[${JSON.stringify(working)},]}`,
+      `{"schemaVersion":2,"threads":[${JSON.stringify(working)}`,
       '{"schemaVersion":2,"threads":[]}false',
+      `{"schemaVersion":2,"threads":[],"projects":[${"[".repeat(65)}0${"]".repeat(65)}]}`,
       JSON.stringify({ schemaVersion: 2, threads: [thread("huge", "idle", { lineage: "x".repeat(262_144) })] }),
       JSON.stringify({ schemaVersion: 2, threads: Array.from({ length: 10_001 }, () => working) }),
+      JSON.stringify({
+        schemaVersion: 2,
+        threads: Array.from({ length: 9000 }, () => thread("large", "running", { title: "x".repeat(1200) })),
+      }),
     ]) {
       payload = invalid;
       await assert.rejects(collect(), /T3 SSH unavailable/u);
@@ -110,7 +116,7 @@ test("remote Python reader filters growing history before SSH and fails closed o
 test("remote Python deadline stops a continuously readable shell and closes the response", {
   skip: process.platform === "win32",
 }, async () => {
-  const program = String.raw`import json, sys, signal, time, urllib.request
+  const program = `import json, sys, signal, time, urllib.request
 exec(json.load(sys.stdin)["reader"])
 origin = "http://127.0.0.1:12345"
 closed = False
