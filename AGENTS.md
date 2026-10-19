@@ -4,6 +4,7 @@
 
 - Use `CONTRIBUTING.md` for setup and required validation commands; `package.json` and the lockfile own dependency requirements and resolved versions.
 - For code changes, run the complete automated validation prescribed in `CONTRIBUTING.md`.
+- Builds clear the contents of `dist/com.xonika9.codex-deck.sdPlugin`, including logs. If that directory is linked to a live Stream Deck plugin, preserve required diagnostics and run validation in an isolated copy without links to the active `dist`.
 - Follow `TESTING.md` when writing, changing, or removing tests.
 - Never create branches — always commit and work directly on `main`.
 - After building release artifacts, run the release audit prescribed in `CONTRIBUTING.md`.
