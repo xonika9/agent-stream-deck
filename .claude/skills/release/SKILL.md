@@ -20,7 +20,7 @@ An ordinary request to edit release-adjacent files or push unrelated work is not
 
 Resolve the repository root with Git, then inspect the worktree, branch, remotes, latest public `v*` tag, and the complete committed and uncommitted diff since that tag. Read the user-visible changes rather than inferring scope from recent commits alone.
 
-Stop when the candidate cannot be separated from unrelated changes, the intended release is not a safe fast-forward of `origin/main`, the target remote is ambiguous, or the requested version already exists as a tag or GitHub Release.
+Stop when the candidate cannot be separated from unrelated changes, the intended release is not a safe fast-forward of `origin/main`, or the target remote is ambiguous. For a new release, also stop if the requested version already exists as a tag or GitHub Release. When resuming an interrupted publication, reconcile the existing state with the exact candidate under [publishing.md](references/publishing.md) before changing release files or rerunning preparation.
 
 Choose the version with [versioning.md](references/versioning.md). A version explicitly confirmed earlier in the same release task remains confirmed; otherwise obtain maintainer confirmation before changing version fields.
 
