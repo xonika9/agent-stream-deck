@@ -24,7 +24,6 @@ Inspect `outputs/release-vX.Y.Z/` and require:
 Then run:
 
 ```bash
-npm run audit:release -- outputs/release-vX.Y.Z
 unzip -t outputs/release-vX.Y.Z/codex-deck-launcher-windows-vX.Y.Z.zip
 (cd outputs/release-vX.Y.Z && shasum -a 256 -c SHA256SUMS.txt)
 ```

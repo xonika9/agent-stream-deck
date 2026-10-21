@@ -7,7 +7,7 @@ description: Use in this repository when the maintainer asks to prepare or publi
 
 Prepare or publish a Codex Deck version from the complete repository state. The latest public tag, its full diff to the candidate, the package and Stream Deck manifests, `CHANGELOG.md`, release documentation, and the generated artifact audit are the sources of truth.
 
-This is a private repository-local skill for Claude Code and Codex. Its canonical source is `.claude/skills/release`; `.agents/skills` exposes the same source through a repository-relative symlink.
+This is a private repository-local skill. Its canonical source is `.claude/skills/release`; `.agents/skills` exposes the same source through a repository-relative symlink.
 
 ## Select the mode
 
@@ -45,4 +45,4 @@ If any external step fails after `main`, a tag, or a draft release changes, stop
 
 ## Done
 
-Report the version, released commit, tag and release URL, artifact names and checksum file, exact validation outcomes, and separate automated, live-app, and physical-device evidence. Label unavailable evidence as not run or user-reported rather than upgrading it to a stronger kind of validation.
+Report the version, artifact names and checksum file, exact validation outcomes, and separate automated, live-app, and physical-device evidence. For Publish, also report the released commit, tag and release URL. Label unavailable evidence as not run or user-reported rather than upgrading it to a stronger kind of validation.
