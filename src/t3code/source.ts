@@ -183,9 +183,10 @@ export class T3CodeSource {
         );
         environment.state = "ready";
         this.publish();
-      } catch {
+      } catch (error) {
         if (!current()) return;
-        environment.slots = [];
+        if (!(error instanceof Error && error.name === "TimeoutError" && environment.state === "ready"))
+          environment.slots = [];
         environment.state = "degraded";
         this.publish();
       }

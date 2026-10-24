@@ -75,6 +75,7 @@ export async function t3SshRequest(host: string, input: object, signal: AbortSig
   // Validate a single saved SSH alias; no user command or SSH options are accepted.
   validateSshHost(host);
   const command = `python3 -c '${T3_REMOTE_SCRIPT.replaceAll("'", "'\\''")}'`;
+  const deadline = AbortSignal.timeout("pair" in input ? 10_000 : 4_000);
   const child = spawn(
     "/usr/bin/ssh",
     [
@@ -100,7 +101,7 @@ export async function t3SshRequest(host: string, input: object, signal: AbortSig
     ],
     {
       stdio: ["pipe", "pipe", "ignore"],
-      signal: AbortSignal.any([signal, AbortSignal.timeout("pair" in input ? 10_000 : 4_000)]),
+      signal: AbortSignal.any([signal, deadline]),
     },
   );
   child.stdin.on("error", () => {});
@@ -115,7 +116,7 @@ export async function t3SshRequest(host: string, input: object, signal: AbortSig
         reject(new Error("T3 SSH response too large"));
       } else chunks.push(chunk);
     });
-    child.on("error", () => reject(new Error("T3 SSH unavailable")));
+    child.on("error", () => reject(deadline.aborted ? deadline.reason : new Error("T3 SSH unavailable")));
     child.on("close", (code) => {
       if (code !== 0) return reject(new Error("T3 SSH unavailable"));
       try {

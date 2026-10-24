@@ -438,6 +438,86 @@ test("T3 pending snapshots keep observation time; empty success and failure clea
   }
 });
 
+test("T3 keeps the verified remote tasks through one SSH deadline, recovers, and clears on repeated deadlines", {
+  skip: process.platform === "win32",
+}, async (context) => {
+  context.mock.timers.enable({ apis: ["Date"], now: 100_000 });
+  const deadlines: AbortController[] = [];
+  context.mock.method(AbortSignal, "timeout", (milliseconds: number) => {
+    assert.equal(milliseconds, 4000);
+    const deadline = new AbortController();
+    deadlines.push(deadline);
+    return deadline.signal;
+  });
+  const fixture = await t3Fixture(context);
+  const { source, wait, waitJob } = fixture;
+  try {
+    source.syncDemand("All", host, false);
+    (await waitJob(1)).finish(shell("task", "Remote"));
+    await wait(() => source.health.state === "ready");
+    const remote = source.slots.find((slot) => slot.threadKey === "ssh:remote:task")!;
+    context.mock.timers.tick(1200);
+    await source.refresh();
+    await waitJob(2);
+    deadlines.at(-1)!.abort(new DOMException("Request deadline", "TimeoutError"));
+    await wait(() => source.health.state === "degraded");
+    assert.equal(
+      source.slots.find((slot) => slot.threadKey === "ssh:remote:task"),
+      remote,
+    );
+    assert.equal(remote.observedAt, 100_000, "a timeout must not refresh the retained snapshot's age");
+
+    context.mock.timers.tick(1200);
+    await source.refresh();
+    (await waitJob(3)).finish(shell("task", "Recovered"));
+    await wait(() => source.health.state === "ready");
+    assert.equal(source.slots.find((slot) => slot.threadKey === "ssh:remote:task")?.title, "Recovered");
+
+    context.mock.timers.tick(1200);
+    await source.refresh();
+    await waitJob(4);
+    deadlines.at(-1)!.abort(new DOMException("Request deadline", "TimeoutError"));
+    await wait(() => source.health.state === "degraded");
+    assert.equal(source.slots.find((slot) => slot.threadKey === "ssh:remote:task")?.title, "Recovered");
+    context.mock.timers.tick(1200);
+    await source.refresh();
+    await waitJob(5);
+    deadlines.at(-1)!.abort(new DOMException("Request deadline", "TimeoutError"));
+    await wait(() => !source.slots.some((slot) => slot.threadKey === "ssh:remote:task"));
+    assert.deepEqual(
+      source.slots.map((slot) => slot.threadKey),
+      ["local"],
+    );
+  } finally {
+    await fixture.close();
+  }
+});
+
+test("T3 keeps local tasks through one HTTP deadline and clears them on the next deadline", {
+  skip: process.platform === "win32",
+}, async (context) => {
+  const fixture = await t3Fixture(context);
+  const { source, wait } = fixture;
+  try {
+    fixture.config.sshConnections = [];
+    await fixture.save();
+    source.syncDemand("T3 Code", host, false);
+    await wait(() => source.health.state === "ready");
+    const local = source.slots[0];
+    context.mock.method(globalThis, "fetch", async () => {
+      throw new DOMException("Request deadline", "TimeoutError");
+    });
+    await source.refresh();
+    await wait(() => source.health.state === "degraded");
+    assert.equal(source.slots[0], local);
+    await source.refresh();
+    await wait(() => source.slots.length === 0);
+    assert.equal(source.health.state, "degraded");
+  } finally {
+    await fixture.close();
+  }
+});
+
 test("T3 acknowledges the exact remote revision during a pending cycle without resurrecting it", {
   skip: process.platform === "win32",
 }, async (context) => {

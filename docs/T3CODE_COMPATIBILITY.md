@@ -79,9 +79,15 @@ It does not navigate to a specific chat or publish a visited update. A newer
 terminal timestamp admits the result again. Key-up sends no Codex command.
 T3 keys display `T3` and have no Codex context ring.
 
-Missing credentials, unsupported response shapes, HTTP/SSH failure, excessive
-response size or timeouts produce degraded health and clear stale tasks from the
+Missing credentials, unsupported response shapes, HTTP/SSH failures and excessive
+response size produce degraded health and clear stale tasks from the
 failing connection while retaining successful environments.
+An isolated HTTP or SSH client deadline instead retains that connection's last
+verified tasks for one failed cycle, with degraded health and unchanged observation
+times. A second consecutive failure clears them; a successful response replaces
+them immediately, including an authoritative empty snapshot. Invalid data,
+authentication failures and configuration changes still clear affected tasks
+immediately. The four-second request budgets remain unchanged.
 Each environment commits its full verified snapshot independently; pending
 requests preserve the previous snapshot's observation time. A shared 1200-ms
 controller clock triggers the source without waiting for Codex, quota or SDK
