@@ -2,6 +2,27 @@
 
 Versions through `0.7.0.2` below are the historical upstream releases by Dazer. Starting with `1.0.0`, releases belong to the xonika9 fork and use its own plugin identity.
 
+## 2.2.1 - 2026-11-02
+
+### Fixes
+
+- Restore T3 Code task collection when chat history outgrows the previous whole-response limit. Local and saved Fedora SSH sources now scan JSON incrementally and retain only queue-relevant tasks, with bounded records, nesting, memory and request deadlines.
+- Keep the last verified T3 task cards through one isolated request timeout. A second consecutive failure clears them; successful empty snapshots, invalid data, authentication failures and configuration changes still clear affected cards immediately.
+- Discover Codex Micro modules through a bounded same-host dependency walk when resource timings omit lazy chunks. Successful discovery is cached for the renderer document; failed discovery can be retried.
+- Confirm launcher readiness only after a successful six-slot snapshot, retrying temporary slot initialization failures within the existing deadline and preserving the last failure reason.
+
+### Maintenance and compatibility
+
+- Add regression coverage for large and malformed T3 histories, remote parser guards and delayed Micro slot readiness. Clarify release recovery and validation procedures.
+- Credit Dmitrii Fedosov (@fedosovdn) for the Micro discovery and launcher readiness contribution in `CONTRIBUTORS.md`.
+- Existing action UUIDs, profiles, read-only usage actions and standalone Windows installation remain supported. T3 collection remains macOS-only; saved Fedora SSH connections remain task sources. Authentication, loopback binding and existing request budgets are preserved.
+
+### Validation
+
+- Automated macOS checks cover the complete candidate, plugin validation, launcher packaging, archive integrity, checksums and release artifact auditing.
+- The Micro discovery contributor reports live application verification on Windows 11 25H2 with Codex 26.1027.3384.0 and Stream Deck 7.5.1.22901. This is author-reported application evidence, not independent physical-device testing.
+- Live macOS application and physical-device validation of this release candidate were not run.
+
 ## 2.2.0 - 2026-10-14
 
 ### Highlights
