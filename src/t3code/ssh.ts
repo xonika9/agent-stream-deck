@@ -3,11 +3,22 @@ import { REMOTE_SHELL_READER } from "./remote-shell.js";
 
 export type T3SshConnection = { host: string; environmentId: string; token: string };
 
+export class T3CredentialRejectedError extends Error {
+  override name = "T3CredentialRejectedError";
+}
+
+export class T3SshUnavailableError extends Error {
+  override name = "T3SshUnavailableError";
+}
+
+// Distinct remote exit status for an HTTP 401/403 from the remote T3 server.
+const CREDENTIAL_REJECTED_EXIT = 3;
+
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 
 // Read only through the authenticated SSH host, never a network HTTP origin.
 // Pairing uses the already-running server's official CLI; it never starts a service.
-const T3_REMOTE_SCRIPT = `import json, os, stat, sys, subprocess, urllib.request, urllib.parse
+const T3_REMOTE_SCRIPT = `import json, os, stat, sys, subprocess, urllib.error, urllib.request, urllib.parse
 class NoRedirect(urllib.request.HTTPRedirectHandler):
  def redirect_request(self, *args): raise ValueError("redirect")
 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
@@ -48,6 +59,8 @@ try:
  else:
   if identity != data["environmentId"]: raise ValueError("identity")
   print(json.dumps(read_shell(data["token"], data["observedAt"])))
+except urllib.error.HTTPError as error:
+ sys.exit(${CREDENTIAL_REJECTED_EXIT} if error.code in (401, 403) else 1)
 except Exception:
  sys.exit(1)
 `;
@@ -116,9 +129,12 @@ export async function t3SshRequest(host: string, input: object, signal: AbortSig
         reject(new Error("T3 SSH response too large"));
       } else chunks.push(chunk);
     });
-    child.on("error", () => reject(deadline.aborted ? deadline.reason : new Error("T3 SSH unavailable")));
+    child.on("error", () =>
+      reject(deadline.aborted ? deadline.reason : new T3SshUnavailableError("T3 SSH unavailable")),
+    );
     child.on("close", (code) => {
-      if (code !== 0) return reject(new Error("T3 SSH unavailable"));
+      if (code === CREDENTIAL_REJECTED_EXIT) return reject(new T3CredentialRejectedError("T3 SSH credential rejected"));
+      if (code !== 0) return reject(new T3SshUnavailableError("T3 SSH unavailable"));
       try {
         resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")));
       } catch {

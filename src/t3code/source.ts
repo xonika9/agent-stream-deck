@@ -6,15 +6,18 @@ import { join } from "node:path";
 import type { CodexHost, HostHealth, RoutedAgentSlot, TaskSource } from "#agents";
 import { codexDeckStateRoot } from "../runtime/paths.js";
 
-import { t3SshRequest, validateSshConnection } from "./ssh.js";
+import { T3CredentialRejectedError, T3SshUnavailableError, t3SshRequest, validateSshConnection } from "./ssh.js";
 import { readShell } from "./shell-reader.js";
 
 const TERMINAL_WINDOW_MS = 5 * 60_000;
 type RecordValue = Record<string, unknown>;
 type Options = { configPath?: string; runtimePath?: string; foreground?: () => Promise<void> };
 type LocalRuntime = { origin: string; token: string; pid: number };
+type FailureReason = "credential-rejected" | "runtime-unavailable" | "timeout" | "ssh-unavailable" | "invalid-response";
 type Environment = {
   namespace: string;
+  // Log label: "local" or an SSH ordinal; never a host, identity or token.
+  label: string;
   identity: string;
   read: (request: AbortController) => Promise<RecordValue>;
   slots: RoutedAgentSlot[];
@@ -34,6 +37,8 @@ export class T3CodeSource {
   private readonly environments = new Map<string, Environment>();
   private readonly listeners = new Set<() => void>();
   private readonly acknowledged = new Map<string, number>();
+  // Last reported failure per log label, so each transition is logged once.
+  private readonly reportedFailures = new Map<string, FailureReason>();
   private readonly configPath: string;
   private readonly runtimePath: string;
   private readonly foreground: () => Promise<void>;
@@ -62,6 +67,7 @@ export class T3CodeSource {
     this.resetEnvironments();
     this.preparation = undefined;
     this.configurationFailed = false;
+    this.reportedFailures.clear();
     this.publish();
     if (demanded) void this.refresh();
   }
@@ -72,6 +78,7 @@ export class T3CodeSource {
     this.resetEnvironments();
     this.preparation = undefined;
     this.configurationFailed = false;
+    this.reportedFailures.clear();
     this.acknowledged.clear();
     this.publish();
   }
@@ -92,18 +99,20 @@ export class T3CodeSource {
     try {
       const config = await readPrivateConfig(this.configPath);
       if (generation !== this.generation || !this.demanded) return;
-      const desired = new Map<string, { identity: string; read: Environment["read"] }>();
+      const desired = new Map<string, { label: string; identity: string; read: Environment["read"] }>();
       try {
         const runtime = await this.localRuntime(config);
         desired.set("", {
+          label: "local",
           identity: JSON.stringify([runtime.origin, runtime.token, runtime.pid]),
           read: async (request) => this.localShell(runtime, request),
         });
       } catch {
         desired.set("", {
+          label: "local",
           identity: "unavailable",
           read: async () => {
-            throw new Error("Local runtime unavailable");
+            throw new LocalRuntimeUnavailableError("Local runtime unavailable");
           },
         });
       }
@@ -112,12 +121,13 @@ export class T3CodeSource {
       if (config.sshConnections !== undefined) {
         if (!Array.isArray(config.sshConnections) || config.sshConnections.length > 8) configurationFailed = true;
         else
-          for (const value of config.sshConnections) {
+          for (const [index, value] of config.sshConnections.entries()) {
             try {
               const connection = validateSshConnection(value);
               const namespace = `ssh:${connection.environmentId}:`;
               if (desired.has(namespace)) throw new Error("Duplicate T3 environment");
               desired.set(namespace, {
+                label: `SSH connection ${index + 1}`,
                 identity: JSON.stringify([connection.host, connection.environmentId, connection.token]),
                 read: async (request) => object(await t3SshRequest(connection.host, connection, request.signal)),
               });
@@ -126,6 +136,8 @@ export class T3CodeSource {
             }
           }
       }
+      if (configurationFailed && !this.configurationFailed)
+        this.log("T3 Code saved SSH connections are invalid; reconnect with npm run connect:t3:ssh.");
       let changed = this.configurationFailed !== configurationFailed;
       this.configurationFailed = configurationFailed;
       for (const [namespace, environment] of this.environments) {
@@ -182,9 +194,12 @@ export class T3CodeSource {
             this.acknowledged.get(slot.threadKey!) !== slot.activityAt,
         );
         environment.state = "ready";
+        if (this.reportedFailures.delete(environment.label))
+          this.log(`T3 Code ${environment.label} connection recovered.`);
         this.publish();
       } catch (error) {
         if (!current()) return;
+        this.reportFailure(environment.label, failureReason(error));
         if (!(error instanceof Error && error.name === "TimeoutError" && environment.state === "ready"))
           environment.slots = [];
         environment.state = "degraded";
@@ -197,6 +212,20 @@ export class T3CodeSource {
       }
     });
     environment.pending = pending;
+  }
+
+  private reportFailure(label: string, reason: FailureReason): void {
+    if (this.reportedFailures.get(label) === reason) return;
+    this.reportedFailures.set(label, reason);
+    const reconnect = label === "local" ? "npm run connect:t3" : "npm run connect:t3:ssh";
+    const detail = {
+      "credential-rejected": `credential rejected; reconnect with ${reconnect}`,
+      "runtime-unavailable": "server is not running or its port changed",
+      timeout: "request timed out",
+      "ssh-unavailable": "SSH request or remote T3 server failed",
+      "invalid-response": "response is unsupported or too large",
+    }[reason];
+    this.log(`T3 Code ${label} connection unavailable: ${detail}.`);
   }
 
   private resetEnvironments(): void {
@@ -253,7 +282,12 @@ export class T3CodeSource {
       headers: { authorization: `Bearer ${token}`, "x-t3-orchestration-protocol": "2" },
       redirect: "error",
       signal: AbortSignal.any([request.signal, AbortSignal.timeout(4_000)]),
+    }).catch((error: unknown) => {
+      if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) throw error;
+      throw new LocalRuntimeUnavailableError("Local server unreachable");
     });
+    if (response.status === 401 || response.status === 403)
+      throw new T3CredentialRejectedError("Shell credential rejected");
     if (!response.ok || !response.body) throw new Error("Shell unavailable");
     const now = Date.now();
     return readShell(response.body, (thread) => this.taskSlot(thread, 0, now) !== null);
@@ -339,6 +373,18 @@ export class T3CodeSource {
       workStartRevision: workStartedAt,
     };
   }
+}
+
+class LocalRuntimeUnavailableError extends Error {
+  override name = "LocalRuntimeUnavailableError";
+}
+
+function failureReason(error: unknown): FailureReason {
+  if (error instanceof T3CredentialRejectedError) return "credential-rejected";
+  if (error instanceof LocalRuntimeUnavailableError) return "runtime-unavailable";
+  if (error instanceof Error && error.name === "TimeoutError") return "timeout";
+  if (error instanceof T3SshUnavailableError) return "ssh-unavailable";
+  return "invalid-response";
 }
 
 function object(value: unknown): RecordValue {

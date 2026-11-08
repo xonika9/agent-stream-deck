@@ -145,6 +145,56 @@ test("authenticated T3 shell becomes a queue, acknowledges only the displayed re
   }
 });
 
+test("T3 logs each connection failure reason once and its recovery without private details", {
+  skip: process.platform === "win32",
+}, async () => {
+  const root = await mkdtemp(join(tmpdir(), "deck-t3-log-"));
+  let status = 200;
+  const server = createServer((_req, res) => {
+    res.writeHead(status, { "content-type": "application/json" });
+    res.end(JSON.stringify(shell("task", "Private title")));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const origin = `http://127.0.0.1:${address.port}`;
+  const configPath = join(root, "config.json");
+  const runtimePath = join(root, "runtime.json");
+  await writeFile(configPath, JSON.stringify({ origin, token: "fixture-token" }), { mode: 0o600 });
+  await writeFile(runtimePath, JSON.stringify({ version: 1, pid: process.pid, origin }));
+  const logs: string[] = [];
+  const source = new T3CodeSource((message) => logs.push(message), { configPath, runtimePath });
+  try {
+    source.syncDemand("T3 Code", host, false);
+    await refreshSnapshot(source);
+    assert.equal(source.health.state, "ready");
+    assert.deepEqual(logs, []);
+    status = 401;
+    await refreshSnapshot(source);
+    await refreshSnapshot(source);
+    assert.deepEqual(logs, [
+      "T3 Code local connection unavailable: credential rejected; reconnect with npm run connect:t3.",
+    ]);
+    status = 200;
+    await refreshSnapshot(source);
+    assert.equal(source.health.state, "ready");
+    assert.equal(logs.at(-1), "T3 Code local connection recovered.");
+    await writeFile(runtimePath, JSON.stringify({ version: 1, pid: process.pid, origin: "http://127.0.0.1:1" }));
+    await refreshSnapshot(source);
+    assert.equal(logs.at(-1), "T3 Code local connection unavailable: server is not running or its port changed.");
+    assert.equal(logs.length, 3);
+    assert.equal(
+      logs.some((line) => /fixture-token|Private title|127\.0\.0\.1/u.test(line)),
+      false,
+    );
+  } finally {
+    source.stop();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 async function refreshSnapshot(source: T3CodeSource): Promise<void> {
   const previous = source.slots[0];
   const committed = new Promise<void>((resolve) => {

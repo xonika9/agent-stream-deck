@@ -103,6 +103,8 @@ test("remote Python reader filters growing history before SSH and fails closed o
     }
     payload = JSON.stringify({ schemaVersion: 2, threads: active });
     status = 401;
+    await assert.rejects(collect(), /T3 SSH credential rejected/u);
+    status = 500;
     await assert.rejects(collect(), /T3 SSH unavailable/u);
   } finally {
     context.mock.restoreAll();

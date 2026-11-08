@@ -82,6 +82,12 @@ T3 keys display `T3` and have no Codex context ring.
 Missing credentials, unsupported response shapes, HTTP/SSH failures and excessive
 response size produce degraded health and clear stale tasks from the
 failing connection while retaining successful environments.
+The plugin log records each connection's failure once per reason and its
+recovery: a rejected credential (reconnect with the setup command), a stopped
+local server or changed port, a timeout, an SSH or remote server failure, or an
+unsupported response. Lines name only `local` or `SSH connection N`, never
+hosts, tokens or task titles. Remote credential rejection is reported through a
+dedicated reader exit status.
 An isolated HTTP or SSH client deadline instead retains that connection's last
 verified tasks for one failed cycle, with degraded health and unchanged observation
 times. A second consecutive failure clears them; a successful response replaces
