@@ -2,6 +2,23 @@
 
 Versions through `0.7.0.2` below are the historical upstream releases by Dazer. Starting with `1.0.0`, releases belong to the xonika9 fork and use its own plugin identity.
 
+## 2.2.2 - 2026-11-08
+
+### Fixes
+
+- Log T3 Code connection failures instead of silently clearing T3 task keys. Each local or saved SSH connection reports a rejected credential (with the reconnect command), a stopped local server or changed port, a timeout, an SSH or remote server failure, or an unsupported response once per reason, and logs its recovery. Lines name only `local` or `SSH connection N`, never hosts, tokens or task titles.
+- Identify revoked remote T3 sessions: the remote reader now reports HTTP 401/403 with a distinct exit status.
+
+### Maintenance and compatibility
+
+- Add regression coverage for T3 failure and recovery logging and remote credential rejection.
+- Existing action UUIDs, profiles, read-only usage actions and standalone Windows installation remain supported. T3 collection remains macOS-only; authentication, loopback binding and request budgets are unchanged.
+
+### Validation
+
+- Automated macOS checks cover the complete candidate, plugin validation, launcher packaging, archive integrity, checksums and release artifact auditing.
+- Before the fix, live macOS diagnosis confirmed that the installed plugin showed no T3 keys and logged nothing while T3 Code Nightly `0.1.8-nightly.20261108.4367` rejected its saved credential; reconnecting restored three running T3 tasks in the plugin log. Physical-device validation of this release candidate was not run.
+
 ## 2.2.1 - 2026-11-02
 
 ### Fixes
