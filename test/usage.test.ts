@@ -441,7 +441,7 @@ test("usage actions and property inspector are packaged without official keycap 
 });
 
 test("usage keys with a provider badge stay a single svg element that Stream Deck can draw", () => {
-  const window = { kind: "weekly", usedPercent: 19, remainingPercent: 81, windowMinutes: 10_080 } as const;
+  const window = weekly;
   for (const source of ["t3-codex", "t3-claude", "t3-opencode"] as const) {
     for (const url of [
       renderUsageLimitKey(window, "weekly", "light", "ready", source),
