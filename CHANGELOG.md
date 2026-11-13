@@ -2,6 +2,27 @@
 
 Versions through `0.7.0.2` below are the historical upstream releases by Dazer. Starting with `1.0.0`, releases belong to the xonika9 fork and use its own plugin identity. Releases after `2.2.2` use calendar versions `YY.M.D.N` (Moscow date, daily release number).
 
+## 26.11.13.2 - 2026-11-13
+
+### Highlights
+
+- Usage Limit and Usage Overview keys get a **Show remaining** checkbox: the number and the ring or bar fill show the quota left instead of the quota used. Keys without the setting keep showing usage.
+- T3 Codex, T3 Claude and T3 OpenCode usage keys show a small coloured provider badge (ChatGPT, Claude, OpenCode) built from Lobe Icons shapes (MIT). Usage Overview bars sit slightly lower on every key so the badge never covers the top label.
+
+### Fixes
+
+- The Source and window choices in the usage key property inspectors are saved again; Stream Deck had ignored them because they were sent under the action context instead of the inspector's own.
+- Working and input Agent keys animate at two frames per second instead of five. With five working agents the plugin now sends about 10 images per second instead of 25, and Stream Deck's own CPU use dropped from about 16% to 5–7% in a live check. Task status changes still appear immediately.
+
+### Compatibility
+
+- Existing action UUIDs, profiles, saved usage settings and standalone Windows installation remain supported. Codex sources without T3 stay unmarked.
+
+### Validation
+
+- Local automated macOS validation passed with Node 24.16.0 through `npm run release:prepare`: clean dependency install, lint, import boundaries, types, version agreement, tests with two existing Windows-only skips, plugin validation, packaging, archive integrity, checksums and release artifact auditing.
+- Live macOS checks: the development build ran in Stream Deck with the animation change measured by `nettop` and `top` without screen interaction, and the owner approved publication after the badge fix was installed. The Source selector and badge display in the Stream Deck app were not separately recorded; physical-device images and native Windows were not validated.
+
 ## 26.11.13.1 - 2026-11-13
 
 ### Highlights

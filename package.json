@@ -1,6 +1,6 @@
 {
   "name": "codex-stream-deck",
-  "version": "26.11.13.1",
+  "version": "26.11.13.2",
   "private": false,
   "type": "module",
   "description": "Unofficial Codex Micro bridge for Stream Deck on Windows and macOS",
