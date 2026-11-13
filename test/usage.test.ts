@@ -375,7 +375,7 @@ test("codex sources stay unmarked on both usage keys", () => {
 
 test("provider badges keep their own colours in light and dark themes", () => {
   const colours: Record<(typeof T3_BADGES)[number][1], string[]> = {
-    chatgpt: ['fill="#FFFFFF" stroke="#C9CED3"', 'fill="#000000"'],
+    chatgpt: ['fill="#FFFFFF" stroke="#8A949C"', 'fill="#000000"'],
     claude: ['fill="#D97757"', 'fill="#FFFFFF"'],
     opencode: ['fill="#15202A"', 'fill="#FFFFFF"'],
   };
