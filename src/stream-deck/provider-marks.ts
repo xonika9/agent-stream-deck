@@ -49,5 +49,6 @@ export function providerMarkForSource(source: UsageSource | undefined): Provider
 
 // Codex sources without a T3 connection (codex-auto, codex-bar, codex-app) stay unmarked.
 export function renderProviderMark(mark: ProviderMark, x: number, y: number, size: number): string {
-  return `<svg data-provider-mark="${mark.id}" x="${x}" y="${y}" width="${size}" height="${size}" viewBox="0 0 24 24">${mark.body}</svg>`;
+  // Stream Deck's key renderer drops nested <svg> elements, so the badge is a scaled group.
+  return `<g data-provider-mark="${mark.id}" transform="translate(${x} ${y}) scale(${(size / 24).toFixed(4)})">${mark.body}</g>`;
 }

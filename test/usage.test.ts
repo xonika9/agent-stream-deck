@@ -343,7 +343,7 @@ test("each t3 source shows its provider badge on both usage keys", () => {
     const ring = decode(renderUsageLimitKey(fiveHour, "five-hour", "dark", "ready", source));
     assert.match(
       ring,
-      new RegExp(`<svg data-provider-mark="${id}" x="13" y="11" width="22" height="22" viewBox="0 0 24 24">`),
+      new RegExp(`<g data-provider-mark="${id}" transform="translate\\(13 11\\) scale\\(0\\.9167\\)">`),
       `${source} ring shows the ${id} badge`,
     );
     assert.match(ring, /data-usage-used="26"/);
@@ -352,7 +352,7 @@ test("each t3 source shows its provider badge on both usage keys", () => {
     const overview = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark", "ready", source));
     assert.match(
       overview,
-      new RegExp(`<svg data-provider-mark="${id}" x="23" y="11" width="16" height="16" viewBox="0 0 24 24">`),
+      new RegExp(`<g data-provider-mark="${id}" transform="translate\\(23 11\\) scale\\(0\\.6667\\)">`),
       `${source} overview shows the ${id} badge`,
     );
     assert.match(overview, /data-usage-window="5H"[\s\S]*>26%<\/text>/);
@@ -382,7 +382,7 @@ test("provider badges keep their own colours in light and dark themes", () => {
   for (const theme of ["light", "dark"] as const) {
     for (const [source, id] of T3_BADGES) {
       const svg = decode(renderUsageLimitKey(fiveHour, "five-hour", theme, "ready", source));
-      const badge = svg.match(/<svg data-provider-mark="[^"]+"[\s\S]*?<\/svg>/)?.[0] ?? "";
+      const badge = svg.match(/<g data-provider-mark="[^"]+"[\s\S]*?<\/g><\/g>/)?.[0] ?? "";
       assert.notEqual(badge, "", `${source} badge in the ${theme} theme`);
       for (const colour of colours[id]) {
         assert.ok(badge.includes(colour), `${source} badge keeps ${colour} in the ${theme} theme`);
@@ -438,4 +438,18 @@ test("usage actions and property inspector are packaged without official keycap 
   assert.doesNotMatch(bridge, /rate-limit-reset-credits\/consume/);
   assert.match(bridge, /applicable_available_count/);
   assert.doesNotMatch(bridge, /profile_image_url/);
+});
+
+test("usage keys with a provider badge stay a single svg element that Stream Deck can draw", () => {
+  const window = { kind: "weekly", usedPercent: 19, remainingPercent: 81, windowMinutes: 10_080 } as const;
+  for (const source of ["t3-codex", "t3-claude", "t3-opencode"] as const) {
+    for (const url of [
+      renderUsageLimitKey(window, "weekly", "light", "ready", source),
+      renderUsageOverviewKey(window, "5H", window, "WK", "light", "ready", source),
+    ]) {
+      const svg = decodeURIComponent(url);
+      assert.match(svg, /data-provider-mark=/);
+      assert.equal(svg.match(/<svg[\s>]/g)?.length, 1, `${source} badge is not a nested svg`);
+    }
+  }
 });
