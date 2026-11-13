@@ -145,6 +145,7 @@ test("usage limit hides T3 sources on Windows", async () => {
 test("usage overview defaults to the two Codex bars without an Automatic option", async () => {
   const { element, connect, settingsSent } = await loadInspector("usage-overview.html", [
     "source",
+    "layout",
     "top",
     "bottom",
     "remaining",
@@ -164,6 +165,7 @@ test("usage overview defaults to the two Codex bars without an Automatic option"
 test("usage overview adds Monthly for T3 OpenCode and resets an unoffered top bar", async () => {
   const { element, connect, change, settingsSent } = await loadInspector("usage-overview.html", [
     "source",
+    "layout",
     "top",
     "bottom",
     "remaining",
@@ -191,6 +193,7 @@ test("usage limit saves the corrected stale window on open", async () => {
 test("usage overview saves the corrected stale source on open", async () => {
   const { element, connect, settingsSent } = await loadInspector("usage-overview.html", [
     "source",
+    "layout",
     "top",
     "bottom",
     "remaining",
@@ -201,7 +204,13 @@ test("usage overview saves the corrected stale source on open", async () => {
 });
 
 test("usage overview hides T3 sources on Windows", async () => {
-  const { element, connect } = await loadInspector("usage-overview.html", ["source", "top", "bottom", "remaining"]);
+  const { element, connect } = await loadInspector("usage-overview.html", [
+    "source",
+    "layout",
+    "top",
+    "bottom",
+    "remaining",
+  ]);
   connect({}, "windows");
   assert.doesNotMatch(element("source").innerHTML, /t3-/);
 });
@@ -242,6 +251,7 @@ test("usage limit saves Show remaining beside the other settings", async () => {
 test("usage overview reflects and saves the Show remaining choice", async () => {
   const { element, connect, toggle, settingsSent } = await loadInspector("usage-overview.html", [
     "source",
+    "layout",
     "top",
     "bottom",
     "remaining",
@@ -258,9 +268,109 @@ test("usage overview reflects and saves the Show remaining choice", async () => 
   });
 });
 
+test("usage overview offers the three layouts and reflects the saved one", async () => {
+  const { html, element, connect, settingsSent } = await loadInspector("usage-overview.html", [
+    "source",
+    "layout",
+    "top",
+    "bottom",
+    "remaining",
+  ]);
+  // The fake DOM hands out elements by id, so the page markup itself is checked here.
+  assert.match(html, /<span>Layout<\/span>/);
+  assert.match(html, /<select id="layout"><\/select>/);
+  const socket = connect({
+    source: "codex-auto",
+    topWindow: "five-hour",
+    bottomWindow: "weekly",
+    overviewLayout: "split",
+  });
+  assert.equal(element("layout").value, "split");
+  assert.match(element("layout").innerHTML, /value="bars"[^>]*>Bars</);
+  assert.match(element("layout").innerHTML, /value="rings"[^>]*>Two rings</);
+  assert.match(element("layout").innerHTML, /value="split"[^>]*>Split ring</);
+  assert.deepEqual(settingsSent(socket), [], "a saved layout is not rewritten");
+});
+
+test("usage overview shows Bars without a saved layout and writes nothing", async () => {
+  const { element, connect, settingsSent } = await loadInspector("usage-overview.html", [
+    "source",
+    "layout",
+    "top",
+    "bottom",
+    "remaining",
+  ]);
+  const socket = connect({});
+  assert.equal(element("layout").value, "bars");
+  assert.deepEqual(settingsSent(socket), [], "the default layout is not written on open");
+});
+
+test("usage overview shows Bars for an unknown layout and writes nothing", async () => {
+  const { element, connect, settingsSent } = await loadInspector("usage-overview.html", [
+    "source",
+    "layout",
+    "top",
+    "bottom",
+    "remaining",
+  ]);
+  const socket = connect({
+    source: "codex-auto",
+    topWindow: "five-hour",
+    bottomWindow: "weekly",
+    overviewLayout: "stacked",
+  });
+  assert.equal(element("layout").value, "bars");
+  assert.deepEqual(settingsSent(socket), [], "an unknown layout is not rewritten on open");
+});
+
+test("usage overview saves the chosen layout beside the other settings", async () => {
+  const { connect, change, settingsSent } = await loadInspector("usage-overview.html", [
+    "source",
+    "layout",
+    "top",
+    "bottom",
+    "remaining",
+  ]);
+  const socket = connect({
+    source: "codex-auto",
+    topWindow: "five-hour",
+    bottomWindow: "weekly",
+    futureSetting: 7,
+  });
+  change("layout", "rings");
+  assert.deepEqual(settingsSent(socket).at(-1), {
+    source: "codex-auto",
+    topWindow: "five-hour",
+    bottomWindow: "weekly",
+    futureSetting: 7,
+    overviewLayout: "rings",
+  });
+});
+
+test("usage overview keeps the chosen layout when the source changes", async () => {
+  const { element, connect, change, settingsSent } = await loadInspector("usage-overview.html", [
+    "source",
+    "layout",
+    "top",
+    "bottom",
+    "remaining",
+  ]);
+  const socket = connect({ source: "codex-auto", topWindow: "five-hour", bottomWindow: "weekly" });
+  change("layout", "split");
+  change("source", "t3-claude");
+  assert.equal(element("layout").value, "split");
+  assert.deepEqual(settingsSent(socket).at(-1), {
+    source: "t3-claude",
+    topWindow: "five-hour",
+    bottomWindow: "weekly",
+    overviewLayout: "split",
+  });
+});
+
 test("usage overview leaves Show remaining unchecked and saves nothing without the field", async () => {
   const { element, connect, settingsSent } = await loadInspector("usage-overview.html", [
     "source",
+    "layout",
     "top",
     "bottom",
     "remaining",

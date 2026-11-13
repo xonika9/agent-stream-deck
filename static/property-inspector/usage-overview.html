@@ -20,6 +20,10 @@
     <select id="source"></select>
   </label>
   <label>
+    <span>Layout</span>
+    <select id="layout"></select>
+  </label>
+  <label>
     <span>Top bar</span>
     <select id="top"></select>
   </label>
@@ -27,12 +31,12 @@
     <span>Bottom bar</span>
     <select id="bottom"></select>
   </label>
-  <p>Each bar shows one window of the selected provider. A window the subscription does not offer renders as a dash. T3 sources read limits from the local T3 Code app on macOS.</p>
+  <p>The top bar, left ring or left half shows the first window; the bottom bar, right ring or right half shows the second. A window the subscription does not offer renders as a dash. T3 sources read limits from the local T3 Code app on macOS.</p>
   <label>
     <span>Show remaining</span>
     <input id="remaining" type="checkbox">
   </label>
-  <p>Shows how much quota is left instead of the amount used in both bars.</p>
+  <p>Shows how much quota is left instead of the amount used.</p>
   <script>
     let websocket;
     let context;
@@ -52,6 +56,11 @@
       "t3-claude": [["five-hour", "5 hours"], ["weekly", "Weekly"], ["weekly-fable", "Weekly · Fable"]],
       "t3-opencode": [["five-hour", "5 hours"], ["weekly", "Weekly"], ["monthly", "Monthly"]],
     };
+    const LAYOUT_OPTIONS = [
+      ["bars", "Bars"],
+      ["rings", "Two rings"],
+      ["split", "Split ring"],
+    ];
 
     function barGroup(source) {
       return source === "t3-claude" || source === "t3-opencode" ? source : "codex";
@@ -77,6 +86,10 @@
       return bars.includes(value) ? value : fallback;
     }
 
+    function normalizeLayout(value) {
+      return value === "rings" || value === "split" ? value : "bars";
+    }
+
     function normalize() {
       const sources = availableSources().map(([value]) => value);
       const source = sources.includes(settings.source) ? settings.source : "codex-auto";
@@ -94,6 +107,9 @@
     function render() {
       document.getElementById("source").innerHTML = optionHtml(availableSources(), settings.source);
       document.getElementById("source").value = settings.source;
+      const layout = normalizeLayout(settings.overviewLayout);
+      document.getElementById("layout").innerHTML = optionHtml(LAYOUT_OPTIONS, layout);
+      document.getElementById("layout").value = layout;
       const bars = BAR_OPTIONS[barGroup(settings.source)];
       document.getElementById("top").innerHTML = optionHtml(bars, settings.topWindow);
       document.getElementById("top").value = settings.topWindow;
@@ -128,6 +144,13 @@
 
     document.getElementById("source").addEventListener("change", (event) => {
       settings = { ...settings, source: event.target.value };
+      normalize();
+      render();
+      save();
+    });
+
+    document.getElementById("layout").addEventListener("change", (event) => {
+      settings = { ...settings, overviewLayout: event.target.value };
       normalize();
       render();
       save();
