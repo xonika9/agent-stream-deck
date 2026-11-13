@@ -824,8 +824,8 @@ test("a delayed OpenCode foreground receipt uses the saved revision and does not
 });
 
 for (const [name, platform, barAge, expected] of [
-  ["missing CodexBar snapshot", "darwin", undefined, undefined],
-  ["stale CodexBar window", "darwin", CODEX_BAR_FRESH_MS + 1, undefined],
+  ["missing CodexBar snapshot", "darwin", undefined, 73],
+  ["stale CodexBar window", "darwin", CODEX_BAR_FRESH_MS + 1, 73],
   ["fresh CodexBar window", "darwin", 0, 41],
   ["Windows renderer usage ignoring CodexBar", "win32", 0, 73],
 ] as const) {

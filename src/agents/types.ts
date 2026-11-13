@@ -1,8 +1,9 @@
 export type AgentVisualStatus = "empty" | "idle" | "thinking" | "complete" | "input" | "error";
 export type ThemeMode = "light" | "dark";
 export type HostHealthState = "ready" | "degraded" | "offline" | "connecting";
-export type UsageLimitMode = "auto" | "five-hour" | "weekly";
+export type UsageLimitMode = "auto" | "five-hour" | "weekly" | "weekly-fable" | "monthly";
 export type UsageWindowKind = Exclude<UsageLimitMode, "auto"> | "other";
+export type UsageSource = "codex-auto" | "codex-bar" | "codex-app" | "t3-codex" | "t3-claude" | "t3-opencode";
 export type TaskSource = "Codex" | "OpenCode" | "T3 Code" | "All";
 
 export type HostHealth = {

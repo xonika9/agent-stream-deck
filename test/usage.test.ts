@@ -2,8 +2,19 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { renderRateLimitResetKey, renderUsageLimitKey, renderUsageOverviewKey } from "#stream-deck";
-import type { MicroSnapshot, UsageSnapshot, UsageWindow } from "#agents";
-import { composeMacUsage, parseUsageLimitMode, selectUsageWindow, usageTheme, usageWindowKind } from "#usage";
+import type { CodexHost, HostHealth, MicroSnapshot, UsageSnapshot, UsageWindow } from "#agents";
+import {
+  composeMacUsage,
+  parseUsageLimitMode,
+  parseUsageSettings,
+  parseUsageSource,
+  selectAccountUsage,
+  selectUsageBarWindow,
+  selectUsageWindow,
+  usageLabel,
+  usageTheme,
+  usageWindowKind,
+} from "#usage";
 
 const fiveHour: UsageWindow = {
   id: "five-hour",
@@ -60,25 +71,140 @@ test("usage rendering falls back to light without overriding an available theme"
   );
 });
 
-test("macOS never falls back to renderer quota windows", () => {
+/** macOS Codex data prefers fresh CodexBar and falls back to the app bridge. */
+test("macOS auto prefers CodexBar and keeps bridge reset credits", () => {
   const bridge = usage([fiveHour]);
-  const resetOnly = composeMacUsage(undefined, bridge);
-  assert.deepEqual(resetOnly?.windows, []);
-  assert.equal(resetOnly?.resetCreditsAvailable, 2);
-
   const codexBar = usage([weekly]);
   const combined = composeMacUsage(codexBar, bridge);
   assert.deepEqual(combined?.windows, [weekly]);
   assert.equal(combined?.resetCreditsAvailable, 2);
 
+  const appOnly = composeMacUsage(codexBar, bridge, "codex-app");
+  assert.deepEqual(appOnly?.windows, [fiveHour]);
+
+  const barOnly = composeMacUsage(undefined, bridge, "codex-bar");
+  assert.deepEqual(barOnly?.windows, []);
+  assert.equal(barOnly?.resetCreditsAvailable, 2);
+
   assert.equal(
     composeMacUsage(undefined, {
       ...bridge,
+      windows: [],
       resetCreditsAvailable: null,
       resetCreditsApplicable: null,
     }),
     undefined,
   );
+});
+
+const macHost: CodexHost = { hostId: "local", hostName: "Mac", platform: "darwin" };
+const winHost: CodexHost = { hostId: "local", hostName: "Win", platform: "win32" };
+const localReady: HostHealth = { state: "ready", changedAt: 1 };
+
+function localSnapshotWith(usageValue: UsageSnapshot | undefined, platform: "darwin" | "win32" = "darwin") {
+  return {
+    host: platform === "darwin" ? macHost : winHost,
+    snapshot: {
+      slots: [],
+      layout: { slots: {} },
+      agentSource: "priority",
+      lightingAutoOff: false,
+      theme: "dark",
+      usage: usageValue,
+    } as unknown as MicroSnapshot,
+    observedAt: 1,
+  };
+}
+
+test("macOS auto falls back from CodexBar to the app bridge", () => {
+  const bridge = usage([fiveHour]);
+  const source = selectAccountUsage(macHost, localSnapshotWith(bridge), localReady, undefined, "codex-auto");
+  assert.deepEqual(source.usage?.windows, [fiveHour]);
+  assert.equal(source.health.state, "ready");
+});
+
+test("macOS auto without CodexBar or bridge shows empty and unhealthy", () => {
+  const offline: HostHealth = { state: "offline", changedAt: 1 };
+  const source = selectAccountUsage(macHost, undefined, offline, undefined, "codex-auto");
+  assert.deepEqual(source.usage?.windows ?? [], []);
+  assert.notEqual(source.health.state, "ready");
+});
+
+test("codex-bar source ignores bridge windows", () => {
+  const bridge = usage([fiveHour]);
+  const source = selectAccountUsage(macHost, localSnapshotWith(bridge), localReady, undefined, "codex-bar");
+  assert.deepEqual(source.usage?.windows, []);
+});
+
+test("codex-app source ignores CodexBar windows", () => {
+  const bridge = usage([fiveHour]);
+  const codexBar = usage([weekly]);
+  const source = selectAccountUsage(macHost, localSnapshotWith(bridge), localReady, codexBar, "codex-app");
+  assert.deepEqual(source.usage?.windows, [fiveHour]);
+  assert.equal(source.health.state, "ready");
+});
+
+test("windows ignores the saved source and matches the current result", () => {
+  const bridge = usage([fiveHour]);
+  const snapshot = localSnapshotWith(bridge, "win32");
+  const expected = selectAccountUsage(winHost, snapshot, localReady, undefined, "codex-auto");
+  assert.deepEqual(expected.usage?.windows, [fiveHour]);
+  assert.equal(expected.health.state, "ready");
+  for (const source of ["codex-bar", "codex-app", "t3-claude"] as const)
+    assert.deepEqual(selectAccountUsage(winHost, snapshot, localReady, undefined, source), expected);
+  assert.equal(parseUsageSource("t3-claude", "win32"), "codex-auto");
+});
+
+test("usage settings parse with defaults and legacy mode", () => {
+  assert.deepEqual(parseUsageSettings({}), {
+    source: "codex-auto",
+    mode: "auto",
+    topWindow: "five-hour",
+    bottomWindow: "weekly",
+  });
+  assert.equal(parseUsageSettings({ mode: "weekly" }).mode, "weekly");
+  assert.equal(parseUsageSource("t3-claude", "darwin"), "t3-claude");
+  assert.equal(parseUsageSource("bogus", "darwin"), "codex-auto");
+  assert.equal(parseUsageSettings({ source: "t3-codex", mode: "weekly-fable" }).mode, "auto");
+  assert.equal(parseUsageSettings({ source: "t3-claude", mode: "weekly-fable" }).mode, "weekly-fable");
+  assert.equal(parseUsageSettings({ topWindow: "bogus", bottomWindow: "monthly" }).topWindow, "five-hour");
+  assert.equal(parseUsageSettings({ topWindow: "bogus", bottomWindow: "monthly" }).bottomWindow, "monthly");
+});
+
+test("claude fable window is selected only by its own mode", () => {
+  const sevenDay: UsageWindow = {
+    id: "seven_day",
+    kind: "weekly",
+    usedPercent: 10,
+    remainingPercent: 90,
+    windowDurationMins: 10_080,
+    resetsAt: null,
+  };
+  const fable: UsageWindow = {
+    id: "seven_day_fable",
+    kind: "weekly-fable",
+    usedPercent: 20,
+    remainingPercent: 80,
+    windowDurationMins: 10_080,
+    resetsAt: null,
+  };
+  const snapshot = usage([sevenDay, fable]);
+  assert.equal(selectUsageWindow(snapshot, "weekly"), sevenDay);
+  assert.equal(selectUsageWindow(snapshot, "weekly-fable"), fable);
+  assert.equal(selectUsageWindow(snapshot, "monthly"), undefined);
+  assert.equal(usageLabel("weekly-fable"), "FBL");
+  assert.equal(usageLabel("monthly"), "MO");
+});
+
+test("overview bars select their own window kind", () => {
+  const snapshot = usage([fiveHour, weekly]);
+  assert.equal(selectUsageBarWindow(snapshot, "five-hour"), fiveHour);
+  assert.equal(selectUsageBarWindow(snapshot, "weekly"), weekly);
+  assert.equal(selectUsageBarWindow(snapshot, "monthly"), undefined);
+});
+
+test("explicit five-hour mode without that window stays empty", () => {
+  assert.equal(selectUsageWindow(usage([weekly]), "five-hour"), undefined);
 });
 
 test("renderer refreshes stale account usage without waiting for application focus", async () => {
