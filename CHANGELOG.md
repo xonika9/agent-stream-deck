@@ -2,6 +2,32 @@
 
 Versions through `0.7.0.2` below are the historical upstream releases by Dazer. Starting with `1.0.0`, releases belong to the xonika9 fork and use its own plugin identity. Releases after `2.2.2` use calendar versions `YY.M.D.N` (Moscow date, daily release number).
 
+## 26.11.13.1 - 2026-11-13
+
+### Highlights
+
+- Usage Limit and Usage Overview keys choose their source per key: Codex automatic (a fresh CodexBar snapshot, otherwise the running Codex app), CodexBar only, Codex app only, or the Codex, Claude and OpenCode limits that a local T3 Code app reports. People with only the Codex app see their limits again while it runs.
+- Limit windows follow the provider: 5 hours and Weekly for Codex, plus Weekly · Fable (`FBL`) for Claude and Monthly (`MO`) for OpenCode. Usage Overview shows two bars that the user picks. Keys without a saved source keep working as Codex automatic.
+- T3 Claude and T3 OpenCode keys show a small single-colour provider mark in the corner (Simple Icons, CC0); Codex sources stay unmarked.
+- Agent keys choose task sources with Codex, OpenCode and T3 Code checkboxes, in any non-empty combination, instead of a single list.
+
+### Fixes
+
+- On Windows, the Agent and usage property inspectors now recognise the platform Stream Deck reports, so T3 sources stay hidden and the OpenCode and T3 Code checkboxes stay disabled.
+
+### Compatibility
+
+- Releases now use calendar versions `YY.M.D.N` (Moscow date, daily release number, no leading zeros). Earlier SemVer releases keep their numbers.
+- The T3 limits reader reuses the existing read-only T3 session; no new pairing is needed. It polls at most once a minute and only while a usage key selects a T3 source, keeps the last good values for five minutes, then shows a dash. Verified with T3 Code `0.1.10-nightly.20261111.4544`; its limits response is not a public contract.
+- The inspector writes both the new `taskSources` list and the closest legacy `taskSource` value, so an older plugin still reads it (a combination maps to `All`). Saved `All` and `Both` select all three sources.
+- Existing action UUIDs, profiles, read-only usage actions and standalone Windows installation remain supported. T3 sources are macOS-only; on Windows a saved T3 source behaves as Codex automatic.
+- `SECURITY.md` records a known limitation: the local T3 check confirms a live process ID, not port ownership, which matters only on Macs shared by several accounts.
+
+### Validation
+
+- Local automated macOS validation passed with Node 24.16.0: clean dependency install, lint, import boundaries, types, version agreement, 371 successful tests with two existing Windows-only skips, plugin validation, packaging, both archive integrity checks, checksums and release artifact auditing.
+- Live macOS checks read the Codex, Claude and OpenCode limits from a running T3 Code Nightly `0.1.10-nightly.20261111.4544` and a fresh CodexBar snapshot, and rendered every source and window variant in both themes; property inspectors were checked in a browser with a simulated Stream Deck socket. The release build ran in Stream Deck 7.6.1 with the existing usage and Agent keys rendering per the plugin log. Physical-device images, the Codex app usage source and native Windows were not validated.
+
 ## 2.2.2 - 2026-11-08
 
 ### Fixes
