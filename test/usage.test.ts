@@ -332,39 +332,76 @@ test("legacy reset counter shows credits without offering a hold action", () => 
   assert.match(available, /stop-opacity="\.13"/);
 });
 
-test("t3 claude ring shows its provider mark while codex and t3 codex do not", () => {
-  const claude = decode(renderUsageLimitKey(fiveHour, "five-hour", "dark", "ready", "t3-claude"));
-  assert.match(claude, /data-provider-mark="claude"/);
-  assert.match(claude, /data-usage-used="26"/);
-  assert.match(claude, />5H<\/text>/);
+const T3_BADGES = [
+  ["t3-codex", "chatgpt"],
+  ["t3-claude", "claude"],
+  ["t3-opencode", "opencode"],
+] as const;
 
-  for (const source of ["codex-auto", "codex-bar", "codex-app", "t3-codex"] as const) {
-    const svg = decode(renderUsageLimitKey(fiveHour, "five-hour", "dark", "ready", source));
-    assert.doesNotMatch(svg, /data-provider-mark=/, `${source} has no provider mark`);
+test("each t3 source shows its provider badge on both usage keys", () => {
+  for (const [source, id] of T3_BADGES) {
+    const ring = decode(renderUsageLimitKey(fiveHour, "five-hour", "dark", "ready", source));
+    assert.match(
+      ring,
+      new RegExp(`<svg data-provider-mark="${id}" x="13" y="11" width="22" height="22" viewBox="0 0 24 24">`),
+      `${source} ring shows the ${id} badge`,
+    );
+    assert.match(ring, /data-usage-used="26"/);
+    assert.match(ring, />5H<\/text>/);
+
+    const overview = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark", "ready", source));
+    assert.match(
+      overview,
+      new RegExp(`<svg data-provider-mark="${id}" x="23" y="11" width="16" height="16" viewBox="0 0 24 24">`),
+      `${source} overview shows the ${id} badge`,
+    );
+    assert.match(overview, /data-usage-window="5H"[\s\S]*>26%<\/text>/);
+    assert.match(overview, /data-usage-window="WK"[\s\S]*>88%<\/text>/);
   }
-  const legacy = decode(renderUsageLimitKey(fiveHour, "five-hour", "dark"));
-  assert.doesNotMatch(legacy, /data-provider-mark=/);
 });
 
-test("t3 overview keeps labels and percentages with its provider mark", () => {
-  const marked = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark", "ready", "t3-opencode"));
-  assert.match(marked, /data-provider-mark="opencode"/);
-  assert.match(marked, /data-usage-window="5H"[\s\S]*>26%<\/text>/);
-  assert.match(marked, /data-usage-window="WK"[\s\S]*>88%<\/text>/);
-  assert.match(marked, />5H<\/text>/);
-  assert.match(marked, />WK<\/text>/);
-
-  const plain = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark", "ready", "codex-bar"));
-  assert.doesNotMatch(plain, /data-provider-mark=/);
-  assert.equal(marked.match(/<text x="(\d+)" y="33"/)?.[1], "35");
-  assert.equal(plain.match(/<text x="(\d+)" y="33"/)?.[1], "24");
+test("codex sources stay unmarked on both usage keys", () => {
+  for (const source of ["codex-auto", "codex-bar", "codex-app"] as const) {
+    const ring = decode(renderUsageLimitKey(fiveHour, "five-hour", "dark", "ready", source));
+    assert.doesNotMatch(ring, /data-provider-mark=/, `${source} ring has no badge`);
+    const overview = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark", "ready", source));
+    assert.doesNotMatch(overview, /data-provider-mark=/, `${source} overview has no badge`);
+  }
+  const legacyRing = decode(renderUsageLimitKey(fiveHour, "five-hour", "dark"));
+  assert.doesNotMatch(legacyRing, /data-provider-mark=/);
+  const legacyOverview = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark"));
+  assert.doesNotMatch(legacyOverview, /data-provider-mark=/);
 });
 
-test("provider marks use the theme title colour", () => {
-  const light = decode(renderUsageLimitKey(fiveHour, "five-hour", "light", "ready", "t3-claude"));
-  assert.match(light, /data-provider-mark="claude"[\s\S]*fill="#171C20"/);
-  const dark = decode(renderUsageLimitKey(fiveHour, "five-hour", "dark", "ready", "t3-claude"));
-  assert.match(dark, /data-provider-mark="claude"[\s\S]*fill="#F2F2EF"/);
+test("provider badges keep their own colours in light and dark themes", () => {
+  const colours: Record<(typeof T3_BADGES)[number][1], string[]> = {
+    chatgpt: ['fill="#FFFFFF" stroke="#C9CED3"', 'fill="#000000"'],
+    claude: ['fill="#D97757"', 'fill="#FFFFFF"'],
+    opencode: ['fill="#15202A"', 'fill="#FFFFFF"'],
+  };
+  for (const theme of ["light", "dark"] as const) {
+    for (const [source, id] of T3_BADGES) {
+      const svg = decode(renderUsageLimitKey(fiveHour, "five-hour", theme, "ready", source));
+      const badge = svg.match(/<svg data-provider-mark="[^"]+"[\s\S]*?<\/svg>/)?.[0] ?? "";
+      assert.notEqual(badge, "", `${source} badge in the ${theme} theme`);
+      for (const colour of colours[id]) {
+        assert.ok(badge.includes(colour), `${source} badge keeps ${colour} in the ${theme} theme`);
+      }
+      assert.doesNotMatch(badge, /#171C20|#F2F2EF/, `${source} badge is not recoloured to the title colour`);
+    }
+  }
+});
+
+test("usage overview bars sit below the badge with the label always at 24", () => {
+  for (const source of [undefined, "codex-bar", "t3-claude"] as const) {
+    const svg = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark", "ready", source));
+    assert.match(svg, /<text x="24" y="44" fill=/, `top label at x=24 and y=44 for ${source ?? "the legacy source"}`);
+    assert.match(
+      svg,
+      /<text x="24" y="93" fill=/,
+      `bottom label at x=24 and y=93 for ${source ?? "the legacy source"}`,
+    );
+  }
 });
 
 test("usage actions and property inspector are packaged without official keycap artwork", async () => {

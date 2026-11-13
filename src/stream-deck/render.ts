@@ -312,7 +312,7 @@ export function renderUsageLimitKey(
   const numberX = digits >= 3 ? 61 : digits === 2 ? 65 : 69;
   const fontSize = digits >= 3 ? 27 : 30;
   const mark = providerMarkForSource(source);
-  const markMarkup = mark ? renderProviderMark(mark, 15, 13, 18, surface.title) : "";
+  const markMarkup = mark ? renderProviderMark(mark, 13, 11, 22) : "";
   return toDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
     <defs>
       <linearGradient id="keycap" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${surface.keyTop}"/><stop offset=".52" stop-color="${surface.keyMiddle}"/><stop offset="1" stop-color="${surface.keyBottom}"/></linearGradient>
@@ -347,18 +347,14 @@ export function renderUsageOverviewKey(
 ): string {
   const surface = SURFACES[theme];
   const mark = providerMarkForSource(source);
-  const markX = 16;
-  const markSize = 15;
-  const markLabelGap = 4;
-  const markMarkup = mark ? renderProviderMark(mark, markX, 13, markSize, surface.title) : "";
-  const topLabelX = mark ? markX + markSize + markLabelGap : 24;
+  const markMarkup = mark ? renderProviderMark(mark, 23, 11, 16) : "";
   return toDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
     <defs><linearGradient id="keycap" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${surface.keyTop}"/><stop offset=".52" stop-color="${surface.keyMiddle}"/><stop offset="1" stop-color="${surface.keyBottom}"/></linearGradient></defs>
     <rect data-theme="${theme}" x="4" y="4" width="136" height="136" rx="18" fill="url(#keycap)" stroke="${surface.border}" stroke-width="2" stroke-opacity="${theme === "dark" ? ".88" : ".34"}"/>
     <rect x="7.5" y="7.5" width="129" height="129" rx="15" fill="none" stroke="${surface.innerBorder}" stroke-width="1"/>
     ${markMarkup}
-    ${renderUsageBar(topLabel, top, 33, surface, theme, health, showRemaining, topLabelX)}
-    ${renderUsageBar(bottomLabel, bottom, 82, surface, theme, health, showRemaining)}
+    ${renderUsageBar(topLabel, top, 44, surface, theme, health, showRemaining)}
+    ${renderUsageBar(bottomLabel, bottom, 93, surface, theme, health, showRemaining)}
   </svg>`);
 }
 
@@ -397,7 +393,6 @@ function renderUsageBar(
   theme: ThemeMode,
   health: HostHealthState,
   showRemaining = false,
-  labelX = 24,
 ): string {
   const remaining = window ? Math.round(clampPercent(window.remainingPercent)) : null;
   const used = window ? Math.round(clampPercent(window.usedPercent)) : null;
@@ -407,7 +402,7 @@ function renderUsageBar(
   const track = theme === "dark" ? "#45494C" : "#AAB2B8";
   const width = shown == null ? 0 : (96 * shown) / 100;
   return `<g data-usage-window="${label}">
-    <text x="${labelX}" y="${y}" fill="${surface.title}" fill-opacity=".72" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing=".8">${label}</text>
+    <text x="24" y="${y}" fill="${surface.title}" fill-opacity=".72" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing=".8">${label}</text>
     <text x="120" y="${y}" text-anchor="end" fill="${shown == null ? signal : surface.title}" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">${shown == null ? "—" : `${shown}%`}</text>
     <rect x="24" y="${y + 10}" width="96" height="10" rx="5" fill="${track}"/>
     ${shown == null ? "" : `<rect data-usage-${valueName}="${shown}" x="24" y="${y + 10}" width="${width.toFixed(2)}" height="10" rx="5" fill="${signal}"/>`}
