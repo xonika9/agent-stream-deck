@@ -71,7 +71,6 @@ async function startUsageServer(sample: unknown): Promise<UsageServer> {
         res.writeHead(302, { location: `${redirectOrigin}/elsewhere` });
         res.end();
       } else if (state.ticketMode === "hang") {
-        // Never respond; the reader must time out on its own.
       } else {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ ticket: "fixture-ticket", expiresAt: new Date(Date.now() + 60_000).toISOString() }));

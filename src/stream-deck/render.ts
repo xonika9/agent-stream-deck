@@ -343,10 +343,11 @@ export function renderUsageOverviewKey(
 ): string {
   const surface = SURFACES[theme];
   const mark = providerMarkForSource(source);
-  const markMarkup = mark ? renderProviderMark(mark, 16, 13, 15, surface.title) : "";
-  // The mark occupies the free upper-left corner; the top label moves right
-  // by exactly the mark width plus a 4-unit gap so the two never overlap.
-  const topLabelX = mark ? 35 : 24;
+  const markX = 16;
+  const markSize = 15;
+  const markLabelGap = 4;
+  const markMarkup = mark ? renderProviderMark(mark, markX, 13, markSize, surface.title) : "";
+  const topLabelX = mark ? markX + markSize + markLabelGap : 24;
   return toDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
     <defs><linearGradient id="keycap" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${surface.keyTop}"/><stop offset=".52" stop-color="${surface.keyMiddle}"/><stop offset="1" stop-color="${surface.keyBottom}"/></linearGradient></defs>
     <rect data-theme="${theme}" x="4" y="4" width="136" height="136" rx="18" fill="url(#keycap)" stroke="${surface.border}" stroke-width="2" stroke-opacity="${theme === "dark" ? ".88" : ".34"}"/>

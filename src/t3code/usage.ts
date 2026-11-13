@@ -1,12 +1,11 @@
 import WebSocket from "ws";
 import type { HostHealth, UsageSnapshot, UsageWindow, UsageWindowKind } from "#agents";
+import { clampPercent, FIVE_HOUR_MINUTES, WEEKLY_MINUTES } from "#usage";
 import { readLocalConnection, type LocalConnection, type LocalConnectionOptions } from "./source.js";
 
 const REQUEST_TIMEOUT_MS = 5_000;
 const MAX_PAYLOAD_BYTES = 8 * 1024 * 1024;
 const FRESH_MS = 5 * 60_000;
-const FIVE_HOUR_MINUTES = 5 * 60;
-const WEEKLY_MINUTES = 7 * 24 * 60;
 
 export type T3UsageProvider = "t3-codex" | "t3-claude" | "t3-opencode";
 export type T3UsageSnapshots = Partial<Record<T3UsageProvider, UsageSnapshot>>;
@@ -287,7 +286,7 @@ function normalizeWindow(window: unknown): UsageWindow | null {
     typeof record.windowDurationMins === "number" && Number.isFinite(record.windowDurationMins)
       ? record.windowDurationMins
       : null;
-  const usedPercent = Math.min(100, Math.max(0, record.usedPercent));
+  const usedPercent = clampPercent(record.usedPercent);
   return {
     id: record.id,
     kind: normalizeWindowKind(record.id, record.kind, duration),

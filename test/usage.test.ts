@@ -71,7 +71,6 @@ test("usage rendering falls back to light without overriding an available theme"
   );
 });
 
-/** macOS Codex data prefers fresh CodexBar and falls back to the app bridge. */
 test("macOS auto prefers CodexBar and keeps bridge reset credits", () => {
   const bridge = usage([fiveHour]);
   const codexBar = usage([weekly]);

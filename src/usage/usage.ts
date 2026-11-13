@@ -47,7 +47,7 @@ export function selectUsageBarWindow(
   usage: UsageSnapshot | undefined,
   kind: UsageOverviewWindow,
 ): UsageWindow | undefined {
-  return (usage?.windows ?? []).find((window) => window.kind === kind);
+  return selectUsageWindow(usage, kind);
 }
 
 const CODEX_MODES: UsageLimitMode[] = ["auto", "five-hour", "weekly"];

@@ -22,7 +22,7 @@ export function parseTaskSources(settings: unknown): TaskSourceSet {
   if (raw !== undefined) {
     if (!Array.isArray(raw)) return new Set<TaskSourceName>(["Codex"]);
     const names = new Set(raw.filter(isTaskSourceName));
-    const ordered = TASK_SOURCE_NAMES.filter((name) => names.has(name));
+    const ordered = taskSourceNames(names);
     return new Set<TaskSourceName>(ordered.length > 0 ? ordered : (["Codex"] as const));
   }
   const legacy = parseTaskSource(record.taskSource);
@@ -30,7 +30,6 @@ export function parseTaskSources(settings: unknown): TaskSourceSet {
   return new Set<TaskSourceName>([legacy]);
 }
 
-/** Accepts a source set or a legacy single value; legacy strings keep older callers working. */
 export function toTaskSourceSet(sources: TaskSourceSet | TaskSource): TaskSourceSet {
   if (typeof sources === "string") return parseTaskSources({ taskSource: sources });
   return sources;
