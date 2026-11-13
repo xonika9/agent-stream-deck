@@ -3,7 +3,8 @@ import { constants } from "node:fs";
 import { open, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { CodexHost, HostHealth, RoutedAgentSlot, TaskSource } from "#agents";
+import type { CodexHost, HostHealth, RoutedAgentSlot, TaskSource, TaskSourceSet } from "#agents";
+import { toTaskSourceSet } from "#agents";
 import { codexDeckStateRoot } from "../runtime/paths.js";
 
 import { T3CredentialRejectedError, T3SshUnavailableError, t3SshRequest, validateSshConnection } from "./ssh.js";
@@ -88,8 +89,8 @@ export class T3CodeSource {
     return () => this.listeners.delete(listener);
   }
 
-  syncDemand(source: TaskSource, host: CodexHost | undefined, stopped: boolean): void {
-    const demanded = !stopped && host?.platform === "darwin" && (source === "T3 Code" || source === "All");
+  syncDemand(source: TaskSourceSet | TaskSource, host: CodexHost | undefined, stopped: boolean): void {
+    const demanded = !stopped && host?.platform === "darwin" && toTaskSourceSet(source).has("T3 Code");
     const hostChanged = this.host?.hostId !== host?.hostId;
     this.host = host;
     if (demanded === this.demanded && !hostChanged) return;

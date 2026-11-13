@@ -85,7 +85,7 @@ while preserving strict host identity matching in this fork.
 The bridge does not emulate a USB HID device and installs no driver.
 
 For the characterized macOS OpenCode setup, the plugin starts a separate
-collector only when the global Agent source is `OpenCode` or `All`. It discovers
+collector only when the global Agent sources include `OpenCode`. It discovers
 the managed local service from its user-owned loopback registration and saved SSH
 connections from `opencode.settings`. SSH uses non-interactive authentication and
 a temporary loopback forward. On macOS, a tunnel left by an earlier plugin process killed
@@ -155,8 +155,8 @@ priority, and a versioned resolver cache prevents an older plugin's discovery
 failure from surviving a plugin update. Windows behavior retains
 the legacy path; this newer renderer shape has only been checked live on macOS.
 
-The global task-source selector runs before this projection. `Codex` preserves
-the saved Active queue preference; `OpenCode`, `T3 Code`, and `All` force the projection
+The global task-source checkboxes run before this projection. Codex alone preserves
+the saved Active queue preference; any set including `OpenCode` or `T3 Code` forces the projection
 without overwriting that preference. OpenCode candidates use the same
 attention/completion/working groups but keep case-sensitive opaque identities
 and never receive a context ring. An OpenCode key-down foregrounds OpenCode
@@ -281,7 +281,10 @@ Launcher updates validate their complete autonomous runtime before replacing the
 T3 Code is an independent macOS source under `src/t3code`, using the local V2
 HTTP shell and separately paired read-only sessions. Explicitly configured remote
 Linux environments are polled through strict non-interactive SSH; they use their
-own loopback shell and retain environment-scoped task identities. The selector offers each source separately
-and `All` for all three; legacy `Both` settings resolve to `All`. Its opaque task identities are isolated
+own loopback shell and retain environment-scoped task identities. Agent keys select task sources with one checkbox
+per source (`Codex`, `OpenCode`, `T3 Code`); any non-empty combination is allowed and the last checked box stays on.
+Saved `taskSource` values map onto the same sets (`All` and legacy `Both` select all three), and the inspector
+writes both `taskSources` and the closest legacy `taskSource` (`All` for combinations) so an older plugin keeps
+working. Its opaque task identities are isolated
 from Codex conversation mirrors. See [T3 Code compatibility](T3CODE_COMPATIBILITY.md)
 for setup, queue acknowledgement, limits and validation boundaries.

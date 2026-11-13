@@ -23,7 +23,7 @@ import { openCodexThread } from "#codex";
 import type { OpenCodeSource } from "#opencode";
 import type { T3CodeSource, T3UsageSnapshots } from "#t3code";
 import { visualStatusFromMicro } from "#agents";
-import { parseTaskSource, selectTaskCandidates, usesActiveQueue } from "#agents";
+import { parseTaskSources, selectTaskCandidates, taskSourcesEqual, usesActiveQueue } from "#agents";
 import type {
   HostHealth,
   MicroActionSlot,
@@ -32,6 +32,8 @@ import type {
   ReasoningAdjustment,
   RoutedAgentSlot,
   TaskSource,
+  TaskSourceName,
+  TaskSourceSet,
   UsageSnapshot,
   UsageSource,
   UsageWindowKind,
@@ -62,6 +64,7 @@ export type AgentDisplaySettings = {
   showContextRings?: boolean;
   activeQueueEnabled?: boolean;
   taskSource?: TaskSource;
+  taskSources?: TaskSourceName[];
 };
 
 type DeckControllerDependencies = {
@@ -118,7 +121,7 @@ export class DeckController {
   private lastHostHealthSignature = "";
   private showContextRings = true;
   private activeQueueEnabled = false;
-  private taskSource: TaskSource = "Codex";
+  private taskSource: TaskSourceSet = new Set(["Codex"]);
 
   constructor(private readonly sources: DeckControllerDependencies) {}
 
@@ -191,7 +194,7 @@ export class DeckController {
       if (!this.isCurrentGeneration(generation)) return;
       this.showContextRings = settings.showContextRings !== false;
       this.activeQueueEnabled = settings.activeQueueEnabled === true;
-      this.taskSource = parseTaskSource(settings.taskSource);
+      this.taskSource = parseTaskSources(settings);
     } catch (error) {
       if (this.isCurrentGeneration(generation))
         streamDeck.logger.warn(`Agent display settings were unavailable; using defaults: ${String(error)}`);
@@ -235,10 +238,10 @@ export class DeckController {
   setAgentDisplaySettings(settings: AgentDisplaySettings): void {
     const showContextRings = settings.showContextRings !== false;
     const activeQueueEnabled = settings.activeQueueEnabled === true;
-    const taskSource = parseTaskSource(settings.taskSource);
+    const taskSource = parseTaskSources(settings);
     const contextRingsChanged = this.showContextRings !== showContextRings;
     const activeQueueChanged = this.activeQueueEnabled !== activeQueueEnabled;
-    const taskSourceChanged = this.taskSource !== taskSource;
+    const taskSourceChanged = !taskSourcesEqual(this.taskSource, taskSource);
     if (!contextRingsChanged && !activeQueueChanged && !taskSourceChanged) return;
     this.showContextRings = showContextRings;
     this.activeQueueEnabled = activeQueueEnabled;
@@ -784,12 +787,17 @@ export class DeckController {
   }
 
   private selectedTaskHealth(): HostHealth {
-    if (this.taskSource === "OpenCode") return this.openCode.openCodeHealth;
-    if (this.taskSource === "Codex") return this.targetHealth();
-    if (this.taskSource === "T3 Code") return this.t3Code.health;
-    const health = [this.targetHealth(), this.openCode.openCodeHealth, this.t3Code.health];
+    const selected: HostHealth[] = [
+      ...(this.taskSource.has("Codex") ? [this.targetHealth()] : []),
+      ...(this.taskSource.has("OpenCode") ? [this.openCode.openCodeHealth] : []),
+      ...(this.taskSource.has("T3 Code") ? [this.t3Code.health] : []),
+    ];
+    if (selected.length === 1) return selected[0]!;
+    if (selected.length === 0) return this.targetHealth();
     return (
-      health.find((item) => item.state === "ready") ?? health.find((item) => item.state === "degraded") ?? health[0]!
+      selected.find((item) => item.state === "ready") ??
+      selected.find((item) => item.state === "degraded") ??
+      selected[0]!
     );
   }
 

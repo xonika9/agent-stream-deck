@@ -1,5 +1,5 @@
-import type { CodexHost, HostHealth, RoutedAgentSlot, TaskSource } from "#agents";
-import { shouldCollectOpenCode } from "#agents";
+import type { CodexHost, HostHealth, RoutedAgentSlot, TaskSource, TaskSourceSet } from "#agents";
+import { shouldCollectOpenCode, toTaskSourceSet } from "#agents";
 import { taskIdentity } from "./collection-utils.js";
 import { foregroundOpenCode } from "./open.js";
 import { getOrCreateOpenCodeIdentitySecret } from "./secret.js";
@@ -59,8 +59,12 @@ export class OpenCodeSource {
     return true;
   }
 
-  async syncDemand(taskSource: TaskSource, host: CodexHost | undefined, stopped: boolean): Promise<void> {
-    this.demanded = !stopped && shouldCollectOpenCode(taskSource, process.platform);
+  async syncDemand(
+    taskSource: TaskSourceSet | TaskSource,
+    host: CodexHost | undefined,
+    stopped: boolean,
+  ): Promise<void> {
+    this.demanded = !stopped && shouldCollectOpenCode(toTaskSourceSet(taskSource), process.platform);
     this.localHost = host;
     const demanded = this.demanded;
     if (demanded && this.preparation) return this.preparation;

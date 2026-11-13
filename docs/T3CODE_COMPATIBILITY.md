@@ -1,10 +1,14 @@
 # T3 Code task source
 
-The macOS Agent selector adds `T3 Code` and `All` (all three sources).
-Legacy `Both` settings resolve to `All`; the selector offers only the three
-individual sources and `All`. All external sources force Active queue without
-changing the saved Codex preference. Windows installation and existing actions
-are unchanged; T3 Code collection is currently macOS-only.
+The macOS Agent inspector selects task sources with one checkbox per source:
+`Codex`, `OpenCode`, and `T3 Code`. Any non-empty combination works and the last
+checked box stays on; checking all three matches the old `All` value.
+Legacy `Both` settings resolve to all three. The inspector writes both the new
+`taskSources` list and the closest legacy `taskSource` value (`All` for
+combinations) so an older plugin version keeps working. Any selection besides
+Codex alone forces Active queue without changing the saved Codex preference.
+Windows installation and existing actions are unchanged; T3 Code collection is
+currently macOS-only.
 
 ## Connect the local server
 

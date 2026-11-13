@@ -34,7 +34,7 @@ Codex runs locally on each platform. macOS also supports local OpenCode and T3 C
 
 ## Task sources and controls
 
-Choose the global source in any **Agent** action's Stream Deck property inspector: `Codex`, `OpenCode`, `T3 Code`, or `All`. `All` combines all three; saved `Both` settings resolve to `All`. Selecting OpenCode, T3 Code, or All enables **Active queue** while preserving the saved Codex-only preference.
+Choose the global task sources in any **Agent** action's Stream Deck property inspector with the `Codex`, `OpenCode`, and `T3 Code` checkboxes; any non-empty combination works and the last checked box stays on. Checking all three matches the old `All` value, and saved `Both` settings resolve to all three. The inspector writes both the new `taskSources` list and the closest legacy `taskSource` value (`All` for combinations) so an older plugin version keeps working. Selecting anything besides Codex alone enables **Active queue** while preserving the saved Codex-only preference. On Windows only Codex applies, so the OpenCode and T3 Code boxes stay off.
 
 | Source | Setup | What a task key does |
 | --- | --- | --- |
@@ -77,7 +77,7 @@ The Agent Deck name is used in this README; released package filenames, plugin/a
 
 ## Features
 
-- Six dynamic agent keys with a global **Codex**, **OpenCode**, **T3 Code**, or **All** task source.
+- Six dynamic agent keys with global task sources: any combination of **Codex**, **OpenCode**, and **T3 Code**.
 - Optional global **Active queue** for all six Agent actions on one computer; it is off by default.
 - Live idle, working, unread completion, approval/input, error, and empty states.
 - Codex-aligned light and dark rendering with restrained status animation.
@@ -101,7 +101,7 @@ If the renderer's full catalog is temporarily unavailable or incompatible, Activ
 
 On a profile with N Agent buttons, place logical **Agent 1** through **Agent N** next to each other in order. Idle chats cannot be opened from those buttons while the queue is enabled. Pinned and unpinned tasks participate in the full native catalog; **custom** deliberately keeps only its six configured candidates, and the queue may still compact the relevant ones. Disable Active queue to restore the exact existing local agent-source layout.
 
-Selecting **OpenCode**, **T3 Code**, or **All** forces Active queue while preserving the saved Codex-only preference. The characterized OpenCode path covers OpenCode Desktop on macOS, historically characterized against `2.0.5` and `2.0.10`: its managed local service and saved non-interactive SSH connections. Later versions remain available when their protected registration, authenticated identity through `/api/info` or legacy `/api/status`, and bounded API response shapes still match; incompatible capabilities fail closed per connection. A bounded, sanitized task title is shown only by the local Stream Deck renderer, with a stable `OpenCode N` alias as its fallback; titles never enter logs. Locations, messages, connection targets, and credentials are neither rendered nor logged. Successful completions and failed tasks remain visible for up to five minutes after their terminal event unless OpenCode reports them viewed or their Stream Deck key is pressed first. Older terminal history is not backfilled. Pressing an OpenCode key also brings OpenCode Desktop forward, removes that exact result locally, and best-effort publishes the same terminal revision through OpenCode's official session-view route; unsupported versions retain the local fallback. A later result from the same chat appears again. WSL and saved HTTP connections are not part of this first integration.
+Selecting **OpenCode** or **T3 Code** forces Active queue while preserving the saved Codex-only preference. The characterized OpenCode path covers OpenCode Desktop on macOS, historically characterized against `2.0.5` and `2.0.10`: its managed local service and saved non-interactive SSH connections. Later versions remain available when their protected registration, authenticated identity through `/api/info` or legacy `/api/status`, and bounded API response shapes still match; incompatible capabilities fail closed per connection. A bounded, sanitized task title is shown only by the local Stream Deck renderer, with a stable `OpenCode N` alias as its fallback; titles never enter logs. Locations, messages, connection targets, and credentials are neither rendered nor logged. Successful completions and failed tasks remain visible for up to five minutes after their terminal event unless OpenCode reports them viewed or their Stream Deck key is pressed first. Older terminal history is not backfilled. Pressing an OpenCode key also brings OpenCode Desktop forward, removes that exact result locally, and best-effort publishes the same terminal revision through OpenCode's official session-view route; unsupported versions retain the local fallback. A later result from the same chat appears again. WSL and saved HTTP connections are not part of this first integration.
 
 ## Recommended 15-key layout
 

@@ -9,6 +9,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import streamDeck, { type KeyAction, type TitleParametersDidChangeEvent } from "@elgato/streamdeck";
 import type { HostHealth, HostSnapshot, RoutedAgentSlot, TaskSource, UsageSnapshot } from "#agents";
+import { parseTaskSources, taskSourceNames, toTaskSourceSet } from "#agents";
 import { CodexMicroRendererBridge, type CodexSource } from "#codex";
 import { OpenCodeCollector, type OpenCodeCollectorSnapshot, OpenCodeSource, type OpenCodeTask } from "#opencode";
 import {
@@ -408,6 +409,122 @@ test("All queue drops stopped local Codex tasks before assigning the first key t
   assert.equal(keyLabel(second.images.at(-1)), "black", "the stopped Codex task is not shown behind OpenCode");
   assert.equal(first.alerts(), 0);
   assert.deepEqual(foregroundCalls, ["foreground"]);
+});
+
+test("a Codex plus T3 selection shows T3 candidates without OpenCode", async () => {
+  const deck = createDeck();
+  deck.codex.localSnapshot = { host, snapshot: createMicroSnapshot(), observedAt: Date.now() };
+  deck.codex.localHealth = { state: "degraded", reason: "codex-not-running", changedAt: Date.now() };
+  deck.openCode.openCodeHealth = { state: "ready", changedAt: Date.now() };
+  deck.openCode.openCodeSlots = [
+    {
+      id: 0,
+      sourceSlot: 0,
+      taskSource: "opencode",
+      host,
+      threadKey: "connection\0session",
+      title: "OpenCode task",
+      status: "complete",
+      selected: false,
+      activityAt: 200,
+      observedAt: Date.now(),
+    },
+  ];
+  deck.t3Code.health = { state: "ready", changedAt: Date.now() };
+  deck.t3Code.slots = [
+    {
+      id: 0,
+      sourceSlot: 0,
+      taskSource: "t3code",
+      host,
+      threadKey: "thread",
+      title: "T3 task",
+      status: "working",
+      selected: false,
+      activityAt: 100,
+      observedAt: Date.now(),
+    },
+  ];
+  const keys = registerAgents(deck.controller, 2);
+  deck.controller.setAgentDisplaySettings({ taskSources: ["Codex", "T3 Code"] });
+  await settle();
+  assert.deepEqual(labels(keys), ["T3 task", "black"]);
+});
+
+test("a Codex plus T3 selection keeps OpenCode demand off while T3 demand stays on", async () => {
+  const deck = createDeck();
+  const openCodeSeen: string[][] = [];
+  const t3Seen: string[][] = [];
+  const openSync = deck.openCode.syncDemand.bind(deck.openCode);
+  deck.openCode.syncDemand = ((source, hostIdentity, stopped) => {
+    openCodeSeen.push(taskSourceNames(toTaskSourceSet(source)));
+    return openSync(source, hostIdentity, stopped);
+  }) as typeof deck.openCode.syncDemand;
+  const t3Sync = deck.t3Code.syncDemand.bind(deck.t3Code);
+  deck.t3Code.syncDemand = ((source, hostIdentity, stopped) => {
+    t3Seen.push(taskSourceNames(toTaskSourceSet(source)));
+    return t3Sync(source, hostIdentity, stopped);
+  }) as typeof deck.t3Code.syncDemand;
+  deck.controller.setAgentDisplaySettings({ taskSources: ["Codex", "T3 Code"] });
+  await settle();
+  assert.deepEqual(openCodeSeen.at(-1), ["Codex", "T3 Code"]);
+  assert.deepEqual(t3Seen.at(-1), ["Codex", "T3 Code"]);
+  assert.equal(deck.openCode.openCodeCollector, undefined, "a set without OpenCode starts no collector");
+});
+
+test("selecting all three sources as a set renders like the legacy All value", async () => {
+  const deck = createDeck();
+  deck.codex.localSnapshot = { host, snapshot: createMicroSnapshot(), observedAt: Date.now() };
+  deck.codex.localHealth = { state: "ready", changedAt: 1 };
+  deck.openCode.openCodeHealth = { state: "ready", changedAt: Date.now() };
+  deck.openCode.openCodeSlots = [
+    {
+      id: 0,
+      sourceSlot: 0,
+      taskSource: "opencode",
+      host,
+      threadKey: "connection\0session",
+      title: "OpenCode task",
+      status: "working",
+      selected: false,
+      activityAt: 200,
+      observedAt: Date.now(),
+    },
+  ];
+  deck.t3Code.health = { state: "ready", changedAt: Date.now() };
+  deck.t3Code.slots = [
+    {
+      id: 0,
+      sourceSlot: 0,
+      taskSource: "t3code",
+      host,
+      threadKey: "thread",
+      title: "T3 task",
+      status: "working",
+      selected: false,
+      activityAt: 100,
+      observedAt: Date.now(),
+    },
+  ];
+  const keys = registerAgents(deck.controller, 3);
+  deck.controller.setAgentDisplaySettings({ taskSource: "All" });
+  await settle();
+  const legacy = labels(keys);
+  deck.controller.setAgentDisplaySettings({ taskSource: "Codex" });
+  await settle();
+  deck.controller.setAgentDisplaySettings({ taskSources: ["Codex", "OpenCode", "T3 Code"] });
+  await settle();
+  assert.deepEqual(labels(keys), legacy);
+});
+
+test("a Codex-only set keeps the saved queue preference off", async (context) => {
+  const deck = createDeck();
+  deck.codex.localSnapshot = { host, snapshot: createMicroSnapshot(), observedAt: Date.now() };
+  deck.codex.localHealth = { state: "ready", changedAt: 1 };
+  await startDeck(context, deck, { settings: { taskSources: ["Codex"], activeQueueEnabled: false } });
+  const keys = registerAgents(deck.controller, 2);
+  await settle();
+  assert.deepEqual(labels(keys), ["Task 1", "Task 2"], "the queue stays off for a Codex-only set");
 });
 
 test("controller keeps one working-rank epoch, advances on a higher revision, and resets it on disable", async (context) => {
@@ -1665,6 +1782,42 @@ for (const cancel of ["demand", "stop"] as const) {
     assert.equal(source.openCodeHealth.state, "ready");
   });
 }
+
+test("OpenCode demand follows a task source set", {
+  skip: process.platform === "win32" ? "OpenCode collection runs only on macOS" : false,
+}, async (context) => {
+  await isolateHome(context);
+  const ready: OpenCodeCollectorSnapshot = {
+    version: 1,
+    observedAt: 1,
+    connections: [
+      {
+        connectionId: "local",
+        health: "ready",
+        complete: true,
+        observedAt: 1,
+        tasks: [],
+      },
+    ],
+  };
+  let collectors = 0;
+  context.mock.method(OpenCodeCollector.prototype, "start", async () => {
+    collectors++;
+    return ready;
+  });
+  context.mock.method(OpenCodeCollector.prototype, "stop", async () => {});
+  context.mock.method(OpenCodeCollector.prototype, "snapshot", () => ready);
+  const source = new OpenCodeSource(() => {});
+  context.after(() => source.stop());
+  await source.syncDemand(parseTaskSources({ taskSources: ["Codex", "T3 Code"] }), host, false);
+  await drain();
+  assert.equal(collectors, 0, "a set without OpenCode starts no collector");
+  assert.equal(source.openCodeCollector, undefined);
+  await source.syncDemand(parseTaskSources({ taskSources: ["Codex", "OpenCode"] }), host, false);
+  await drain();
+  assert.equal(collectors, 1);
+  assert.equal(source.openCodeHealth.state, "ready");
+});
 
 test("SDK delivery coalesces source, settings, and animation revisions while preserving a held assignment", async (context) => {
   const deck = createDeck();
