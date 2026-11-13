@@ -137,6 +137,33 @@ finish within the existing time budget. A server-side filtered API is still
 needed to remove that remaining scan and transfer cost.
 Acknowledgements are process-local and are never distributed or persisted.
 
+## Usage limits
+
+Usage Limit and Usage Overview keys can read Codex, Claude, and OpenCode
+limits from the local T3 Code app instead of CodexBar or the running Codex
+app. The reader reuses the read-only session created above, so no new
+pairing is needed. Each poll requests a fresh websocket ticket with
+`POST /api/auth/websocket-ticket`, opens
+`ws://<loopback>/ws?orchestrationProtocol=2&wsTicket=...`, sends
+`server.getConfig`, and reads `providers[].usageLimits` from the `Exit`
+response. The ticket travels only in the socket address, a new ticket is
+requested per poll, and the socket closes after the reply. Tokens, tickets,
+addresses, and the raw response never enter logs or stored files.
+
+The plugin polls at most once a minute, only while at least one usage key
+selects a T3 source, and never starts a second request before the previous
+one finishes. Each request is bounded by a five-second timeout and an
+eight-MiB payload cap. Verified against T3 Code
+`0.1.10-nightly.20261111.4544`. The `server.getConfig` shape is not a public
+contract, so an unrecognized response renders as a dash rather than a
+number; check this section again after updating T3 Code.
+
+Windows keys never use this path: a saved T3 source resolves to the
+automatic Codex source there. When the saved session is rejected or the
+server is unreachable, keys show a dash. On timeouts or unrecognized
+responses, keys keep the last good values for five minutes with the warning
+colour, then show a dash.
+
 ## Evidence
 
 The adapter contract was checked against the installed T3 Code Nightly `0.0.46-nightly.20261005.2689` V2
