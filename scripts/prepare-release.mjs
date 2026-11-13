@@ -3,6 +3,7 @@ import { copyFile, mkdir, readFile, rm } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { finalizeReleaseDirectory } from "./finalize-release.mjs";
+import { manifestVersionForPackage, releaseVersionForPackage } from "./release-version.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outputsRoot = join(root, "outputs");
@@ -27,18 +28,6 @@ function parseArguments(argv) {
     throw new Error(`Unknown release option: ${argument}`);
   }
   return options;
-}
-
-function releaseVersionForPackage(packageVersion) {
-  const hotfix = /^(\d+\.\d+\.\d+)-hotfix\.(\d+)$/u.exec(packageVersion);
-  if (hotfix) return `${hotfix[1]}.${hotfix[2]}`;
-  if (/^\d+\.\d+\.\d+$/u.test(packageVersion)) return packageVersion;
-  throw new Error(`Unsupported package release version: ${packageVersion}`);
-}
-
-function manifestVersionForPackage(packageVersion) {
-  const releaseVersion = releaseVersionForPackage(packageVersion);
-  return releaseVersion.split(".").length === 4 ? releaseVersion : `${releaseVersion}.0`;
 }
 
 function assertReleaseVersion(version) {

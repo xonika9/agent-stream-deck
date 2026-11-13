@@ -22,6 +22,7 @@
     "audit:release": "node scripts/audit-release.mjs",
     "acceptance": "node scripts/stage-acceptance.mjs",
     "check": "tsc --noEmit",
+    "check:version": "node scripts/check-version.mjs",
     "test": "tsx --test test/*.test.ts",
     "validate": "npm run build:release && streamdeck validate dist/com.xonika9.codex-deck.sdPlugin",
     "pack": "npm run build:release && streamdeck pack dist/com.xonika9.codex-deck.sdPlugin --force",

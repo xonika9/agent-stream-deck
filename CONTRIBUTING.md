@@ -57,6 +57,7 @@ npm ci
 npm run lint
 npm run check:boundaries
 npm run check
+npm run check:version
 npm test
 npm run validate
 ```

@@ -12,6 +12,7 @@ export const ACCEPTANCE_CHECKS = [
   { name: "lint", command: ["npm", "run", "lint"] },
   { name: "check:boundaries", command: ["npm", "run", "check:boundaries"] },
   { name: "check", command: ["npm", "run", "check"] },
+  { name: "check:version", command: ["npm", "run", "check:version"] },
   { name: "test", command: ["npm", "test"] },
   { name: "validate", command: ["npm", "run", "validate"] },
   { name: "pack", command: ["npm", "run", "pack"] },
