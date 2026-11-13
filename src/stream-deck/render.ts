@@ -143,6 +143,9 @@ export function renderAgentSvg(
           : status === "input"
             ? 0.24 + pulse * 0.08
             : 0.28) + (theme === "dark" && status !== "empty" ? 0.06 : 0);
+  const contextRingShown = hostHealth === "ready" && status !== "empty" && showContextRing;
+  // The host badge yields the top-right corner to the context ring only while the ring is drawn.
+  const badgeCenter = contextRingShown ? 96 : 116;
   const statusMark = hostHealth === "ready" ? renderAgentStatusMark(status, glowColor, statusPhase, pulse, theme) : "";
   let titleLayout: Array<{ value: string; y: number; maximum: number; minimum?: number; letterSpacing: string }>;
   if (line3) {
@@ -187,8 +190,8 @@ export function renderAgentSvg(
     <rect x="12" y="12" width="120" height="120" rx="12" fill="url(#frost)" stroke="${surface.innerBorder}" stroke-width="1" opacity="${theme === "dark" ? ".86" : ".72"}"/>
     <path d="M18 21C46 12 99 12 126 23" fill="none" stroke="${surface.sheen}" stroke-width="6" stroke-linecap="round" opacity="${theme === "dark" ? "0" : ".68"}"/>
     ${renderHostHealthMark(hostHealth, theme)}
-    ${hostHealth === "ready" && status !== "empty" && showContextRing ? renderContextRing(contextUsedPercent, theme, surface) : ""}
-    ${hostBadge ? `<g data-agent-host="${escapeXml(hostBadge)}"><rect x="86" y="16" width="20" height="18" rx="7" fill="${surface.title}" fill-opacity=".11"/><text x="96" y="29" text-anchor="middle" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="11" font-weight="700" fill="${surface.title}" fill-opacity=".82">${escapeXml(hostBadge)}</text></g>` : ""}
+    ${contextRingShown ? renderContextRing(contextUsedPercent, theme, surface) : ""}
+    ${hostBadge ? `<g data-agent-host="${escapeXml(hostBadge)}"><rect x="${badgeCenter - 10}" y="16" width="20" height="18" rx="7" fill="${surface.title}" fill-opacity=".11"/><text x="${badgeCenter}" y="29" text-anchor="middle" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="11" font-weight="700" fill="${surface.title}" fill-opacity=".82">${escapeXml(hostBadge)}</text></g>` : ""}
     <g font-family="Bahnschrift, Segoe UI Variable Display, Segoe UI, Arial, sans-serif">${titleMarkup}</g>
     ${statusMark}
   </svg>`;

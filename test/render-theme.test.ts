@@ -51,6 +51,7 @@ test("agent context ring is bounded and can be hidden globally", () => {
 
   const hidden = renderAgentSvg(0, "Context test", "thinking", false, 0, "dark", "M", "ready", 84, false);
   assert.doesNotMatch(hidden, /data-context-used=/);
+  assert.match(hidden, /data-agent-host="M"><rect x="106" y="16"/, "without a ring the host badge takes the corner");
 
   const pending = renderAgentSvg(0, "New task", "idle", false, 0, "dark", "M", "ready", undefined, true);
   assert.match(pending, /data-context-used="unknown"/);
