@@ -10,6 +10,7 @@
     label { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 8px; margin-top: 10px; }
     label:first-of-type { margin-top: 0; }
     select { width: 100%; min-height: 28px; color: #efefef; background: #3b3b3b; border: 1px solid #555; border-radius: 4px; padding: 3px 7px; }
+    input { width: 17px; height: 17px; margin: 0; accent-color: #1683ff; }
     p { margin: 12px 0 0 100px; color: #a9a9a9; line-height: 1.35; }
   </style>
 </head>
@@ -23,6 +24,11 @@
     <select id="mode"></select>
   </label>
   <p>Automatic prefers the 5-hour window and falls back to weekly when the provider does not offer it. T3 sources read limits from the local T3 Code app on macOS.</p>
+  <label>
+    <span>Show remaining</span>
+    <input id="remaining" type="checkbox">
+  </label>
+  <p>Shows how much quota is left instead of the amount used.</p>
   <script>
     let websocket;
     let context;
@@ -80,6 +86,7 @@
       document.getElementById("source").value = settings.source;
       document.getElementById("mode").innerHTML = optionHtml(MODE_OPTIONS[modeGroup(settings.source)], settings.mode);
       document.getElementById("mode").value = settings.mode;
+      document.getElementById("remaining").checked = settings.showRemaining === true;
     }
 
     // Stream Deck passes the info argument as a JSON string; accept an object too.
@@ -117,6 +124,11 @@
       settings = { ...settings, mode: event.target.value };
       normalize();
       render();
+      save();
+    });
+
+    document.getElementById("remaining").addEventListener("change", (event) => {
+      settings = { ...settings, showRemaining: event.target.checked };
       save();
     });
   </script>

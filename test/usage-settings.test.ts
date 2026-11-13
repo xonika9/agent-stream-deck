@@ -5,6 +5,7 @@ import { runInNewContext } from "node:vm";
 
 type FakeSelect = {
   value: string;
+  checked: boolean;
   innerHTML: string;
   listeners: Map<string, (event: { target: FakeSelect }) => void>;
   addEventListener: (type: string, listener: (event: { target: FakeSelect }) => void) => void;
@@ -13,6 +14,7 @@ type FakeSelect = {
 function fakeSelect(): FakeSelect {
   const element: FakeSelect = {
     value: "",
+    checked: false,
     innerHTML: "",
     listeners: new Map(),
     addEventListener: (type, listener) => element.listeners.set(type, listener),
@@ -79,6 +81,10 @@ async function loadInspector(page: string, ids: string[]) {
     element(id).value = value;
     element(id).listeners.get("change")?.({ target: element(id) });
   };
+  const toggle = (id: string, checked: boolean): void => {
+    element(id).checked = checked;
+    element(id).listeners.get("change")?.({ target: element(id) });
+  };
   const settingsSent = (socket: FakeWebSocket): Array<Record<string, unknown>> =>
     socket.sent
       .filter((message) => message.event === "setSettings")
@@ -87,11 +93,11 @@ async function loadInspector(page: string, ids: string[]) {
         assert.equal(message.context, "inspector-context");
         return message.payload as Record<string, unknown>;
       });
-  return { html, element, connect, change, settingsSent };
+  return { html, element, connect, change, toggle, settingsSent };
 }
 
 test("usage limit keeps legacy mode and offers only the source windows", async () => {
-  const { element, connect, settingsSent } = await loadInspector("usage-limit.html", ["source", "mode"]);
+  const { element, connect, settingsSent } = await loadInspector("usage-limit.html", ["source", "mode", "remaining"]);
   const socket = connect({ mode: "weekly" });
   assert.equal(element("source").value, "codex-auto");
   assert.equal(element("mode").value, "weekly");
@@ -104,7 +110,11 @@ test("usage limit keeps legacy mode and offers only the source windows", async (
 });
 
 test("usage limit adds Fable when switching to T3 Claude and saves the source", async () => {
-  const { element, connect, change, settingsSent } = await loadInspector("usage-limit.html", ["source", "mode"]);
+  const { element, connect, change, settingsSent } = await loadInspector("usage-limit.html", [
+    "source",
+    "mode",
+    "remaining",
+  ]);
   const socket = connect({ source: "codex-auto", mode: "weekly" });
   change("source", "t3-claude");
   assert.match(element("mode").innerHTML, /value="weekly-fable"/);
@@ -113,7 +123,11 @@ test("usage limit adds Fable when switching to T3 Claude and saves the source", 
 });
 
 test("usage limit resets an unoffered window to Automatic and saves it", async () => {
-  const { element, connect, change, settingsSent } = await loadInspector("usage-limit.html", ["source", "mode"]);
+  const { element, connect, change, settingsSent } = await loadInspector("usage-limit.html", [
+    "source",
+    "mode",
+    "remaining",
+  ]);
   const socket = connect({ source: "t3-claude", mode: "weekly-fable" });
   assert.equal(element("mode").value, "weekly-fable");
   change("source", "t3-codex");
@@ -122,14 +136,19 @@ test("usage limit resets an unoffered window to Automatic and saves it", async (
 });
 
 test("usage limit hides T3 sources on Windows", async () => {
-  const { element, connect } = await loadInspector("usage-limit.html", ["source", "mode"]);
+  const { element, connect } = await loadInspector("usage-limit.html", ["source", "mode", "remaining"]);
   connect({ source: "codex-auto", mode: "weekly" }, "windows");
   assert.doesNotMatch(element("source").innerHTML, /t3-/);
   assert.match(element("source").innerHTML, /value="codex-bar"/);
 });
 
 test("usage overview defaults to the two Codex bars without an Automatic option", async () => {
-  const { element, connect, settingsSent } = await loadInspector("usage-overview.html", ["source", "top", "bottom"]);
+  const { element, connect, settingsSent } = await loadInspector("usage-overview.html", [
+    "source",
+    "top",
+    "bottom",
+    "remaining",
+  ]);
   const socket = connect({});
   assert.equal(element("source").value, "codex-auto");
   assert.equal(element("top").value, "five-hour");
@@ -147,6 +166,7 @@ test("usage overview adds Monthly for T3 OpenCode and resets an unoffered top ba
     "source",
     "top",
     "bottom",
+    "remaining",
   ]);
   const socket = connect({ source: "t3-opencode", topWindow: "monthly", bottomWindow: "weekly" });
   assert.equal(element("top").value, "monthly");
@@ -163,20 +183,89 @@ test("usage overview adds Monthly for T3 OpenCode and resets an unoffered top ba
 });
 
 test("usage limit saves the corrected stale window on open", async () => {
-  const { connect, settingsSent } = await loadInspector("usage-limit.html", ["source", "mode"]);
+  const { connect, settingsSent } = await loadInspector("usage-limit.html", ["source", "mode", "remaining"]);
   const socket = connect({ source: "t3-codex", mode: "weekly-fable" });
   assert.deepEqual(settingsSent(socket), [{ source: "t3-codex", mode: "auto" }]);
 });
 
 test("usage overview saves the corrected stale source on open", async () => {
-  const { element, connect, settingsSent } = await loadInspector("usage-overview.html", ["source", "top", "bottom"]);
+  const { element, connect, settingsSent } = await loadInspector("usage-overview.html", [
+    "source",
+    "top",
+    "bottom",
+    "remaining",
+  ]);
   const socket = connect({ source: "t3-claude" }, "windows");
   assert.equal(element("source").value, "codex-auto");
   assert.deepEqual(settingsSent(socket), [{ source: "codex-auto", topWindow: "five-hour", bottomWindow: "weekly" }]);
 });
 
 test("usage overview hides T3 sources on Windows", async () => {
-  const { element, connect } = await loadInspector("usage-overview.html", ["source", "top", "bottom"]);
+  const { element, connect } = await loadInspector("usage-overview.html", ["source", "top", "bottom", "remaining"]);
   connect({}, "windows");
   assert.doesNotMatch(element("source").innerHTML, /t3-/);
+});
+
+test("usage limit reflects the saved Show remaining choice", async () => {
+  const { element, connect, settingsSent } = await loadInspector("usage-limit.html", ["source", "mode", "remaining"]);
+  const socket = connect({ source: "codex-auto", mode: "weekly", showRemaining: true });
+  assert.equal(element("remaining").checked, true);
+  assert.deepEqual(settingsSent(socket), [], "a saved choice is not rewritten");
+});
+
+test("usage limit leaves Show remaining unchecked and saves nothing without the field", async () => {
+  const { element, connect, settingsSent } = await loadInspector("usage-limit.html", ["source", "mode", "remaining"]);
+  const socket = connect({ source: "codex-auto", mode: "weekly" });
+  assert.equal(element("remaining").checked, false);
+  assert.deepEqual(settingsSent(socket), []);
+});
+
+test("usage limit saves Show remaining beside the other settings", async () => {
+  const { connect, toggle, settingsSent } = await loadInspector("usage-limit.html", ["source", "mode", "remaining"]);
+  const socket = connect({ source: "t3-codex", mode: "weekly", futureSetting: 7 });
+  toggle("remaining", true);
+  assert.deepEqual(settingsSent(socket).at(-1), {
+    source: "t3-codex",
+    mode: "weekly",
+    futureSetting: 7,
+    showRemaining: true,
+  });
+  toggle("remaining", false);
+  assert.deepEqual(settingsSent(socket).at(-1), {
+    source: "t3-codex",
+    mode: "weekly",
+    futureSetting: 7,
+    showRemaining: false,
+  });
+});
+
+test("usage overview reflects and saves the Show remaining choice", async () => {
+  const { element, connect, toggle, settingsSent } = await loadInspector("usage-overview.html", [
+    "source",
+    "top",
+    "bottom",
+    "remaining",
+  ]);
+  const socket = connect({ source: "codex-auto", topWindow: "five-hour", bottomWindow: "weekly", showRemaining: true });
+  assert.equal(element("remaining").checked, true);
+  assert.deepEqual(settingsSent(socket), [], "a saved choice is not rewritten");
+  toggle("remaining", false);
+  assert.deepEqual(settingsSent(socket).at(-1), {
+    source: "codex-auto",
+    topWindow: "five-hour",
+    bottomWindow: "weekly",
+    showRemaining: false,
+  });
+});
+
+test("usage overview leaves Show remaining unchecked and saves nothing without the field", async () => {
+  const { element, connect, settingsSent } = await loadInspector("usage-overview.html", [
+    "source",
+    "top",
+    "bottom",
+    "remaining",
+  ]);
+  const socket = connect({ source: "codex-auto", topWindow: "five-hour", bottomWindow: "weekly" });
+  assert.equal(element("remaining").checked, false);
+  assert.deepEqual(settingsSent(socket), []);
 });
