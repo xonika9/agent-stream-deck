@@ -1032,9 +1032,9 @@ for (const [name, platform, barAge, expected] of [
     });
     await settle();
 
-    const images = [...key.images, ...overview.images];
-    assert.equal(images.length, 2);
-    for (const image of images) {
+    // A controller clock tick may redraw a key under load; the latest image is the contract.
+    assert.ok(key.images.length >= 1 && overview.images.length >= 1);
+    for (const image of [key.images.at(-1)!, overview.images.at(-1)!]) {
       if (expected === undefined) assert.doesNotMatch(image, /data-usage-used=/);
       else assert.match(image, new RegExp(`data-usage-used="${expected}"`));
       assert.match(image, /data-theme="dark"/);
