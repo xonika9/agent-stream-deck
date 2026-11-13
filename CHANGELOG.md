@@ -2,6 +2,27 @@
 
 Versions through `0.7.0.2` below are the historical upstream releases by Dazer. Starting with `1.0.0`, releases belong to the xonika9 fork and use its own plugin identity. Releases after `2.2.2` use calendar versions `YY.M.D.N` (Moscow date, daily release number).
 
+## 26.11.13.3 - 2026-11-13
+
+### Highlights
+
+- Usage Overview has a **Layout** list: Bars (the default), Two rings side by side, or one ring split into a top and a bottom half. Both ring layouts use large equal-size numbers that stay readable on the device, follow Show remaining, and keep the provider badge.
+- Usage keys label weekly windows `W` and monthly windows `M` instead of `WK` and `MO`.
+
+### Fixes
+
+- The ChatGPT badge on T3 Codex keys has a visible grey outline, so it no longer looks smaller than the Claude and OpenCode badges on light keys.
+- On Agent keys for T3 Code and OpenCode tasks, the host badge moves into the top-right corner when no context ring is drawn; Codex tasks keep it next to the ring.
+
+### Compatibility
+
+- Existing action UUIDs, profiles, saved usage settings and standalone Windows installation remain supported. Keys without a saved layout keep the bars.
+
+### Validation
+
+- Local automated macOS validation passed with Node 24.16.0 through `npm run release:prepare`: clean dependency install, lint, import boundaries, types, version agreement, tests with two existing Windows-only skips, plugin validation, packaging, archive integrity, checksums and release artifact auditing.
+- The development builds ran in the owner's Stream Deck app, and the owner approved publication after they were installed. The new layouts were checked only as rendered key images; physical-device images and native Windows were not validated.
+
 ## 26.11.13.2 - 2026-11-13
 
 ### Highlights
