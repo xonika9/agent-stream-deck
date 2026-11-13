@@ -1,5 +1,6 @@
-import type { AgentVisualStatus, HostHealthState, ThemeMode, UsageWindow, UsageWindowKind } from "#agents";
+import type { AgentVisualStatus, HostHealthState, ThemeMode, UsageSource, UsageWindow, UsageWindowKind } from "#agents";
 import { clampPercent, usageLabel } from "#usage";
+import { providerMarkForSource, renderProviderMark } from "./provider-marks.js";
 
 export type BuiltinIconName = "back" | "forward" | "sidebar" | "home" | "navigation";
 
@@ -294,6 +295,7 @@ export function renderUsageLimitKey(
   requestedKind: UsageWindowKind,
   theme: ThemeMode = "dark",
   health: HostHealthState = "ready",
+  source?: UsageSource,
 ): string {
   const surface = SURFACES[theme];
   const remaining = window ? Math.round(clampPercent(window.remainingPercent)) : null;
@@ -306,6 +308,8 @@ export function renderUsageLimitKey(
   const digits = used == null ? 0 : String(used).length;
   const numberX = digits >= 3 ? 61 : digits === 2 ? 65 : 69;
   const fontSize = digits >= 3 ? 27 : 30;
+  const mark = providerMarkForSource(source);
+  const markMarkup = mark ? renderProviderMark(mark, 15, 13, 18, surface.title) : "";
   return toDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
     <defs>
       <linearGradient id="keycap" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${surface.keyTop}"/><stop offset=".52" stop-color="${surface.keyMiddle}"/><stop offset="1" stop-color="${surface.keyBottom}"/></linearGradient>
@@ -324,6 +328,7 @@ export function renderUsageLimitKey(
         : `<text data-usage-value="${used}" x="${numberX}" y="80" text-anchor="middle" fill="${surface.title}" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="${fontSize}" font-weight="700">${used}</text><g data-usage-percent="vector" transform="translate(87 57)" fill="none" stroke="${signal}" stroke-width="2.4" stroke-linecap="round"><circle cx="2.5" cy="2.5" r="1.7"/><circle cx="10" cy="12" r="1.7"/><path d="M11 1L1.5 13.5"/></g>`
     }
     <text x="72" y="126" text-anchor="middle" fill="${surface.title}" fill-opacity=".62" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.2">${label}</text>
+    ${markMarkup}
   </svg>`);
 }
 
@@ -334,13 +339,20 @@ export function renderUsageOverviewKey(
   bottomLabel: string,
   theme: ThemeMode = "dark",
   health: HostHealthState = "ready",
+  source?: UsageSource,
 ): string {
   const surface = SURFACES[theme];
+  const mark = providerMarkForSource(source);
+  const markMarkup = mark ? renderProviderMark(mark, 16, 13, 15, surface.title) : "";
+  // The mark occupies the free upper-left corner; the top label moves right
+  // by exactly the mark width plus a 4-unit gap so the two never overlap.
+  const topLabelX = mark ? 35 : 24;
   return toDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
     <defs><linearGradient id="keycap" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${surface.keyTop}"/><stop offset=".52" stop-color="${surface.keyMiddle}"/><stop offset="1" stop-color="${surface.keyBottom}"/></linearGradient></defs>
     <rect data-theme="${theme}" x="4" y="4" width="136" height="136" rx="18" fill="url(#keycap)" stroke="${surface.border}" stroke-width="2" stroke-opacity="${theme === "dark" ? ".88" : ".34"}"/>
     <rect x="7.5" y="7.5" width="129" height="129" rx="15" fill="none" stroke="${surface.innerBorder}" stroke-width="1"/>
-    ${renderUsageBar(topLabel, top, 33, surface, theme, health)}
+    ${markMarkup}
+    ${renderUsageBar(topLabel, top, 33, surface, theme, health, topLabelX)}
     ${renderUsageBar(bottomLabel, bottom, 82, surface, theme, health)}
   </svg>`);
 }
@@ -379,6 +391,7 @@ function renderUsageBar(
   surface: SurfacePalette,
   theme: ThemeMode,
   health: HostHealthState,
+  labelX = 24,
 ): string {
   const remaining = window ? Math.round(clampPercent(window.remainingPercent)) : null;
   const used = window ? Math.round(clampPercent(window.usedPercent)) : null;
@@ -386,7 +399,7 @@ function renderUsageBar(
   const track = theme === "dark" ? "#45494C" : "#AAB2B8";
   const width = used == null ? 0 : (96 * used) / 100;
   return `<g data-usage-window="${label}">
-    <text x="24" y="${y}" fill="${surface.title}" fill-opacity=".72" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing=".8">${label}</text>
+    <text x="${labelX}" y="${y}" fill="${surface.title}" fill-opacity=".72" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing=".8">${label}</text>
     <text x="120" y="${y}" text-anchor="end" fill="${used == null ? signal : surface.title}" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">${used == null ? "—" : `${used}%`}</text>
     <rect x="24" y="${y + 10}" width="96" height="10" rx="5" fill="${track}"/>
     ${used == null ? "" : `<rect data-usage-used="${used}" x="24" y="${y + 10}" width="${width.toFixed(2)}" height="10" rx="5" fill="${signal}"/>`}

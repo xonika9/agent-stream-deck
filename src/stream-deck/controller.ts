@@ -738,7 +738,10 @@ export class DeckController {
     const usage = source.usage;
     const window = selectUsageWindow(usage, settings.mode);
     const requestedKind: UsageWindowKind = settings.mode === "auto" ? (window?.kind ?? "other") : settings.mode;
-    await this.setImage(action, renderUsageLimitKey(window, requestedKind, usageTheme(source), source.health.state));
+    await this.setImage(
+      action,
+      renderUsageLimitKey(window, requestedKind, usageTheme(source), source.health.state, settings.source),
+    );
   }
 
   private async renderUsageOverview({ action, settings }: UsageOverviewRegistration): Promise<void> {
@@ -755,6 +758,7 @@ export class DeckController {
         usageLabel(settings.bottomWindow),
         usageTheme(source),
         source.health.state,
+        settings.source,
       ),
     );
   }

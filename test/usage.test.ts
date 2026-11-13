@@ -265,6 +265,41 @@ test("legacy reset counter shows credits without offering a hold action", () => 
   assert.match(available, /stop-opacity="\.13"/);
 });
 
+test("t3 claude ring shows its provider mark while codex and t3 codex do not", () => {
+  const claude = decode(renderUsageLimitKey(fiveHour, "five-hour", "dark", "ready", "t3-claude"));
+  assert.match(claude, /data-provider-mark="claude"/);
+  assert.match(claude, /data-usage-used="26"/);
+  assert.match(claude, />5H<\/text>/);
+
+  for (const source of ["codex-auto", "codex-bar", "codex-app", "t3-codex"] as const) {
+    const svg = decode(renderUsageLimitKey(fiveHour, "five-hour", "dark", "ready", source));
+    assert.doesNotMatch(svg, /data-provider-mark=/, `${source} has no provider mark`);
+  }
+  const legacy = decode(renderUsageLimitKey(fiveHour, "five-hour", "dark"));
+  assert.doesNotMatch(legacy, /data-provider-mark=/);
+});
+
+test("t3 overview keeps labels and percentages with its provider mark", () => {
+  const marked = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark", "ready", "t3-opencode"));
+  assert.match(marked, /data-provider-mark="opencode"/);
+  assert.match(marked, /data-usage-window="5H"[\s\S]*>26%<\/text>/);
+  assert.match(marked, /data-usage-window="WK"[\s\S]*>88%<\/text>/);
+  assert.match(marked, />5H<\/text>/);
+  assert.match(marked, />WK<\/text>/);
+
+  const plain = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark", "ready", "codex-bar"));
+  assert.doesNotMatch(plain, /data-provider-mark=/);
+  assert.equal(marked.match(/<text x="(\d+)" y="33"/)?.[1], "35");
+  assert.equal(plain.match(/<text x="(\d+)" y="33"/)?.[1], "24");
+});
+
+test("provider marks use the theme title colour", () => {
+  const light = decode(renderUsageLimitKey(fiveHour, "five-hour", "light", "ready", "t3-claude"));
+  assert.match(light, /data-provider-mark="claude"[\s\S]*fill="#171C20"/);
+  const dark = decode(renderUsageLimitKey(fiveHour, "five-hour", "dark", "ready", "t3-claude"));
+  assert.match(dark, /data-provider-mark="claude"[\s\S]*fill="#F2F2EF"/);
+});
+
 test("usage actions and property inspector are packaged without official keycap artwork", async () => {
   const [manifestSource, limitInspector, overviewInspector, bridge] = await Promise.all([
     readFile(new URL("../static/manifest.json", import.meta.url), "utf8"),

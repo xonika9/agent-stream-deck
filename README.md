@@ -235,3 +235,5 @@ artwork from that concept is included.
 ## License and trademarks
 
 Code and original artwork are licensed under [MIT](LICENSE). OpenAI, Codex, ChatGPT, Elgato, Stream Deck, and their marks/assets belong to their respective owners; third-party and user-supplied assets are not relicensed.
+
+Usage keys with a T3 source show a small single-colour provider mark in the corner: Claude for T3 · Claude, OpenCode for T3 · OpenCode. Codex sources and T3 · Codex stay unmarked. The outlines come from Simple Icons 16.37.0 (CC0-1.0 collection): Claude (origin https://claude.ai) and OpenCode (origin https://github.com/anomalyco/opencode/blob/1251a870cb384543c150c4a72fb101b55eec971b/packages/identity/mark.svg). The shapes are unmodified and drawn in the key title colour. Claude and OpenCode trademarks belong to their respective owners; this plugin is unofficial and is not endorsed by them.
