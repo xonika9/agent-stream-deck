@@ -61,6 +61,8 @@ npm test
 npm run validate
 ```
 
+Stage acceptance runs these checks in an isolated copy of `HEAD` and writes a JSON report: `npm run acceptance [path]`.
+
 7. Build distributable Stream Deck artifacts with:
 
 ```sh
