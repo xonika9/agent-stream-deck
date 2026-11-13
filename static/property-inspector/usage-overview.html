@@ -106,7 +106,8 @@
 
     window.connectElgatoStreamDeckSocket = (port, uuid, registerEvent, info, actionInfo) => {
       const action = JSON.parse(actionInfo);
-      context = action.context;
+      // Stream Deck accepts a property inspector's commands only under its own UUID, not the action context.
+      context = uuid;
       settings = action.payload?.settings ?? {};
       platform = platformFromInfo(info);
       const changed = normalize();

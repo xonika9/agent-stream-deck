@@ -68,7 +68,7 @@ async function loadInspector(page: string, ids: string[]) {
       "registerPropertyInspector",
       // Stream Deck passes both info and actionInfo as JSON strings.
       JSON.stringify({ application: { platform } }),
-      JSON.stringify({ context: "inspector-context", payload: { settings } }),
+      JSON.stringify({ context: "action-context", payload: { settings } }),
     );
     const socket = sockets.at(-1);
     assert.ok(socket, "inspector opened a socket");
@@ -82,7 +82,11 @@ async function loadInspector(page: string, ids: string[]) {
   const settingsSent = (socket: FakeWebSocket): Array<Record<string, unknown>> =>
     socket.sent
       .filter((message) => message.event === "setSettings")
-      .map((message) => message.payload as Record<string, unknown>);
+      .map((message) => {
+        // Stream Deck ignores inspector commands that carry the action context instead of the inspector UUID.
+        assert.equal(message.context, "inspector-context");
+        return message.payload as Record<string, unknown>;
+      });
   return { html, element, connect, change, settingsSent };
 }
 
