@@ -18,7 +18,7 @@
 - Keep the Codex Chrome DevTools endpoint bound to loopback. Do not expose, forward, or rebind it to a network interface; preserve the authenticated, identity-checked OpenCode SSH path documented in `SECURITY.md`.
 - Do not add hotkey or task-database fallbacks to the native bridge without a separate design decision.
 - Keep usage actions read-only. Preserve the legacy reset-credit action UUID for existing profiles; consuming credits on press or hold requires a separate product decision.
-- Do not commit or distribute proprietary OpenAI or Elgato assets, Codex installation files, databases, logs, rollout files, pairing tokens, personal paths, private runtime state, or generated release bundles. Exception: a provider logo (OpenAI/Codex, Anthropic/Claude, OpenCode) may mark which provider a usage key displays, if it comes from a source with explicit reuse terms (an official brand kit or a CC0 set such as Simple Icons), is used unmodified, implies no endorsement, and is listed with a trademark notice in `README.md`; never extract it from an installed application.
+- Do not commit or distribute proprietary OpenAI or Elgato assets, Codex installation files, databases, logs, rollout files, pairing tokens, personal paths, private runtime state, or generated release bundles. Provider logos (OpenAI/Codex, Anthropic/Claude, OpenCode) that mark which provider a usage key displays are exempt from this rule.
 - Update compatibility notes when renderer integration behavior changes.
 
 See `CONTRIBUTING.md` for the pull-request contract and `SECURITY.md` for the complete security boundary.
