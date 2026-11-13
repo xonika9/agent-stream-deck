@@ -63,8 +63,8 @@ Other Stream Deck models may work, but the included layout and physical-device t
 
 1. Download `com.xonika9.codex-deck.streamDeckPlugin` from the matching xonika9 release and open it on the computer running Stream Deck.
 2. Download only the launcher for that computer:
-   - Windows: `codex-deck-launcher-windows-vX.Y.Z.zip`
-   - macOS: `codex-deck-launcher-macos-vX.Y.Z.zip`
+   - Windows: `codex-deck-launcher-windows-vYY.M.D.N.zip`
+   - macOS: `codex-deck-launcher-macos-vYY.M.D.N.zip`
 3. Follow [Windows](docs/WINDOWS.md) or [macOS](docs/MACOS.md).
 4. Choose the task source in an **Agent** action's Stream Deck property inspector. For native Codex controls, configure agent assignments, actions, joystick, and encoder behavior in **Codex Settings > Codex Micro**.
 5. Build the two Stream Deck pages below.
@@ -209,7 +209,7 @@ npm run pack
 npm run audit:release
 ```
 
-`npm run release:prepare -- --version X.Y.Z` creates a versioned local release-candidate directory with the plugin package, launcher ZIPs, and SHA-256 checksums. On macOS it builds both launcher archives automatically. On another platform, create the macOS ZIP on a Mac with `scripts/package-macos-release.sh` so executable bits survive, then pass it with `--mac-archive /path/to/archive.zip`.
+`npm run release:prepare -- --version YY.M.D.N` creates a versioned local release-candidate directory with the plugin package, launcher ZIPs, and SHA-256 checksums. On macOS it builds both launcher archives automatically. On another platform, create the macOS ZIP on a Mac with `scripts/package-macos-release.sh` so executable bits survive, then pass it with `--mac-archive /path/to/archive.zip`.
 
 The release plugin's JavaScript is compacted without renaming identifiers; keep the stack frame's column for diagnostics. Release packages keep `bin/plugin.mjs.map` without embedded source text; `npm run build` keeps a full development map. For diagnostics, use the map from the affected package and source files from the exact commit used to build it, obtainable with `git show COMMIT:src/path.ts`. Map a stack frame's line and column (both start at 1) with Node 24:
 
@@ -217,10 +217,12 @@ The release plugin's JavaScript is compacted without renaming identifiers; keep 
 node --input-type=module -e "import { readFileSync } from 'node:fs'; import { SourceMap } from 'node:module'; const [map, line, column] = process.argv.slice(1); const entry = new SourceMap(JSON.parse(readFileSync(map, 'utf8'))).findEntry(Number(line) - 1, Number(column) - 1); console.log(entry.originalSource, entry.originalLine + 1, entry.originalColumn + 1);" bin/plugin.mjs.map LINE COLUMN
 ```
 
-For a four-component Stream Deck hotfix version, set
-`CODEX_DECK_RELEASE_VERSION=X.Y.Z.W` while running the macOS packager and pass
-`--version X.Y.Z.W` to `npm run release:prepare`. The npm package keeps its
-SemVer-compatible prerelease form.
+Releases use calendar versions `YY.M.D.N`: the release date in `Europe/Moscow`
+without leading zeros (Stream Deck rejects them), followed by that day's release
+number starting at 1. The same string is used in `package.json`,
+`static/manifest.json`, the `v` tag, and artifact names; earlier SemVer releases
+keep their numbers. `npm run release:prepare -- --next-version` prints the next
+number from the fetched tags.
 
 Nothing is published automatically. See [CONTRIBUTING.md](CONTRIBUTING.md).
 

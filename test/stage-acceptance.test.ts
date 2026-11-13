@@ -4,7 +4,6 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { assertManifestMatchesPackage } from "../scripts/release-version.mjs";
 import { ACCEPTANCE_CHECKS, runStageAcceptance } from "../scripts/stage-acceptance.mjs";
 
 function git(dir: string, ...args: string[]): string {
@@ -198,10 +197,4 @@ test("a HEAD change during the run is rejected", async () => {
     await rm(repo, { recursive: true, force: true });
     await rm(join(output, ".."), { recursive: true, force: true }).catch(() => {});
   }
-});
-
-test("the version check accepts matching package and manifest versions and rejects drift", () => {
-  assert.doesNotThrow(() => assertManifestMatchesPackage("2.2.2", "2.2.2.0"));
-  assert.doesNotThrow(() => assertManifestMatchesPackage("2.2.2-hotfix.1", "2.2.2.1"));
-  assert.throws(() => assertManifestMatchesPackage("2.2.3", "2.2.2.0"), /does not match/u);
 });

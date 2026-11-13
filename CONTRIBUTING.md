@@ -43,6 +43,10 @@ npm run build
 release/codex-deck-launcher-macos/start-codex-deck.sh install
 ```
 
+## Versioning
+
+Releases use calendar versions `YY.M.D.N`: the date in `Europe/Moscow` without leading zeros, followed by a release number starting at 1 each day, for example `26.11.3.1`. Compatibility changes do not determine the number; describe them in `CHANGELOG.md`. `npm run release:prepare -- --next-version` prints the next number after fetching tags. The same string goes into `package.json`, `package-lock.json`, `static/manifest.json`, and the `v` tag; `npm run check:version` checks that they agree. Historical SemVer releases keep their numbers.
+
 ## Before opening a pull request
 
 1. Preserve the supported Mac and standalone Windows paths, Mac task-source modes, and OpenCode SSH connections. State clearly which paths received automated, live-app, and physical-device testing.

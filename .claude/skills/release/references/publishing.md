@@ -3,10 +3,10 @@
 Publication changes durable public state. Use this order so every step has a single safe resume point:
 
 1. For a new publication, require `main` with only the reviewed release-owned changes, a passing release gate, no existing version tag or release, and a candidate that fast-forwards `origin/main`. For an interrupted publication, reconcile the durable state below and resume at the first incomplete step.
-2. Commit only the release-owned files with `chore(release): prepare vX.Y.Z`, require a clean worktree, then rerun the checks whose output depends on the committed tree.
+2. Commit only the release-owned files with `chore(release): prepare vYY.M.D.N`, require a clean worktree, then rerun the checks whose output depends on the committed tree.
 3. Push `main` to the verified `origin` without force and confirm the remote branch resolves to the candidate commit.
-4. Create one annotated local tag `vX.Y.Z` at that commit and push only that tag. Never recreate, retarget, or overwrite it.
-5. Create a draft GitHub Release for the existing tag with the changelog section as release notes and every file from `outputs/release-vX.Y.Z/` as an asset.
+4. Create one annotated local tag `vYY.M.D.N` at that commit and push only that tag. Never recreate, retarget, or overwrite it.
+5. Create a draft GitHub Release for the existing tag with the changelog section as release notes and every file from `outputs/release-vYY.M.D.N/` as an asset.
 6. Verify the draft's tag target, title, notes, and asset names, then make it public and mark it latest.
 7. Read the public release back from GitHub and compare its target commit and asset inventory with the local candidate.
 

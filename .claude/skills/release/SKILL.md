@@ -22,15 +22,15 @@ Resolve the repository root with Git, then inspect the worktree, branch, remotes
 
 Stop when the candidate cannot be separated from unrelated changes, the intended release is not a safe fast-forward of `origin/main`, or the target remote is ambiguous. For a new release, also stop if the requested version already exists as a tag or GitHub Release. When resuming an interrupted publication, reconcile the existing state with the exact candidate under [publishing.md](references/publishing.md) before changing release files or rerunning preparation.
 
-Choose the version with [versioning.md](references/versioning.md). A version explicitly confirmed earlier in the same release task remains confirmed; otherwise obtain maintainer confirmation before changing version fields.
+Choose the version with [versioning.md](references/versioning.md). A release request authorizes the computed calendar number without separate confirmation.
 
 ## Prepare
 
 Update these release-owned surfaces together:
 
 - `CHANGELOG.md`, with concise outcome-level notes covering the complete tag-to-candidate diff and explicit compatibility or breaking changes;
-- `package.json` and both root entries in `package-lock.json` with the SemVer package version;
-- `static/manifest.json` with the corresponding four-component Stream Deck version (`X.Y.Z.0` for release `X.Y.Z`);
+- `package.json` and both root entries in `package-lock.json` with the calendar version;
+- `static/manifest.json` with the same calendar version;
 - release instructions when the actual preparation or publication contract changed.
 
 Preserve upstream changelog history and identify its ownership boundary instead of renumbering or rewriting it. Do not include generated bundles, local runtime state, proprietary assets, tokens, personal paths, or unsupported validation claims in Git.

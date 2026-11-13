@@ -3,7 +3,7 @@ import { copyFile, mkdir, readFile, rm } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { finalizeReleaseDirectory } from "./finalize-release.mjs";
-import { manifestVersionForPackage, releaseVersionForPackage } from "./release-version.mjs";
+import { manifestVersionForPackage, nextReleaseVersion, releaseVersionForPackage } from "./release-version.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outputsRoot = join(root, "outputs");
@@ -14,9 +14,17 @@ function run(command, args, options = {}) {
 }
 
 function parseArguments(argv) {
-  const options = { version: process.env.CODEX_DECK_RELEASE_VERSION?.trim() || null, macArchive: null };
+  const options = {
+    version: process.env.CODEX_DECK_RELEASE_VERSION?.trim() || null,
+    macArchive: null,
+    nextVersion: false,
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
+    if (argument === "--next-version") {
+      options.nextVersion = true;
+      continue;
+    }
     if (argument === "--version" || argument === "--mac-archive") {
       const value = argv[index + 1];
       if (!value || value.startsWith("--")) throw new Error(`Missing value for ${argument}.`);
@@ -67,6 +75,11 @@ async function packageMacLauncher(outputPath, suppliedArchive) {
 
 async function main() {
   const options = parseArguments(process.argv.slice(2));
+  if (options.nextVersion) {
+    const tags = execFileSync("git", ["tag", "--list", "v[0-9]*"], { cwd: root, encoding: "utf8" });
+    console.log(nextReleaseVersion(tags.split("\n").filter(Boolean)));
+    return;
+  }
   const packageJson = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
   const manifest = JSON.parse(await readFile(join(root, "static", "manifest.json"), "utf8"));
   const expectedReleaseVersion = releaseVersionForPackage(packageJson.version);

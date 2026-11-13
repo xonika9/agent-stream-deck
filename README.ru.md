@@ -63,8 +63,8 @@ Agent Deck объединяет задачи Codex, OpenCode и T3 Code на Elg
 
 1. Скачайте `com.xonika9.codex-deck.streamDeckPlugin` из подходящего выпуска xonika9 и откройте его на компьютере с Stream Deck.
 2. Скачайте только запускатор для этого компьютера:
-   - Windows: `codex-deck-launcher-windows-vX.Y.Z.zip`
-   - macOS: `codex-deck-launcher-macos-vX.Y.Z.zip`
+   - Windows: `codex-deck-launcher-windows-vYY.M.D.N.zip`
+   - macOS: `codex-deck-launcher-macos-vYY.M.D.N.zip`
 3. Следуйте руководству для [Windows](docs/WINDOWS.md) или [macOS](docs/MACOS.md).
 4. Выберите источник задач в инспекторе свойств действия **Agent** в Stream Deck. Для встроенных команд Codex настройте назначения агентов, действия, джойстик и энкодер в **Codex Settings > Codex Micro**.
 5. Соберите две страницы Stream Deck, описанные ниже.
@@ -206,7 +206,7 @@ npm run pack
 npm run audit:release
 ```
 
-Команда `npm run release:prepare -- --version X.Y.Z` создаёт локальную папку кандидата в выпуск с пакетом плагина, ZIP запускаторов и контрольными суммами SHA-256. На macOS оба архива запускаторов собираются автоматически. На другой платформе сначала создайте ZIP для macOS на компьютере Mac с помощью `scripts/package-macos-release.sh`, чтобы сохранить исполняемые биты, а затем передайте его через `--mac-archive /path/to/archive.zip`.
+Команда `npm run release:prepare -- --version YY.M.D.N` создаёт локальную папку кандидата в выпуск с пакетом плагина, ZIP запускаторов и контрольными суммами SHA-256. На macOS оба архива запускаторов собираются автоматически. На другой платформе сначала создайте ZIP для macOS на компьютере Mac с помощью `scripts/package-macos-release.sh`, чтобы сохранить исполняемые биты, а затем передайте его через `--mac-archive /path/to/archive.zip`.
 
 JavaScript выпускного плагина уплотнён без переименования идентификаторов; для диагностики сохраните столбец из стека ошибки. Пакет выпуска сохраняет `bin/plugin.mjs.map` без встроенного текста исходников; `npm run build` сохраняет полную карту разработки. Для диагностики нужны карта из проблемного пакета и исходники точно того коммита, из которого он собран: нужный файл можно получить командой `git show COMMIT:src/path.ts`. Строку и столбец из стека ошибки (нумерация с 1) можно сопоставить через Node 24:
 
@@ -214,7 +214,7 @@ JavaScript выпускного плагина уплотнён без пере�
 node --input-type=module -e "import { readFileSync } from 'node:fs'; import { SourceMap } from 'node:module'; const [map, line, column] = process.argv.slice(1); const entry = new SourceMap(JSON.parse(readFileSync(map, 'utf8'))).findEntry(Number(line) - 1, Number(column) - 1); console.log(entry.originalSource, entry.originalLine + 1, entry.originalColumn + 1);" bin/plugin.mjs.map LINE COLUMN
 ```
 
-Для исправления Stream Deck с четырёхкомпонентной версией задайте `CODEX_DECK_RELEASE_VERSION=X.Y.Z.W` при запуске упаковщика macOS и передайте `--version X.Y.Z.W` команде `npm run release:prepare`. Пакет npm сохранит форму предварительного выпуска, совместимую с SemVer.
+Выпуски нумеруются по календарю: `YY.M.D.N` — дата выпуска по московскому времени без ведущих нулей (Stream Deck их не принимает) и номер выпуска за этот день, начиная с 1. Одна и та же строка записывается в `package.json`, `static/manifest.json`, тег `v` и имена архивов; прежние выпуски по SemVer сохраняют свои номера. Команда `npm run release:prepare -- --next-version` выводит следующий номер по загруженным тегам.
 
 Ничего не публикуется автоматически. См. [CONTRIBUTING.md](CONTRIBUTING.md).
 

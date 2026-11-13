@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { finalizeReleaseDirectory } from "../scripts/finalize-release.mjs";
+import { manifestVersionForPackage } from "../scripts/release-version.mjs";
 
 async function text(path: string): Promise<string> {
   return readFile(new URL(`../${path}`, import.meta.url), "utf8");
@@ -63,12 +64,10 @@ test("npm and Stream Deck release versions use their required compatible forms",
     text("package.json").then(JSON.parse),
     text("static/manifest.json").then(JSON.parse),
   ]);
-  const hotfix = /^(\d+\.\d+\.\d+)-hotfix\.(\d+)$/u.exec(packageJson.version);
-  const expectedManifest = hotfix ? `${hotfix[1]}.${hotfix[2]}` : `${packageJson.version}.0`;
-  assert.equal(manifest.Version, expectedManifest);
+  assert.equal(manifest.Version, manifestVersionForPackage(packageJson.version));
 });
 
 test("release skill verifies relative checksum entries from the artifact directory", async () => {
   const checks = await text(".claude/skills/release/references/checks.md");
-  assert.match(checks, /\(cd outputs\/release-vX\.Y\.Z && shasum -a 256 -c SHA256SUMS\.txt\)/);
+  assert.match(checks, /\(cd outputs\/release-vYY\.M\.D\.N && shasum -a 256 -c SHA256SUMS\.txt\)/);
 });
