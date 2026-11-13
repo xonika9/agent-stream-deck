@@ -770,6 +770,7 @@ export class DeckController {
         source.health.state,
         settings.source,
         settings.showRemaining,
+        settings.overviewLayout,
       ),
     );
   }

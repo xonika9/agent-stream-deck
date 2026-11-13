@@ -648,6 +648,7 @@ test("usage keys use the light theme when Codex has no renderer snapshot", async
     topWindow: "five-hour",
     bottomWindow: "weekly",
     showRemaining: false,
+    overviewLayout: "bars",
   });
   await settle();
 
@@ -1117,6 +1118,7 @@ for (const [name, platform, barAge, expected] of [
       topWindow: "five-hour",
       bottomWindow: "weekly",
       showRemaining: false,
+      overviewLayout: "bars",
     });
     await settle();
     const overview = fakeKey(`${platform}-overview`);
@@ -1126,6 +1128,7 @@ for (const [name, platform, barAge, expected] of [
       topWindow: "five-hour",
       bottomWindow: "weekly",
       showRemaining: false,
+      overviewLayout: "bars",
     });
     await settle();
 
@@ -1165,6 +1168,7 @@ test("usage limit renders the chosen T3 source window with its label", async () 
     topWindow: "five-hour",
     bottomWindow: "monthly",
     showRemaining: false,
+    overviewLayout: "bars",
   });
   await settle();
 
@@ -1203,6 +1207,7 @@ test("usage keys draw the remaining percent when the key asks for it", async () 
     topWindow: "five-hour",
     bottomWindow: "weekly-fable",
     showRemaining: true,
+    overviewLayout: "bars",
   });
   await settle();
   const limitImage = limit.images.at(-1)!;
@@ -1216,6 +1221,7 @@ test("usage keys draw the remaining percent when the key asks for it", async () 
     topWindow: "five-hour",
     bottomWindow: "weekly-fable",
     showRemaining: true,
+    overviewLayout: "bars",
   });
   await settle();
   const overviewImage = overview.images.at(-1)!;
@@ -1228,6 +1234,7 @@ test("usage keys draw the remaining percent when the key asks for it", async () 
     topWindow: "five-hour",
     bottomWindow: "weekly-fable",
     showRemaining: false,
+    overviewLayout: "bars",
   });
   await settle();
   assert.match(limit.images.at(-1)!, /data-usage-used="19"/);
@@ -1263,6 +1270,7 @@ test("usage overview renders the two chosen T3 bar windows in order and applies 
     topWindow: "weekly-fable",
     bottomWindow: "five-hour",
     showRemaining: false,
+    overviewLayout: "bars",
   });
   await settle();
 
@@ -1277,10 +1285,71 @@ test("usage overview renders the two chosen T3 bar windows in order and applies 
     topWindow: "five-hour",
     bottomWindow: "weekly-fable",
     showRemaining: false,
+    overviewLayout: "bars",
   });
   await settle();
   const swapped = key.images.at(-1)!;
   assert.ok(swapped.indexOf('data-usage-window="5H"') < swapped.indexOf('data-usage-window="FBL"'));
+});
+
+test("usage overview renders the layout saved on the key and follows layout changes", async () => {
+  const deck = createDeck();
+  deck.t3Usage.snapshots = {
+    "t3-claude": t3UsageSnapshot([
+      {
+        id: "five_hour",
+        kind: "five-hour",
+        usedPercent: 12,
+        remainingPercent: 88,
+        windowDurationMins: 300,
+        resetsAt: null,
+      },
+      {
+        id: "seven_day_fable",
+        kind: "weekly-fable",
+        usedPercent: 34,
+        remainingPercent: 66,
+        windowDurationMins: 10_080,
+        resetsAt: null,
+      },
+    ]),
+  };
+  deck.t3Usage.health = { state: "ready", changedAt: 1 };
+  const key = fakeKey("layout-overview");
+  deck.controller.registerUsageOverview(key.action, {
+    source: "t3-claude",
+    mode: "auto",
+    topWindow: "five-hour",
+    bottomWindow: "weekly-fable",
+    showRemaining: false,
+    overviewLayout: "rings",
+  });
+  await settle();
+  assert.match(key.images.at(-1)!, /data-usage-window="5H"[\s\S]*<circle cx="40" cy="70" r="24"/);
+  assert.match(key.images.at(-1)!, /data-usage-window="FBL"[\s\S]*<circle cx="104" cy="70" r="24"/);
+
+  deck.controller.updateUsageOverviewSettings(key.action, {
+    source: "t3-claude",
+    mode: "auto",
+    topWindow: "five-hour",
+    bottomWindow: "weekly-fable",
+    showRemaining: false,
+    overviewLayout: "split",
+  });
+  await settle();
+  assert.match(key.images.at(-1)!, /data-usage-window="5H"[\s\S]*A40 40 0 0 1/);
+  assert.match(key.images.at(-1)!, /data-usage-window="FBL"[\s\S]*A40 40 0 0 0/);
+
+  deck.controller.updateUsageOverviewSettings(key.action, {
+    source: "t3-claude",
+    mode: "auto",
+    topWindow: "five-hour",
+    bottomWindow: "weekly-fable",
+    showRemaining: false,
+    overviewLayout: "bars",
+  });
+  await settle();
+  assert.match(key.images.at(-1)!, /<text x="24" y="44" fill=/);
 });
 
 test("usage limit settings apply without re-registration", async () => {
@@ -1312,6 +1381,7 @@ test("usage limit settings apply without re-registration", async () => {
     topWindow: "five-hour",
     bottomWindow: "weekly",
     showRemaining: false,
+    overviewLayout: "bars",
   });
   await settle();
   assert.match(key.images.at(-1)!, /data-usage-used="73"/);
@@ -1322,6 +1392,7 @@ test("usage limit settings apply without re-registration", async () => {
     topWindow: "five-hour",
     bottomWindow: "monthly",
     showRemaining: false,
+    overviewLayout: "bars",
   });
   await settle();
   const image = key.images.at(-1)!;
@@ -1341,6 +1412,7 @@ test("T3 usage polls only with a T3 key and at most once every 60 seconds", asyn
     topWindow: "five-hour",
     bottomWindow: "weekly",
     showRemaining: false,
+    overviewLayout: "bars",
   });
   context.mock.timers.tick(1_200);
   await drain();
@@ -1353,6 +1425,7 @@ test("T3 usage polls only with a T3 key and at most once every 60 seconds", asyn
     topWindow: "five-hour",
     bottomWindow: "weekly",
     showRemaining: false,
+    overviewLayout: "bars",
   });
   await drain();
   assert.equal(deck.t3Usage.refreshCalls, 1, "the first T3 key polls immediately");
@@ -1377,6 +1450,7 @@ test("T3 usage shows retained windows while degraded and a dash while offline", 
     topWindow: "five-hour",
     bottomWindow: "monthly",
     showRemaining: false,
+    overviewLayout: "bars",
   });
   await settle();
 

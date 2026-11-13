@@ -1,5 +1,6 @@
 import type { AgentVisualStatus, HostHealthState, ThemeMode, UsageSource, UsageWindow, UsageWindowKind } from "#agents";
 import { clampPercent, usageLabel } from "#usage";
+import type { UsageOverviewLayout } from "#usage";
 import { providerMarkForSource, renderProviderMark } from "./provider-marks.js";
 
 export type BuiltinIconName = "back" | "forward" | "sidebar" | "home" | "navigation";
@@ -347,17 +348,27 @@ export function renderUsageOverviewKey(
   health: HostHealthState = "ready",
   source?: UsageSource,
   showRemaining = false,
+  layout: UsageOverviewLayout = "bars",
 ): string {
   const surface = SURFACES[theme];
   const mark = providerMarkForSource(source);
   const markMarkup = mark ? renderProviderMark(mark, 23, 11, 16) : "";
+  const windows =
+    layout === "rings"
+      ? `${renderUsageRing(topLabel, top, 40, surface, theme, health, showRemaining)}
+    ${renderUsageRing(bottomLabel, bottom, 104, surface, theme, health, showRemaining)}`
+      : layout === "split"
+        ? `${renderUsageSplitRing(topLabel, top, "left", surface, theme, health, showRemaining)}
+    ${renderUsageSplitRing(bottomLabel, bottom, "right", surface, theme, health, showRemaining)}
+    ${renderUsageSplitDivider(surface)}`
+        : `${renderUsageBar(topLabel, top, 44, surface, theme, health, showRemaining)}
+    ${renderUsageBar(bottomLabel, bottom, 93, surface, theme, health, showRemaining)}`;
   return toDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
     <defs><linearGradient id="keycap" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${surface.keyTop}"/><stop offset=".52" stop-color="${surface.keyMiddle}"/><stop offset="1" stop-color="${surface.keyBottom}"/></linearGradient></defs>
     <rect data-theme="${theme}" x="4" y="4" width="136" height="136" rx="18" fill="url(#keycap)" stroke="${surface.border}" stroke-width="2" stroke-opacity="${theme === "dark" ? ".88" : ".34"}"/>
     <rect x="7.5" y="7.5" width="129" height="129" rx="15" fill="none" stroke="${surface.innerBorder}" stroke-width="1"/>
     ${markMarkup}
-    ${renderUsageBar(topLabel, top, 44, surface, theme, health, showRemaining)}
-    ${renderUsageBar(bottomLabel, bottom, 93, surface, theme, health, showRemaining)}
+    ${windows}
   </svg>`);
 }
 
@@ -410,6 +421,83 @@ function renderUsageBar(
     <rect x="24" y="${y + 10}" width="96" height="10" rx="5" fill="${track}"/>
     ${shown == null ? "" : `<rect data-usage-${valueName}="${shown}" x="24" y="${y + 10}" width="${width.toFixed(2)}" height="10" rx="5" fill="${signal}"/>`}
   </g>`;
+}
+
+function renderUsageRing(
+  label: string,
+  window: UsageWindow | undefined,
+  cx: number,
+  surface: SurfacePalette,
+  theme: ThemeMode,
+  health: HostHealthState,
+  showRemaining: boolean,
+): string {
+  const remaining = window ? Math.round(clampPercent(window.remainingPercent)) : null;
+  const used = window ? Math.round(clampPercent(window.usedPercent)) : null;
+  const shown = showRemaining ? remaining : used;
+  const valueName = showRemaining ? "remaining" : "used";
+  const signal = usageSignal(remaining, health, theme);
+  const track = theme === "dark" ? "#45494C" : "#AAB2B8";
+  const radius = 24;
+  const circumference = 2 * Math.PI * radius;
+  const dash = shown == null ? 0 : (circumference * shown) / 100;
+  return `<g data-usage-window="${label}">
+    <circle cx="${cx}" cy="70" r="${radius}" fill="none" stroke="${track}" stroke-width="6"/>
+    ${shown == null ? "" : `<circle data-usage-${valueName}="${shown}" cx="${cx}" cy="70" r="${radius}" fill="none" stroke="${signal}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${dash.toFixed(2)} ${circumference.toFixed(2)}" transform="rotate(-90 ${cx} 70)"/>`}
+    <text x="${cx}" y="78" text-anchor="middle" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-weight="700" font-size="21" fill="${shown == null ? signal : surface.title}">${shown ?? "—"}</text>
+    <text x="${cx}" y="116" text-anchor="middle" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-weight="700" font-size="12" letter-spacing="1.2" fill="${surface.title}" fill-opacity=".62">${escapeXml(label)}</text>
+  </g>`;
+}
+
+function renderUsageSplitRing(
+  label: string,
+  window: UsageWindow | undefined,
+  side: "left" | "right",
+  surface: SurfacePalette,
+  theme: ThemeMode,
+  health: HostHealthState,
+  showRemaining: boolean,
+): string {
+  const remaining = window ? Math.round(clampPercent(window.remainingPercent)) : null;
+  const used = window ? Math.round(clampPercent(window.usedPercent)) : null;
+  const shown = showRemaining ? remaining : used;
+  const valueName = showRemaining ? "remaining" : "used";
+  const signal = usageSignal(remaining, health, theme);
+  const track = theme === "dark" ? "#45494C" : "#AAB2B8";
+  const cx = 72;
+  const cy = 70;
+  const radius = 40;
+  const strokeWidth = 7;
+  const base = side === "left" ? usageArc(cx, cy, radius, 186, 354, 1) : usageArc(cx, cy, radius, 174, 6, 0);
+  const filled =
+    shown == null
+      ? ""
+      : side === "left"
+        ? usageArc(cx, cy, radius, 186, 186 + (354 - 186) * (shown / 100), 1)
+        : usageArc(cx, cy, radius, 174, 174 - (174 - 6) * (shown / 100), 0);
+  const numberX = side === "left" ? 57 : 87;
+  const labelX = side === "left" ? 44 : 100;
+  return `<g data-usage-window="${label}">
+    <path d="${base}" fill="none" stroke="${track}" stroke-width="${strokeWidth}" stroke-linecap="round"/>
+    ${shown == null ? "" : `<path data-usage-${valueName}="${shown}" d="${filled}" fill="none" stroke="${signal}" stroke-width="${strokeWidth}" stroke-linecap="round"/>`}
+    <text x="${numberX}" y="78" text-anchor="middle" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-weight="700" font-size="20" fill="${shown == null ? signal : surface.title}">${shown ?? "—"}</text>
+    <text x="${labelX}" y="128" text-anchor="middle" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-weight="700" font-size="11" letter-spacing="1.2" fill="${surface.title}" fill-opacity=".62">${escapeXml(label)}</text>
+  </g>`;
+}
+
+function renderUsageSplitDivider(surface: SurfacePalette): string {
+  return `<line x1="72" y1="54" x2="72" y2="86" stroke="${surface.title}" stroke-opacity=".14" stroke-width="2"/>`;
+}
+
+function usageArc(cx: number, cy: number, radius: number, from: number, to: number, sweep: 0 | 1): string {
+  const [x1, y1] = usageArcPoint(cx, cy, radius, from);
+  const [x2, y2] = usageArcPoint(cx, cy, radius, to);
+  return `M${x1} ${y1}A${radius} ${radius} 0 0 ${sweep} ${x2} ${y2}`;
+}
+
+function usageArcPoint(cx: number, cy: number, radius: number, degrees: number): [string, string] {
+  const angle = ((degrees - 90) * Math.PI) / 180;
+  return [(cx + radius * Math.cos(angle)).toFixed(2), (cy + radius * Math.sin(angle)).toFixed(2)];
 }
 
 function usageSignal(remaining: number | null, health: HostHealthState, theme: ThemeMode): string {

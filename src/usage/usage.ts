@@ -88,12 +88,19 @@ export function parseUsageBarWindow(value: unknown, fallback: UsageOverviewWindo
     : fallback;
 }
 
+export type UsageOverviewLayout = "bars" | "rings" | "split";
+
+export function parseUsageOverviewLayout(value: unknown): UsageOverviewLayout {
+  return value === "rings" || value === "split" ? value : "bars";
+}
+
 export type UsageKeySettings = {
   source: UsageSource;
   mode: UsageLimitMode;
   topWindow: UsageOverviewWindow;
   bottomWindow: UsageOverviewWindow;
   showRemaining: boolean;
+  overviewLayout: UsageOverviewLayout;
 };
 
 export function parseUsageSettings(settings: unknown, platform: string = process.platform): UsageKeySettings {
@@ -108,6 +115,7 @@ export function parseUsageSettings(settings: unknown, platform: string = process
     topWindow: parseUsageBarWindow(record.topWindow, "five-hour"),
     bottomWindow: parseUsageBarWindow(record.bottomWindow, "weekly"),
     showRemaining: record.showRemaining === true,
+    overviewLayout: parseUsageOverviewLayout(record.overviewLayout),
   };
 }
 
