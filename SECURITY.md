@@ -35,6 +35,15 @@ requests are bounded, and credentials are never logged or put in Stream Deck
 global settings. No T3 command dispatch, database access, desktop credential
 decryption, or public network HTTP access is added. See `docs/T3CODE_COMPATIBILITY.md`.
 
+Known limitation: the live-process check confirms that the recorded process ID
+exists, not that it still owns the recorded port. If T3 Code exits without
+removing its runtime registration, its process ID is reused by another process
+of the same user, and a different local account binds the freed loopback port,
+the task-source and usage requests send the bearer session to that listener. A
+process running as the same user gains nothing, because it can already read the
+private configuration. On a single-user Mac this is not reachable; hardening it
+for shared Macs (for example, verifying port ownership) needs a separate decision.
+
 T3 remote monitoring accepts explicitly configured SSH aliases only. It uses
 non-interactive SSH with strict existing host-key checking and disables local
 commands and forwarding. A setup command pairs a separate read-only session using
