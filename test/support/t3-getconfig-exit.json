@@ -1,0 +1,108 @@
+{
+  "_tag": "Exit",
+  "requestId": "1",
+  "exit": {
+    "_tag": "Success",
+    "value": {
+      "providers": [
+        {
+          "driver": "codex",
+          "instanceId": "codex",
+          "usageLimits": {
+            "checkedAt": "2026-11-13T01:39:13.318Z",
+            "windows": [
+              {
+                "id": "primary",
+                "kind": "session",
+                "label": "Session",
+                "usedPercent": 13,
+                "resetsAt": "2026-11-13T06:22:20.000Z",
+                "windowDurationMins": 300
+              },
+              {
+                "id": "secondary",
+                "kind": "weekly",
+                "label": "Weekly",
+                "usedPercent": 95,
+                "resetsAt": "2026-11-18T08:49:27.000Z",
+                "windowDurationMins": 10080
+              }
+            ],
+            "resetCredits": {
+              "availableCount": 3
+            }
+          }
+        },
+        {
+          "driver": "claudeAgent",
+          "instanceId": "claudeAgent",
+          "usageLimits": {
+            "checkedAt": "2026-11-13T01:38:11.034Z",
+            "windows": [
+              {
+                "id": "five_hour",
+                "kind": "session",
+                "label": "Session",
+                "usedPercent": 7,
+                "resetsAt": "2026-11-13T05:50:00.179Z",
+                "windowDurationMins": 300
+              },
+              {
+                "id": "seven_day",
+                "kind": "weekly",
+                "label": "Weekly",
+                "usedPercent": 2,
+                "resetsAt": "2026-11-17T16:00:00.179Z",
+                "windowDurationMins": 10080
+              },
+              {
+                "id": "seven_day_fable",
+                "kind": "weekly",
+                "label": "Weekly · Fable",
+                "usedPercent": 2,
+                "resetsAt": "2026-11-17T16:00:00.179Z",
+                "windowDurationMins": 10080
+              }
+            ]
+          }
+        },
+        {
+          "driver": "cursor",
+          "instanceId": "cursor"
+        },
+        {
+          "driver": "opencode",
+          "instanceId": "opencode",
+          "usageLimits": {
+            "checkedAt": "2026-11-13T01:33:49.195Z",
+            "windows": [
+              {
+                "id": "go_rolling",
+                "kind": "session",
+                "label": "Go · Session",
+                "usedPercent": 1,
+                "resetsAt": "2026-11-13T06:14:49.000Z",
+                "windowDurationMins": 300
+              },
+              {
+                "id": "go_weekly",
+                "kind": "weekly",
+                "label": "Go · Weekly",
+                "usedPercent": 19,
+                "resetsAt": "2026-11-16T00:00:00.000Z",
+                "windowDurationMins": 10080
+              },
+              {
+                "id": "go_monthly",
+                "kind": "monthly",
+                "label": "Go · Monthly",
+                "usedPercent": 9,
+                "resetsAt": "2026-12-11T23:45:33.000Z"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

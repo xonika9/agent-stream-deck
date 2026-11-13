@@ -10,6 +10,37 @@ import { T3CredentialRejectedError, T3SshUnavailableError, t3SshRequest, validat
 import { readShell } from "./shell-reader.js";
 
 const TERMINAL_WINDOW_MS = 5 * 60_000;
+export type LocalConnection = { origin: string; token: string; pid: number };
+export type LocalConnectionOptions = { configPath?: string; runtimePath?: string };
+
+export function defaultT3ConfigPath(): string {
+  return join(codexDeckStateRoot("darwin"), "t3code.json");
+}
+
+export function defaultT3RuntimePath(): string {
+  return join(homedir(), ".t3", "userdata", "server-runtime.json");
+}
+
+export async function readLocalConnection(options: LocalConnectionOptions = {}): Promise<LocalConnection> {
+  const config = await readPrivateConfig(options.configPath ?? defaultT3ConfigPath());
+  return validateLocalRuntime(config, options.runtimePath ?? defaultT3RuntimePath());
+}
+
+export async function validateLocalRuntime(config: RecordValue, runtimePath: string): Promise<LocalConnection> {
+  const origin = loopbackOrigin(config.origin);
+  const token = config.token;
+  if (typeof token !== "string" || !/^[A-Za-z0-9._~+/-]{1,8192}={0,2}$/u.test(token)) throw new Error("Invalid token");
+  const runtime = object(JSON.parse(await readFile(runtimePath, "utf8")));
+  if (
+    runtime.version !== 1 ||
+    runtime.origin !== origin ||
+    !Number.isSafeInteger(runtime.pid) ||
+    Number(runtime.pid) <= 0
+  )
+    throw new Error("Invalid runtime");
+  process.kill(Number(runtime.pid), 0);
+  return { origin, token, pid: Number(runtime.pid) };
+}
 type RecordValue = Record<string, unknown>;
 type Options = { configPath?: string; runtimePath?: string; foreground?: () => Promise<void> };
 type LocalRuntime = { origin: string; token: string; pid: number };
@@ -260,20 +291,7 @@ export class T3CodeSource {
   }
 
   private async localRuntime(config: RecordValue): Promise<LocalRuntime> {
-    const origin = loopbackOrigin(config.origin);
-    const token = config.token;
-    if (typeof token !== "string" || !/^[A-Za-z0-9._~+/-]{1,8192}={0,2}$/u.test(token))
-      throw new Error("Invalid token");
-    const runtime = object(JSON.parse(await readFile(this.runtimePath, "utf8")));
-    if (
-      runtime.version !== 1 ||
-      runtime.origin !== origin ||
-      !Number.isSafeInteger(runtime.pid) ||
-      Number(runtime.pid) <= 0
-    )
-      throw new Error("Invalid runtime");
-    process.kill(Number(runtime.pid), 0);
-    return { origin, token, pid: Number(runtime.pid) };
+    return validateLocalRuntime(config, this.runtimePath);
   }
 
   private async localShell(runtime: LocalRuntime, request: AbortController): Promise<RecordValue> {
@@ -402,7 +420,7 @@ function loopbackOrigin(value: unknown): string {
     throw new Error("Only loopback origins are supported");
   return url.origin;
 }
-async function readPrivateConfig(path: string): Promise<RecordValue> {
+export async function readPrivateConfig(path: string): Promise<RecordValue> {
   const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
     const stat = await file.stat();
