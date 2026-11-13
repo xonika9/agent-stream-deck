@@ -260,7 +260,7 @@ test("Agent inspector saves a single OpenCode source with its legacy value", asy
 
 test("Agent inspector on Windows disables OpenCode and T3 Code", async () => {
   const { element, connect, receiveSettings, checkedSources } = await loadInspector();
-  const socket = connect({ application: { platform: "windows" } });
+  const socket = connect(JSON.stringify({ application: { platform: "windows" } }));
   receiveSettings(socket, { taskSource: "All" });
   assert.deepEqual(checkedSources(), ["Codex", "OpenCode", "T3 Code"]);
   assert.equal(element("task-source-codex").disabled, false);

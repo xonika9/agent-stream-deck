@@ -82,11 +82,20 @@
       document.getElementById("mode").value = settings.mode;
     }
 
+    // Stream Deck passes the info argument as a JSON string; accept an object too.
+    function platformFromInfo(info) {
+      let parsed = info;
+      if (typeof info === "string") {
+        try { parsed = JSON.parse(info); } catch { parsed = undefined; }
+      }
+      return parsed?.application?.platform === "windows" ? "windows" : "mac";
+    }
+
     window.connectElgatoStreamDeckSocket = (port, uuid, registerEvent, info, actionInfo) => {
       const action = JSON.parse(actionInfo);
       context = action.context;
       settings = action.payload?.settings ?? {};
-      platform = info?.application?.platform === "windows" ? "windows" : "mac";
+      platform = platformFromInfo(info);
       const changed = normalize();
       render();
       websocket = new WebSocket(`ws://127.0.0.1:${port}`);

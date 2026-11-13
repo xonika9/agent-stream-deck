@@ -107,9 +107,18 @@
       sendSettings();
     }
 
+    // Stream Deck passes the info argument as a JSON string; accept an object too.
+    function platformFromInfo(info) {
+      let parsed = info;
+      if (typeof info === "string") {
+        try { parsed = JSON.parse(info); } catch { parsed = undefined; }
+      }
+      return parsed?.application?.platform === "windows" ? "windows" : "mac";
+    }
+
     window.connectElgatoStreamDeckSocket = (port, uuid, registerEvent, info) => {
       pluginContext = uuid;
-      platform = info?.application?.platform === "windows" ? "windows" : "mac";
+      platform = platformFromInfo(info);
       websocket = new WebSocket(`ws://127.0.0.1:${port}`);
       websocket.addEventListener("open", () => {
         websocket.send(JSON.stringify({ event: registerEvent, uuid }));

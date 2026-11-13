@@ -66,9 +66,8 @@ async function loadInspector(page: string, ids: string[]) {
       28196,
       "inspector-context",
       "registerPropertyInspector",
-      {
-        application: { platform },
-      },
+      // Stream Deck passes both info and actionInfo as JSON strings.
+      JSON.stringify({ application: { platform } }),
       JSON.stringify({ context: "inspector-context", payload: { settings } }),
     );
     const socket = sockets.at(-1);
