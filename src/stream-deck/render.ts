@@ -358,8 +358,8 @@ export function renderUsageOverviewKey(
       ? `${renderUsageRing(topLabel, top, 40, surface, theme, health, showRemaining)}
     ${renderUsageRing(bottomLabel, bottom, 104, surface, theme, health, showRemaining)}`
       : layout === "split"
-        ? `${renderUsageSplitRing(topLabel, top, "left", surface, theme, health, showRemaining)}
-    ${renderUsageSplitRing(bottomLabel, bottom, "right", surface, theme, health, showRemaining)}
+        ? `${renderUsageSplitRing(topLabel, top, "top", surface, theme, health, showRemaining)}
+    ${renderUsageSplitRing(bottomLabel, bottom, "bottom", surface, theme, health, showRemaining)}
     ${renderUsageSplitDivider(surface)}`
         : `${renderUsageBar(topLabel, top, 44, surface, theme, health, showRemaining)}
     ${renderUsageBar(bottomLabel, bottom, 93, surface, theme, health, showRemaining)}`;
@@ -452,7 +452,7 @@ function renderUsageRing(
 function renderUsageSplitRing(
   label: string,
   window: UsageWindow | undefined,
-  side: "left" | "right",
+  side: "top" | "bottom",
   surface: SurfacePalette,
   theme: ThemeMode,
   health: HostHealthState,
@@ -466,27 +466,21 @@ function renderUsageSplitRing(
   const track = theme === "dark" ? "#45494C" : "#AAB2B8";
   const cx = 72;
   const cy = 70;
-  const radius = 40;
+  const radius = 42;
   const strokeWidth = 7;
-  const base = side === "left" ? usageArc(cx, cy, radius, 186, 354, 1) : usageArc(cx, cy, radius, 174, 6, 0);
-  const filled =
-    shown == null
-      ? ""
-      : side === "left"
-        ? usageArc(cx, cy, radius, 186, 186 + (354 - 186) * (shown / 100), 1)
-        : usageArc(cx, cy, radius, 174, 174 - (174 - 6) * (shown / 100), 0);
-  const numberX = side === "left" ? 57 : 87;
-  const labelX = side === "left" ? 44 : 100;
+  const [start, end] = side === "top" ? [276, 444] : [96, 264];
+  const base = usageArc(cx, cy, radius, start, end, 1);
+  const filled = shown == null ? "" : usageArc(cx, cy, radius, start, start + (end - start) * (shown / 100), 1);
+  const y = side === "top" ? 63 : 93;
   return `<g data-usage-window="${label}">
     <path d="${base}" fill="none" stroke="${track}" stroke-width="${strokeWidth}" stroke-linecap="round"/>
     ${shown == null ? "" : `<path data-usage-${valueName}="${shown}" d="${filled}" fill="none" stroke="${signal}" stroke-width="${strokeWidth}" stroke-linecap="round"/>`}
-    <text x="${numberX}" y="78" text-anchor="middle" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-weight="700" font-size="20" fill="${shown == null ? signal : surface.title}">${shown ?? "—"}</text>
-    <text x="${labelX}" y="128" text-anchor="middle" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-weight="700" font-size="11" letter-spacing="1.2" fill="${surface.title}" fill-opacity=".62">${escapeXml(label)}</text>
+    <text x="${cx}" y="${y}" text-anchor="middle" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-weight="700" fill="${surface.title}"><tspan font-size="11" fill-opacity=".62" letter-spacing="1">${escapeXml(label)}</tspan><tspan font-size="21" dx="5">${shown ?? "—"}</tspan></text>
   </g>`;
 }
 
 function renderUsageSplitDivider(surface: SurfacePalette): string {
-  return `<line x1="72" y1="54" x2="72" y2="86" stroke="${surface.title}" stroke-opacity=".14" stroke-width="2"/>`;
+  return `<line x1="50" y1="71" x2="94" y2="71" stroke="${surface.title}" stroke-opacity=".14" stroke-width="2"/>`;
 }
 
 function usageArc(cx: number, cy: number, radius: number, from: number, to: number, sweep: 0 | 1): string {

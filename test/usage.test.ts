@@ -201,7 +201,8 @@ test("claude fable window is selected only by its own mode", () => {
   assert.equal(selectUsageWindow(snapshot, "weekly-fable"), fable);
   assert.equal(selectUsageWindow(snapshot, "monthly"), undefined);
   assert.equal(usageLabel("weekly-fable"), "FBL");
-  assert.equal(usageLabel("monthly"), "MO");
+  assert.equal(usageLabel("weekly"), "W");
+  assert.equal(usageLabel("monthly"), "M");
 });
 
 test("overview bars select their own window kind", () => {
@@ -258,9 +259,9 @@ test("usage limit key shows the remaining percent and ring fill when selected", 
 });
 
 test("usage overview fills both bars with the remaining percent when selected", () => {
-  const svg = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark", "ready", undefined, true));
-  const top = svg.slice(svg.indexOf('data-usage-window="5H"'), svg.indexOf('data-usage-window="WK"'));
-  const bottom = svg.slice(svg.indexOf('data-usage-window="WK"'));
+  const svg = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "W", "dark", "ready", undefined, true));
+  const top = svg.slice(svg.indexOf('data-usage-window="5H"'), svg.indexOf('data-usage-window="W"'));
+  const bottom = svg.slice(svg.indexOf('data-usage-window="W"'));
   assert.match(top, />74%<\/text>/);
   assert.match(top, /data-usage-remaining="74"/);
   assert.match(top, /width="71\.04"/);
@@ -292,21 +293,21 @@ test("usage keys keep the dash without data in both views", () => {
   assert.match(remaining, />—<\/text>/);
   assert.doesNotMatch(remaining, /data-usage-remaining=/);
 
-  const overview = decode(renderUsageOverviewKey(undefined, "5H", undefined, "WK", "dark", "ready", undefined, true));
+  const overview = decode(renderUsageOverviewKey(undefined, "5H", undefined, "W", "dark", "ready", undefined, true));
   assert.equal(overview.match(/>—<\/text>/g)?.length, 2);
 });
 
 test("overview renders the two chosen bar windows in order", () => {
-  const svg = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark"));
+  const svg = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "W", "dark"));
   assert.match(svg, /data-usage-window="5H"/);
-  assert.match(svg, /data-usage-window="WK"/);
+  assert.match(svg, /data-usage-window="W"/);
   assert.match(svg, /data-usage-used="26"/);
   assert.match(svg, /data-usage-used="88"/);
-  assert.ok(svg.indexOf('data-usage-window="5H"') < svg.indexOf('data-usage-window="WK"'));
+  assert.ok(svg.indexOf('data-usage-window="5H"') < svg.indexOf('data-usage-window="W"'));
 
-  const weeklyOnly = decode(renderUsageOverviewKey(undefined, "5H", weekly, "WK", "dark"));
+  const weeklyOnly = decode(renderUsageOverviewKey(undefined, "5H", weekly, "W", "dark"));
   assert.match(weeklyOnly, /data-usage-window="5H"[\s\S]*>—<\/text>/);
-  assert.match(weeklyOnly, /data-usage-window="WK"[\s\S]*>88%<\/text>/);
+  assert.match(weeklyOnly, /data-usage-window="W"[\s\S]*>88%<\/text>/);
 
   const fable: UsageWindow = {
     id: "seven_day_fable",
@@ -332,11 +333,9 @@ test("usage overview layout parses only the ring and split choices, otherwise ba
 });
 
 test("two rings draw both windows with their own number and label", () => {
-  const svg = decode(
-    renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark", "ready", "t3-claude", false, "rings"),
-  );
-  const top = svg.slice(svg.indexOf('data-usage-window="5H"'), svg.indexOf('data-usage-window="WK"'));
-  const bottom = svg.slice(svg.indexOf('data-usage-window="WK"'));
+  const svg = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "W", "dark", "ready", "t3-claude", false, "rings"));
+  const top = svg.slice(svg.indexOf('data-usage-window="5H"'), svg.indexOf('data-usage-window="W"'));
+  const bottom = svg.slice(svg.indexOf('data-usage-window="W"'));
   assert.match(top, /<circle cx="40" cy="70" r="24" fill="none" stroke="#45494C" stroke-width="6"\/>/);
   assert.match(bottom, /<circle cx="104" cy="70" r="24" fill="none" stroke="#45494C" stroke-width="6"\/>/);
   assert.match(
@@ -350,74 +349,89 @@ test("two rings draw both windows with their own number and label", () => {
   assert.match(top, /<text x="40" y="78" text-anchor="middle"[^>]*font-size="21"[^>]*fill="#F2F2EF">26<\/text>/);
   assert.match(bottom, /<text x="104" y="78" text-anchor="middle"[^>]*font-size="21"[^>]*fill="#F2F2EF">88<\/text>/);
   assert.match(top, /<text x="40" y="116" text-anchor="middle"[^>]*font-size="12"[^>]*>5H<\/text>/);
-  assert.match(bottom, /<text x="104" y="116" text-anchor="middle"[^>]*font-size="12"[^>]*>WK<\/text>/);
+  assert.match(bottom, /<text x="104" y="116" text-anchor="middle"[^>]*font-size="12"[^>]*>W<\/text>/);
   assert.match(svg, /data-provider-mark="claude" transform="translate\(23 11\) scale\(0\.6667\)"/);
   assert.equal(svg.match(/<svg[\s>]/g)?.length, 1);
 });
 
-test("split ring draws two arcs with both numbers under one ring", () => {
-  const svg = decode(
-    renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark", "ready", "t3-claude", false, "split"),
-  );
-  const top = svg.slice(svg.indexOf('data-usage-window="5H"'), svg.indexOf('data-usage-window="WK"'));
-  const bottom = svg.slice(svg.indexOf('data-usage-window="WK"'));
+test("split ring draws the first window on the top half and the second on the bottom half", () => {
+  const svg = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "W", "dark", "ready", "t3-claude", false, "split"));
+  const top = svg.slice(svg.indexOf('data-usage-window="5H"'), svg.indexOf('data-usage-window="W"'));
+  const bottom = svg.slice(svg.indexOf('data-usage-window="W"'));
   assert.match(
     top,
-    /<path d="M67\.82 109\.78A40 40 0 0 1 67\.82 30\.22" fill="none" stroke="#45494C" stroke-width="7" stroke-linecap="round"\/>/,
+    /<path d="M30\.23 65\.61A42 42 0 0 1 113\.77 65\.61" fill="none" stroke="#45494C" stroke-width="7" stroke-linecap="round"\/>/,
   );
   assert.match(
     bottom,
-    /<path d="M76\.18 109\.78A40 40 0 0 0 76\.18 30\.22" fill="none" stroke="#45494C" stroke-width="7" stroke-linecap="round"\/>/,
+    /<path d="M113\.77 74\.39A42 42 0 0 1 30\.23 74\.39" fill="none" stroke="#45494C" stroke-width="7" stroke-linecap="round"\/>/,
   );
-  assert.match(top, /data-usage-used="26" d="M67\.82 109\.78A40 40 0 0 1 41\.50 95\.88"[^>]*stroke="#35D86B"/);
-  assert.match(bottom, /data-usage-used="88" d="M76\.18 109\.78A40 40 0 0 0 89\.64 34\.10"[^>]*stroke="#FF4B61"/);
-  assert.match(top, /<text x="57" y="78" text-anchor="middle"[^>]*font-size="20"[^>]*fill="#F2F2EF">26<\/text>/);
-  assert.match(bottom, /<text x="87" y="78" text-anchor="middle"[^>]*font-size="20"[^>]*fill="#F2F2EF">88<\/text>/);
-  assert.match(top, /<text x="44" y="128" text-anchor="middle"[^>]*font-size="11"[^>]*>5H<\/text>/);
-  assert.match(bottom, /<text x="100" y="128" text-anchor="middle"[^>]*font-size="11"[^>]*>WK<\/text>/);
-  assert.match(svg, /<line x1="72" y1="54" x2="72" y2="86" stroke="#F2F2EF" stroke-opacity="\.14" stroke-width="2"\/>/);
+  assert.match(top, /data-usage-used="26" d="M30\.23 65\.61A42 42 0 0 1 44\.82 37\.98"[^>]*stroke="#35D86B"/);
+  assert.match(bottom, /data-usage-used="88" d="M113\.77 74\.39A42 42 0 0 1 34\.30 88\.52"[^>]*stroke="#FF4B61"/);
+  assert.match(
+    top,
+    /<text x="72" y="63" text-anchor="middle"[^>]*fill="#F2F2EF"><tspan font-size="11" fill-opacity="\.62" letter-spacing="1">5H<\/tspan><tspan font-size="21" dx="5">26<\/tspan><\/text>/,
+  );
+  assert.match(
+    bottom,
+    /<text x="72" y="93" text-anchor="middle"[^>]*fill="#F2F2EF"><tspan font-size="11" fill-opacity="\.62" letter-spacing="1">W<\/tspan><tspan font-size="21" dx="5">88<\/tspan><\/text>/,
+  );
+  assert.match(svg, /<line x1="50" y1="71" x2="94" y2="71" stroke="#F2F2EF" stroke-opacity="\.14" stroke-width="2"\/>/);
   assert.match(svg, /data-provider-mark="claude" transform="translate\(23 11\) scale\(0\.6667\)"/);
   assert.equal(svg.match(/<svg[\s>]/g)?.length, 1);
 });
 
+test("split ring keeps three-digit numbers at the same size", () => {
+  const full: UsageWindow = {
+    id: "five-hour",
+    kind: "five-hour",
+    usedPercent: 100,
+    remainingPercent: 0,
+    windowDurationMins: 300,
+    resetsAt: null,
+  };
+  const svg = decode(renderUsageOverviewKey(full, "5H", weekly, "W", "dark", "ready", undefined, false, "split"));
+  assert.match(svg, /<tspan font-size="21" dx="5">100<\/tspan>/);
+});
+
 test("both ring layouts fill and count the remaining percent when selected", () => {
-  const rings = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark", "ready", undefined, true, "rings"));
-  const ringsTop = rings.slice(rings.indexOf('data-usage-window="5H"'), rings.indexOf('data-usage-window="WK"'));
-  const ringsBottom = rings.slice(rings.indexOf('data-usage-window="WK"'));
+  const rings = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "W", "dark", "ready", undefined, true, "rings"));
+  const ringsTop = rings.slice(rings.indexOf('data-usage-window="5H"'), rings.indexOf('data-usage-window="W"'));
+  const ringsBottom = rings.slice(rings.indexOf('data-usage-window="W"'));
   assert.match(ringsTop, /data-usage-remaining="74" cx="40" cy="70" r="24"[^>]*stroke-dasharray="111\.59 150\.80"/);
   assert.match(ringsTop, /<text x="40" y="78"[^>]*>74<\/text>/);
   assert.match(ringsBottom, /data-usage-remaining="12" cx="104" cy="70" r="24"[^>]*stroke-dasharray="18\.10 150\.80"/);
   assert.match(ringsBottom, /<text x="104" y="78"[^>]*>12<\/text>/);
   assert.doesNotMatch(rings, /data-usage-used=/);
 
-  const split = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark", "ready", undefined, true, "split"));
-  const splitTop = split.slice(split.indexOf('data-usage-window="5H"'), split.indexOf('data-usage-window="WK"'));
-  const splitBottom = split.slice(split.indexOf('data-usage-window="WK"'));
-  assert.match(splitTop, /data-usage-remaining="74" d="M67\.82 109\.78A40 40 0 0 1 41\.50 44\.12"/);
-  assert.match(splitTop, /<text x="57" y="78"[^>]*>74<\/text>/);
-  assert.match(splitBottom, /data-usage-remaining="12" d="M76\.18 109\.78A40 40 0 0 0 89\.64 105\.90"/);
-  assert.match(splitBottom, /<text x="87" y="78"[^>]*>12<\/text>/);
+  const split = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "W", "dark", "ready", undefined, true, "split"));
+  const splitTop = split.slice(split.indexOf('data-usage-window="5H"'), split.indexOf('data-usage-window="W"'));
+  const splitBottom = split.slice(split.indexOf('data-usage-window="W"'));
+  assert.match(splitTop, /data-usage-remaining="74" d="M30\.23 65\.61A42 42 0 0 1 99\.18 37\.98"/);
+  assert.match(splitTop, /<tspan font-size="21" dx="5">74<\/tspan>/);
+  assert.match(splitBottom, /data-usage-remaining="12" d="M113\.77 74\.39A42 42 0 0 1 109\.70 88\.52"/);
+  assert.match(splitBottom, /<tspan font-size="21" dx="5">12<\/tspan>/);
   assert.doesNotMatch(split, /data-usage-used=/);
 });
 
 test("both ring layouts show a dash and an empty track without data", () => {
   const rings = decode(
-    renderUsageOverviewKey(undefined, "5H", weekly, "WK", "dark", "ready", undefined, false, "rings"),
+    renderUsageOverviewKey(undefined, "5H", weekly, "W", "dark", "ready", undefined, false, "rings"),
   );
-  const ringsTop = rings.slice(rings.indexOf('data-usage-window="5H"'), rings.indexOf('data-usage-window="WK"'));
+  const ringsTop = rings.slice(rings.indexOf('data-usage-window="5H"'), rings.indexOf('data-usage-window="W"'));
   assert.match(ringsTop, /<circle cx="40" cy="70" r="24" fill="none" stroke="#45494C" stroke-width="6"\/>/);
   assert.match(ringsTop, /<text x="40" y="78"[^>]*>—<\/text>/);
   assert.doesNotMatch(ringsTop, /stroke-width="6" stroke-linecap/);
 
   const split = decode(
-    renderUsageOverviewKey(undefined, "5H", weekly, "WK", "dark", "ready", undefined, false, "split"),
+    renderUsageOverviewKey(undefined, "5H", weekly, "W", "dark", "ready", undefined, false, "split"),
   );
-  const splitTop = split.slice(split.indexOf('data-usage-window="5H"'), split.indexOf('data-usage-window="WK"'));
+  const splitTop = split.slice(split.indexOf('data-usage-window="5H"'), split.indexOf('data-usage-window="W"'));
   assert.match(
     splitTop,
-    /<path d="M67\.82 109\.78A40 40 0 0 1 67\.82 30\.22" fill="none" stroke="#45494C" stroke-width="7" stroke-linecap="round"\/>/,
+    /<path d="M30\.23 65\.61A42 42 0 0 1 113\.77 65\.61" fill="none" stroke="#45494C" stroke-width="7" stroke-linecap="round"\/>/,
   );
-  assert.match(splitTop, /<text x="57" y="78"[^>]*>—<\/text>/);
+  assert.match(splitTop, /<tspan font-size="21" dx="5">—<\/tspan>/);
   assert.equal(splitTop.match(/<path /g)?.length, 1);
 });
 
@@ -439,19 +453,26 @@ test("both ring layouts take the signal colour from the remaining percent and ke
     resetsAt: null,
   };
   for (const layout of ["rings", "split"] as const) {
-    const svg = decode(renderUsageOverviewKey(low, "5H", mid, "WK", "dark", "ready", undefined, false, layout));
-    const top = svg.slice(svg.indexOf('data-usage-window="5H"'), svg.indexOf('data-usage-window="WK"'));
+    const svg = decode(renderUsageOverviewKey(low, "5H", mid, "W", "dark", "ready", undefined, false, layout));
+    const top = svg.slice(svg.indexOf('data-usage-window="5H"'), svg.indexOf('data-usage-window="W"'));
+    const bottom = svg.slice(svg.indexOf('data-usage-window="W"'));
+    const topNumber =
+      layout === "rings"
+        ? /fill="#F2F2EF">85<\/text>/
+        : /fill="#F2F2EF"><tspan font-size="11"[^>]*>5H<\/tspan><tspan font-size="21" dx="5">85<\/tspan>/;
+    const bottomNumber =
+      layout === "rings"
+        ? /fill="#F2F2EF">34<\/text>/
+        : /fill="#F2F2EF"><tspan font-size="11"[^>]*>W<\/tspan><tspan font-size="21" dx="5">34<\/tspan>/;
     assert.match(top, /data-usage-used="85"[^>]*stroke="#FF4B61"/, `${layout} paints 15% remaining red`);
-    assert.match(top, />85<\/text>/, `${layout} numbers the top window`);
-    assert.match(top, /fill="#F2F2EF">85<\/text>/, `${layout} keeps the top number in the title colour`);
+    assert.match(top, topNumber, `${layout} keeps the top number in the title colour`);
     assert.doesNotMatch(
       top,
       /data-usage-used="85"[^>]*stroke="#F2F2EF"/,
       `${layout} never paints the arc with the title`,
     );
-    const bottom = svg.slice(svg.indexOf('data-usage-window="WK"'));
     assert.match(bottom, /data-usage-used="34"[^>]*stroke="#35D86B"/, `${layout} paints 66% remaining green`);
-    assert.match(bottom, /fill="#F2F2EF">34<\/text>/, `${layout} keeps the bottom number in the title colour`);
+    assert.match(bottom, bottomNumber, `${layout} keeps the bottom number in the title colour`);
   }
 });
 
@@ -483,14 +504,14 @@ test("each t3 source shows its provider badge on both usage keys", () => {
     assert.match(ring, /data-usage-used="26"/);
     assert.match(ring, />5H<\/text>/);
 
-    const overview = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark", "ready", source));
+    const overview = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "W", "dark", "ready", source));
     assert.match(
       overview,
       new RegExp(`<g data-provider-mark="${id}" transform="translate\\(23 11\\) scale\\(0\\.6667\\)">`),
       `${source} overview shows the ${id} badge`,
     );
     assert.match(overview, /data-usage-window="5H"[\s\S]*>26%<\/text>/);
-    assert.match(overview, /data-usage-window="WK"[\s\S]*>88%<\/text>/);
+    assert.match(overview, /data-usage-window="W"[\s\S]*>88%<\/text>/);
   }
 });
 
@@ -498,12 +519,12 @@ test("codex sources stay unmarked on both usage keys", () => {
   for (const source of ["codex-auto", "codex-bar", "codex-app"] as const) {
     const ring = decode(renderUsageLimitKey(fiveHour, "five-hour", "dark", "ready", source));
     assert.doesNotMatch(ring, /data-provider-mark=/, `${source} ring has no badge`);
-    const overview = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark", "ready", source));
+    const overview = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "W", "dark", "ready", source));
     assert.doesNotMatch(overview, /data-provider-mark=/, `${source} overview has no badge`);
   }
   const legacyRing = decode(renderUsageLimitKey(fiveHour, "five-hour", "dark"));
   assert.doesNotMatch(legacyRing, /data-provider-mark=/);
-  const legacyOverview = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark"));
+  const legacyOverview = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "W", "dark"));
   assert.doesNotMatch(legacyOverview, /data-provider-mark=/);
 });
 
@@ -528,7 +549,7 @@ test("provider badges keep their own colours in light and dark themes", () => {
 
 test("usage overview bars sit below the badge with the label always at 24", () => {
   for (const source of [undefined, "codex-bar", "t3-claude"] as const) {
-    const svg = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark", "ready", source));
+    const svg = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "W", "dark", "ready", source));
     assert.match(svg, /<text x="24" y="44" fill=/, `top label at x=24 and y=44 for ${source ?? "the legacy source"}`);
     assert.match(
       svg,
@@ -579,7 +600,7 @@ test("usage keys with a provider badge stay a single svg element that Stream Dec
   for (const source of ["t3-codex", "t3-claude", "t3-opencode"] as const) {
     for (const url of [
       renderUsageLimitKey(window, "weekly", "light", "ready", source),
-      renderUsageOverviewKey(window, "5H", window, "WK", "light", "ready", source),
+      renderUsageOverviewKey(window, "5H", window, "W", "light", "ready", source),
     ]) {
       const svg = decodeURIComponent(url);
       assert.match(svg, /data-provider-mark=/);

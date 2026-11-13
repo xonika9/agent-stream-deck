@@ -1174,7 +1174,7 @@ test("usage limit renders the chosen T3 source window with its label", async () 
 
   const image = key.images.at(-1)!;
   assert.match(image, /data-usage-used="9"/);
-  assert.match(image, />MO<\/text>/);
+  assert.match(image, />M<\/text>/);
 });
 
 test("usage keys draw the remaining percent when the key asks for it", async () => {
@@ -1337,8 +1337,8 @@ test("usage overview renders the layout saved on the key and follows layout chan
     overviewLayout: "split",
   });
   await settle();
-  assert.match(key.images.at(-1)!, /data-usage-window="5H"[\s\S]*A40 40 0 0 1/);
-  assert.match(key.images.at(-1)!, /data-usage-window="FBL"[\s\S]*A40 40 0 0 0/);
+  assert.match(key.images.at(-1)!, /data-usage-window="5H"[\s\S]*M30\.23 65\.61A42 42 0 0 1/);
+  assert.match(key.images.at(-1)!, /data-usage-window="FBL"[\s\S]*M113\.77 74\.39A42 42 0 0 1/);
 
   deck.controller.updateUsageOverviewSettings(key.action, {
     source: "t3-claude",
@@ -1397,7 +1397,7 @@ test("usage limit settings apply without re-registration", async () => {
   await settle();
   const image = key.images.at(-1)!;
   assert.match(image, /data-usage-used="9"/);
-  assert.match(image, />MO<\/text>/);
+  assert.match(image, />M<\/text>/);
 });
 
 test("T3 usage polls only with a T3 key and at most once every 60 seconds", async (context) => {

@@ -121,9 +121,9 @@ export function parseUsageSettings(settings: unknown, platform: string = process
 
 export function usageLabel(kind: UsageWindowKind): string {
   if (kind === "five-hour") return "5H";
-  if (kind === "weekly") return "WK";
+  if (kind === "weekly") return "W";
   if (kind === "weekly-fable") return "FBL";
-  if (kind === "monthly") return "MO";
+  if (kind === "monthly") return "M";
   return "LIMIT";
 }
 
