@@ -893,12 +893,12 @@ export class DeckController {
     if (!this.isCurrentGeneration(generation)) return;
     this.animation = setTimeout(() => {
       if (!this.isCurrentGeneration(generation)) return;
-      this.animationFrame = (this.animationFrame + 1) % 12;
+      this.animationFrame = (this.animationFrame + 2) % 12;
       void this.renderAnimatedAgents().catch((error) =>
         streamDeck.logger.error(`Animation render failed: ${String(error)}`),
       );
       this.scheduleAnimation(generation);
-    }, 200);
+    }, 500);
   }
 
   private keycapImage(keycapId: string, theme: "light" | "dark"): Promise<string | null> {

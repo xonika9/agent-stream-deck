@@ -765,14 +765,108 @@ test("only working and input Agent keys advance their animation frame between po
   await startDeck(context, deck, { mockTimers: true });
   const before = keys.map((key) => key.images.length);
 
-  context.mock.timers.tick(200);
+  context.mock.timers.tick(400);
+  await settle();
+  assert.deepEqual(
+    keys.map((key) => key.images.length),
+    before,
+    "no animated key renders a new frame before 500 ms",
+  );
+
+  context.mock.timers.tick(100);
   await settle();
 
-  assert.equal(keys[0]!.images.length, before[0]! + 1, "the working key renders its next frame");
+  assert.equal(keys[0]!.images.length, before[0]! + 1, "the working key renders one frame after 500 ms");
   assert.notEqual(keys[0]!.images.at(-1), keys[0]!.images.at(-2));
-  assert.equal(keys[1]!.images.length, before[1]! + 1, "the input key renders its next frame");
+  assert.equal(keys[1]!.images.length, before[1]! + 1, "the input key renders one frame after 500 ms");
   assert.equal(keys[2]!.images.length, before[2], "the idle key is not redrawn");
   assert.equal(deck.codex.refreshes, 1, "animation frames do not poll the source");
+});
+
+test("an animated Agent key receives at most 20 images in ten seconds", async (context) => {
+  const input = createMicroSnapshot();
+  for (const slot of input.slots) {
+    slot.status = "idle";
+    slot.selected = false;
+  }
+  input.slots[0]!.status = "working";
+  const deck = createDeck();
+  deck.codex.localSnapshot = { host, snapshot: input, observedAt: Date.now() };
+  deck.codex.localHealth = { state: "ready", changedAt: 1 };
+  const keys = registerAgents(deck.controller, 2);
+  await startDeck(context, deck, { mockTimers: true });
+  await drain();
+  const before = keys[0]!.images.length;
+
+  for (let tick = 0; tick < 100; tick++) {
+    context.mock.timers.tick(100);
+    await drain();
+  }
+
+  const images = keys[0]!.images.length - before;
+  context.diagnostic(JSON.stringify({ seconds: 10, images }));
+  assert.ok(images <= 20, `one animated key received ${images} images in ten seconds`);
+  assert.match(keys[1]!.images.at(-1)!, /data-agent-motion="idle"/, "the idle key never starts animating");
+});
+
+test("an unregistered animated Agent key receives no further images while the timer continues", async (context) => {
+  const input = createMicroSnapshot();
+  for (const slot of input.slots) {
+    slot.status = "idle";
+    slot.selected = false;
+  }
+  input.slots[0]!.status = "working";
+  input.slots[1]!.status = "working";
+  const deck = createDeck();
+  deck.codex.localSnapshot = { host, snapshot: input, observedAt: Date.now() };
+  deck.codex.localHealth = { state: "ready", changedAt: 1 };
+  await startDeck(context, deck, { mockTimers: true });
+  const gone = fakeKey("gone-agent");
+  const stays = fakeKey("stays-agent");
+  deck.controller.registerAgent(0, gone.action);
+  deck.controller.registerAgent(1, stays.action);
+  await drain();
+  context.mock.timers.tick(500);
+  await drain();
+  assert.ok(gone.images.length >= 2, "the animated key renders frames before it disappears");
+
+  deck.controller.unregisterAgent(gone.action);
+  const removed = gone.images.length;
+  const staysBefore = stays.images.length;
+  for (let tick = 0; tick < 4; tick++) {
+    context.mock.timers.tick(500);
+    await drain();
+  }
+
+  assert.equal(gone.images.length, removed, "an unregistered key receives no further animation images");
+  assert.ok(stays.images.length > staysBefore, "the animation timer keeps advancing the key that stays");
+});
+
+test("a status change renders without advancing the animation timer", async (context) => {
+  const idle = createMicroSnapshot();
+  for (const slot of idle.slots) {
+    slot.status = "idle";
+    slot.selected = false;
+  }
+  const deck = createDeck();
+  deck.codex.localSnapshot = { host, snapshot: idle, observedAt: Date.now() };
+  deck.codex.localHealth = { state: "ready", changedAt: 1 };
+  await startDeck(context, deck, { mockTimers: true });
+  const key = fakeKey("status-change");
+  deck.controller.registerAgent(0, key.action);
+  await drain();
+  assert.match(key.images.at(-1)!, /data-agent-motion="idle"/);
+
+  const working = structuredClone(idle);
+  working.slots[0]!.status = "working";
+  await deck.controller.sendAgent(0, 1, { id: key.action.id });
+  deck.codex.localSnapshot = { host, snapshot: working, observedAt: Date.now() };
+  await deck.controller.sendAgent(0, 0, { id: key.action.id });
+  await drain();
+
+  const changed = key.images.at(-1)!;
+  assert.match(changed, /data-agent-motion="working"/, "the new status reaches the key before any animation frame");
+  assert.match(changed, /x="15.00" y="21"/, "the status render keeps the current animation frame");
 });
 
 test("an assigned titleless thread renders New chat on a ready host and an unassigned slot renders Not assigned", async (context) => {
@@ -1504,7 +1598,7 @@ test("animated Agent frames clear each registration title once", async (context)
   await drain();
   const initialImages = keys.map((key) => key.images.length);
   for (let frame = 0; frame < 120; frame++) {
-    context.mock.timers.tick(200);
+    context.mock.timers.tick(500);
     await drain();
   }
   assert.deepEqual(
@@ -1595,7 +1689,7 @@ test("slow animated SDK passes release same-key source presses before the consum
     nextDone = true;
   });
   for (let pass = 0; pass < 4; pass++) {
-    context.mock.timers.tick(250);
+    context.mock.timers.tick(500);
     gates[pass]!.resolve();
     await drain();
     assert.equal(gates.length, pass + 2, "a newer animated pass stays held after each slow delivery");
@@ -1841,7 +1935,7 @@ test("SDK delivery coalesces source, settings, and animation revisions while pre
   deck.controller.registerAgent(0, key.action);
   await drain();
   await deck.controller.sendAgent(0, 1, { id: key.action.id });
-  context.mock.timers.tick(200);
+  context.mock.timers.tick(500);
   await drain();
   deck.openCode.openCodeSlots = [
     {
