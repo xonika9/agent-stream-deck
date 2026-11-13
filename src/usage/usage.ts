@@ -93,6 +93,7 @@ export type UsageKeySettings = {
   mode: UsageLimitMode;
   topWindow: UsageOverviewWindow;
   bottomWindow: UsageOverviewWindow;
+  showRemaining: boolean;
 };
 
 export function parseUsageSettings(settings: unknown, platform: string = process.platform): UsageKeySettings {
@@ -106,6 +107,7 @@ export function parseUsageSettings(settings: unknown, platform: string = process
     mode: parseUsageLimitMode(record.mode, source),
     topWindow: parseUsageBarWindow(record.topWindow, "five-hour"),
     bottomWindow: parseUsageBarWindow(record.bottomWindow, "weekly"),
+    showRemaining: record.showRemaining === true,
   };
 }
 

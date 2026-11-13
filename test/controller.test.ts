@@ -647,6 +647,7 @@ test("usage keys use the light theme when Codex has no renderer snapshot", async
     mode: "five-hour",
     topWindow: "five-hour",
     bottomWindow: "weekly",
+    showRemaining: false,
   });
   await settle();
 
@@ -1115,6 +1116,7 @@ for (const [name, platform, barAge, expected] of [
       mode: "five-hour",
       topWindow: "five-hour",
       bottomWindow: "weekly",
+      showRemaining: false,
     });
     await settle();
     const overview = fakeKey(`${platform}-overview`);
@@ -1123,6 +1125,7 @@ for (const [name, platform, barAge, expected] of [
       mode: "auto",
       topWindow: "five-hour",
       bottomWindow: "weekly",
+      showRemaining: false,
     });
     await settle();
 
@@ -1161,12 +1164,73 @@ test("usage limit renders the chosen T3 source window with its label", async () 
     mode: "monthly",
     topWindow: "five-hour",
     bottomWindow: "monthly",
+    showRemaining: false,
   });
   await settle();
 
   const image = key.images.at(-1)!;
   assert.match(image, /data-usage-used="9"/);
   assert.match(image, />MO<\/text>/);
+});
+
+test("usage keys draw the remaining percent when the key asks for it", async () => {
+  const deck = createDeck();
+  deck.t3Usage.snapshots = {
+    "t3-claude": t3UsageSnapshot([
+      {
+        id: "five_hour",
+        kind: "five-hour",
+        usedPercent: 19,
+        remainingPercent: 81,
+        windowDurationMins: 300,
+        resetsAt: null,
+      },
+      {
+        id: "seven_day_fable",
+        kind: "weekly-fable",
+        usedPercent: 34,
+        remainingPercent: 66,
+        windowDurationMins: 10_080,
+        resetsAt: null,
+      },
+    ]),
+  };
+  deck.t3Usage.health = { state: "ready", changedAt: 1 };
+  const limit = fakeKey("remaining-limit");
+  deck.controller.registerUsageLimit(limit.action, {
+    source: "t3-claude",
+    mode: "five-hour",
+    topWindow: "five-hour",
+    bottomWindow: "weekly-fable",
+    showRemaining: true,
+  });
+  await settle();
+  const limitImage = limit.images.at(-1)!;
+  assert.match(limitImage, /data-usage-remaining="81"/);
+  assert.match(limitImage, />81<\/text>/);
+
+  const overview = fakeKey("remaining-overview");
+  deck.controller.registerUsageOverview(overview.action, {
+    source: "t3-claude",
+    mode: "auto",
+    topWindow: "five-hour",
+    bottomWindow: "weekly-fable",
+    showRemaining: true,
+  });
+  await settle();
+  const overviewImage = overview.images.at(-1)!;
+  assert.match(overviewImage, /data-usage-window="5H"[\s\S]*>81%<\/text>/);
+  assert.match(overviewImage, /data-usage-window="FBL"[\s\S]*>66%<\/text>/);
+
+  deck.controller.updateUsageLimitSettings(limit.action, {
+    source: "t3-claude",
+    mode: "five-hour",
+    topWindow: "five-hour",
+    bottomWindow: "weekly-fable",
+    showRemaining: false,
+  });
+  await settle();
+  assert.match(limit.images.at(-1)!, /data-usage-used="19"/);
 });
 
 test("usage overview renders the two chosen T3 bar windows in order and applies bar changes", async () => {
@@ -1198,6 +1262,7 @@ test("usage overview renders the two chosen T3 bar windows in order and applies 
     mode: "auto",
     topWindow: "weekly-fable",
     bottomWindow: "five-hour",
+    showRemaining: false,
   });
   await settle();
 
@@ -1211,6 +1276,7 @@ test("usage overview renders the two chosen T3 bar windows in order and applies 
     mode: "auto",
     topWindow: "five-hour",
     bottomWindow: "weekly-fable",
+    showRemaining: false,
   });
   await settle();
   const swapped = key.images.at(-1)!;
@@ -1245,6 +1311,7 @@ test("usage limit settings apply without re-registration", async () => {
     mode: "five-hour",
     topWindow: "five-hour",
     bottomWindow: "weekly",
+    showRemaining: false,
   });
   await settle();
   assert.match(key.images.at(-1)!, /data-usage-used="73"/);
@@ -1254,6 +1321,7 @@ test("usage limit settings apply without re-registration", async () => {
     mode: "monthly",
     topWindow: "five-hour",
     bottomWindow: "monthly",
+    showRemaining: false,
   });
   await settle();
   const image = key.images.at(-1)!;
@@ -1272,6 +1340,7 @@ test("T3 usage polls only with a T3 key and at most once every 60 seconds", asyn
     mode: "auto",
     topWindow: "five-hour",
     bottomWindow: "weekly",
+    showRemaining: false,
   });
   context.mock.timers.tick(1_200);
   await drain();
@@ -1283,6 +1352,7 @@ test("T3 usage polls only with a T3 key and at most once every 60 seconds", asyn
     mode: "five-hour",
     topWindow: "five-hour",
     bottomWindow: "weekly",
+    showRemaining: false,
   });
   await drain();
   assert.equal(deck.t3Usage.refreshCalls, 1, "the first T3 key polls immediately");
@@ -1306,6 +1376,7 @@ test("T3 usage shows retained windows while degraded and a dash while offline", 
     mode: "monthly",
     topWindow: "five-hour",
     bottomWindow: "monthly",
+    showRemaining: false,
   });
   await settle();
 

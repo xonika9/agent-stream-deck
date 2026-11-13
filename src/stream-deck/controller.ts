@@ -743,7 +743,14 @@ export class DeckController {
     const requestedKind: UsageWindowKind = settings.mode === "auto" ? (window?.kind ?? "other") : settings.mode;
     await this.setImage(
       action,
-      renderUsageLimitKey(window, requestedKind, usageTheme(source), source.health.state, settings.source),
+      renderUsageLimitKey(
+        window,
+        requestedKind,
+        usageTheme(source),
+        source.health.state,
+        settings.source,
+        settings.showRemaining,
+      ),
     );
   }
 
@@ -762,6 +769,7 @@ export class DeckController {
         usageTheme(source),
         source.health.state,
         settings.source,
+        settings.showRemaining,
       ),
     );
   }

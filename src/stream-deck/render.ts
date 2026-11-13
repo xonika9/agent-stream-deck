@@ -296,16 +296,19 @@ export function renderUsageLimitKey(
   theme: ThemeMode = "dark",
   health: HostHealthState = "ready",
   source?: UsageSource,
+  showRemaining = false,
 ): string {
   const surface = SURFACES[theme];
   const remaining = window ? Math.round(clampPercent(window.remainingPercent)) : null;
   const used = window ? Math.round(clampPercent(window.usedPercent)) : null;
+  const shown = showRemaining ? remaining : used;
+  const valueName = showRemaining ? "remaining" : "used";
   const signal = usageSignal(remaining, health, theme);
   const track = theme === "dark" ? "#45494C" : "#AAB2B8";
   const circumference = 2 * Math.PI * 40;
-  const dash = used == null ? 0 : (circumference * used) / 100;
+  const dash = shown == null ? 0 : (circumference * shown) / 100;
   const label = usageLabel(window?.kind ?? requestedKind);
-  const digits = used == null ? 0 : String(used).length;
+  const digits = shown == null ? 0 : String(shown).length;
   const numberX = digits >= 3 ? 61 : digits === 2 ? 65 : 69;
   const fontSize = digits >= 3 ? 27 : 30;
   const mark = providerMarkForSource(source);
@@ -320,12 +323,12 @@ export function renderUsageLimitKey(
     <rect x="7.5" y="7.5" width="129" height="129" rx="15" fill="none" stroke="${surface.innerBorder}" stroke-width="1"/>
     <circle cx="72" cy="70" r="55" fill="url(#usageBloom)"/>
     <circle cx="72" cy="70" r="40" fill="none" stroke="${track}" stroke-width="7"/>
-    ${used == null ? "" : `<circle data-usage-used="${used}" cx="72" cy="70" r="40" fill="none" stroke="${signal}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${dash.toFixed(2)} ${circumference.toFixed(2)}" transform="rotate(-90 72 70)"/>`}
+    ${shown == null ? "" : `<circle data-usage-${valueName}="${shown}" cx="72" cy="70" r="40" fill="none" stroke="${signal}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${dash.toFixed(2)} ${circumference.toFixed(2)}" transform="rotate(-90 72 70)"/>`}
     ${health === "degraded" || health === "offline" ? `<circle cx="72" cy="70" r="48" fill="none" stroke="${signal}" stroke-width="4" stroke-opacity=".13" filter="url(#usageGlow)"/>` : ""}
     ${
-      used == null
+      shown == null
         ? `<text x="72" y="80" text-anchor="middle" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="31" font-weight="700" fill="${signal}">—</text>`
-        : `<text data-usage-value="${used}" x="${numberX}" y="80" text-anchor="middle" fill="${surface.title}" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="${fontSize}" font-weight="700">${used}</text><g data-usage-percent="vector" transform="translate(87 57)" fill="none" stroke="${signal}" stroke-width="2.4" stroke-linecap="round"><circle cx="2.5" cy="2.5" r="1.7"/><circle cx="10" cy="12" r="1.7"/><path d="M11 1L1.5 13.5"/></g>`
+        : `<text data-usage-value="${shown}" x="${numberX}" y="80" text-anchor="middle" fill="${surface.title}" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="${fontSize}" font-weight="700">${shown}</text><g data-usage-percent="vector" transform="translate(87 57)" fill="none" stroke="${signal}" stroke-width="2.4" stroke-linecap="round"><circle cx="2.5" cy="2.5" r="1.7"/><circle cx="10" cy="12" r="1.7"/><path d="M11 1L1.5 13.5"/></g>`
     }
     <text x="72" y="126" text-anchor="middle" fill="${surface.title}" fill-opacity=".62" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.2">${label}</text>
     ${markMarkup}
@@ -340,6 +343,7 @@ export function renderUsageOverviewKey(
   theme: ThemeMode = "dark",
   health: HostHealthState = "ready",
   source?: UsageSource,
+  showRemaining = false,
 ): string {
   const surface = SURFACES[theme];
   const mark = providerMarkForSource(source);
@@ -353,8 +357,8 @@ export function renderUsageOverviewKey(
     <rect data-theme="${theme}" x="4" y="4" width="136" height="136" rx="18" fill="url(#keycap)" stroke="${surface.border}" stroke-width="2" stroke-opacity="${theme === "dark" ? ".88" : ".34"}"/>
     <rect x="7.5" y="7.5" width="129" height="129" rx="15" fill="none" stroke="${surface.innerBorder}" stroke-width="1"/>
     ${markMarkup}
-    ${renderUsageBar(topLabel, top, 33, surface, theme, health, topLabelX)}
-    ${renderUsageBar(bottomLabel, bottom, 82, surface, theme, health)}
+    ${renderUsageBar(topLabel, top, 33, surface, theme, health, showRemaining, topLabelX)}
+    ${renderUsageBar(bottomLabel, bottom, 82, surface, theme, health, showRemaining)}
   </svg>`);
 }
 
@@ -392,18 +396,21 @@ function renderUsageBar(
   surface: SurfacePalette,
   theme: ThemeMode,
   health: HostHealthState,
+  showRemaining = false,
   labelX = 24,
 ): string {
   const remaining = window ? Math.round(clampPercent(window.remainingPercent)) : null;
   const used = window ? Math.round(clampPercent(window.usedPercent)) : null;
+  const shown = showRemaining ? remaining : used;
+  const valueName = showRemaining ? "remaining" : "used";
   const signal = usageSignal(remaining, health, theme);
   const track = theme === "dark" ? "#45494C" : "#AAB2B8";
-  const width = used == null ? 0 : (96 * used) / 100;
+  const width = shown == null ? 0 : (96 * shown) / 100;
   return `<g data-usage-window="${label}">
     <text x="${labelX}" y="${y}" fill="${surface.title}" fill-opacity=".72" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing=".8">${label}</text>
-    <text x="120" y="${y}" text-anchor="end" fill="${used == null ? signal : surface.title}" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">${used == null ? "—" : `${used}%`}</text>
+    <text x="120" y="${y}" text-anchor="end" fill="${shown == null ? signal : surface.title}" font-family="Bahnschrift, Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">${shown == null ? "—" : `${shown}%`}</text>
     <rect x="24" y="${y + 10}" width="96" height="10" rx="5" fill="${track}"/>
-    ${used == null ? "" : `<rect data-usage-used="${used}" x="24" y="${y + 10}" width="${width.toFixed(2)}" height="10" rx="5" fill="${signal}"/>`}
+    ${shown == null ? "" : `<rect data-usage-${valueName}="${shown}" x="24" y="${y + 10}" width="${width.toFixed(2)}" height="10" rx="5" fill="${signal}"/>`}
   </g>`;
 }
 

@@ -160,6 +160,7 @@ test("usage settings parse with defaults and legacy mode", () => {
     mode: "auto",
     topWindow: "five-hour",
     bottomWindow: "weekly",
+    showRemaining: false,
   });
   assert.equal(parseUsageSettings({ mode: "weekly" }).mode, "weekly");
   assert.equal(parseUsageSource("t3-claude", "darwin"), "t3-claude");
@@ -168,6 +169,13 @@ test("usage settings parse with defaults and legacy mode", () => {
   assert.equal(parseUsageSettings({ source: "t3-claude", mode: "weekly-fable" }).mode, "weekly-fable");
   assert.equal(parseUsageSettings({ topWindow: "bogus", bottomWindow: "monthly" }).topWindow, "five-hour");
   assert.equal(parseUsageSettings({ topWindow: "bogus", bottomWindow: "monthly" }).bottomWindow, "monthly");
+});
+
+test("usage settings enable the remaining view only for a literal true", () => {
+  assert.equal(parseUsageSettings({ showRemaining: true }).showRemaining, true);
+  assert.equal(parseUsageSettings({ showRemaining: "true" }).showRemaining, false);
+  assert.equal(parseUsageSettings({ showRemaining: 1 }).showRemaining, false);
+  assert.equal(parseUsageSettings({}).showRemaining, false);
 });
 
 test("claude fable window is selected only by its own mode", () => {
@@ -225,6 +233,66 @@ test("single usage key preserves the circular design and centers numeric weight"
   const unavailable = decode(renderUsageLimitKey(undefined, "five-hour", "dark"));
   assert.match(unavailable, />—<\/text>/);
   assert.match(unavailable, />5H<\/text>/);
+});
+
+test("usage limit key shows the remaining percent and ring fill when selected", () => {
+  const mostlyUsed: UsageWindow = {
+    id: "five-hour",
+    kind: "five-hour",
+    usedPercent: 19,
+    remainingPercent: 81,
+    windowDurationMins: 300,
+    resetsAt: 1_800_000_000_000,
+  };
+  const consumed = decode(renderUsageLimitKey(mostlyUsed, "five-hour", "dark"));
+  assert.match(consumed, /data-usage-used="19"/);
+  assert.match(consumed, />19<\/text>/);
+  assert.match(consumed, /stroke-dasharray="47\.75 251\.33"/);
+
+  const remaining = decode(renderUsageLimitKey(mostlyUsed, "five-hour", "dark", "ready", undefined, true));
+  assert.match(remaining, /data-usage-remaining="81"/);
+  assert.match(remaining, />81<\/text>/);
+  assert.match(remaining, /stroke-dasharray="203\.58 251\.33"/);
+  assert.doesNotMatch(remaining, /data-usage-used=/);
+});
+
+test("usage overview fills both bars with the remaining percent when selected", () => {
+  const svg = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark", "ready", undefined, true));
+  const top = svg.slice(svg.indexOf('data-usage-window="5H"'), svg.indexOf('data-usage-window="WK"'));
+  const bottom = svg.slice(svg.indexOf('data-usage-window="WK"'));
+  assert.match(top, />74%<\/text>/);
+  assert.match(top, /data-usage-remaining="74"/);
+  assert.match(top, /width="71\.04"/);
+  assert.match(bottom, />12%<\/text>/);
+  assert.match(bottom, /data-usage-remaining="12"/);
+  assert.match(bottom, /width="11\.52"/);
+  assert.doesNotMatch(svg, /data-usage-used=/);
+});
+
+test("usage keys stay red at a low remaining percent in both views", () => {
+  const lowRemaining: UsageWindow = {
+    id: "five-hour",
+    kind: "five-hour",
+    usedPercent: 85,
+    remainingPercent: 15,
+    windowDurationMins: 300,
+    resetsAt: null,
+  };
+  const consumed = decode(renderUsageLimitKey(lowRemaining, "five-hour", "dark"));
+  const remaining = decode(renderUsageLimitKey(lowRemaining, "five-hour", "dark", "ready", undefined, true));
+  assert.match(consumed, /data-usage-used="85"[^>]*stroke="#FF4B61"/);
+  assert.match(remaining, /data-usage-remaining="15"[^>]*stroke="#FF4B61"/);
+});
+
+test("usage keys keep the dash without data in both views", () => {
+  const consumed = decode(renderUsageLimitKey(undefined, "five-hour", "dark"));
+  const remaining = decode(renderUsageLimitKey(undefined, "five-hour", "dark", "ready", undefined, true));
+  assert.match(consumed, />—<\/text>/);
+  assert.match(remaining, />—<\/text>/);
+  assert.doesNotMatch(remaining, /data-usage-remaining=/);
+
+  const overview = decode(renderUsageOverviewKey(undefined, "5H", undefined, "WK", "dark", "ready", undefined, true));
+  assert.equal(overview.match(/>—<\/text>/g)?.length, 2);
 });
 
 test("overview renders the two chosen bar windows in order", () => {
