@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Usage Overview</title>
+  <style>
+    :root { color-scheme: dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; padding: 14px; color: #d8d8d8; background: #2d2d2d; font-size: 12px; }
+    label { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 8px; margin-top: 10px; }
+    label:first-of-type { margin-top: 0; }
+    select { width: 100%; min-height: 28px; color: #efefef; background: #3b3b3b; border: 1px solid #555; border-radius: 4px; padding: 3px 7px; }
+    p { margin: 12px 0 0 100px; color: #a9a9a9; line-height: 1.35; }
+  </style>
+</head>
+<body>
+  <label>
+    <span>Source</span>
+    <select id="source"></select>
+  </label>
+  <label>
+    <span>Top bar</span>
+    <select id="top"></select>
+  </label>
+  <label>
+    <span>Bottom bar</span>
+    <select id="bottom"></select>
+  </label>
+  <p>Each bar shows one window of the selected provider. A window the subscription does not offer renders as a dash. T3 sources read limits from the local T3 Code app on macOS.</p>
+  <script>
+    let websocket;
+    let context;
+    let settings = {};
+    let platform = "mac";
+
+    const SOURCE_OPTIONS = [
+      ["codex-auto", "Codex · Automatic"],
+      ["codex-bar", "Codex · CodexBar"],
+      ["codex-app", "Codex · App"],
+      ["t3-codex", "T3 · Codex"],
+      ["t3-claude", "T3 · Claude"],
+      ["t3-opencode", "T3 · OpenCode"],
+    ];
+    const BAR_OPTIONS = {
+      codex: [["five-hour", "5 hours"], ["weekly", "Weekly"]],
+      "t3-claude": [["five-hour", "5 hours"], ["weekly", "Weekly"], ["weekly-fable", "Weekly · Fable"]],
+      "t3-opencode": [["five-hour", "5 hours"], ["weekly", "Weekly"], ["monthly", "Monthly"]],
+    };
+
+    function barGroup(source) {
+      return source === "t3-claude" || source === "t3-opencode" ? source : "codex";
+    }
+
+    function availableSources() {
+      return platform === "windows" ? SOURCE_OPTIONS.filter(([value]) => !value.startsWith("t3-")) : SOURCE_OPTIONS;
+    }
+
+    function optionHtml(options, selected) {
+      return options
+        .map(([value, label]) => `<option value="${value}"${value === selected ? " selected" : ""}>${label}</option>`)
+        .join("");
+    }
+
+    function save() {
+      if (websocket?.readyState === WebSocket.OPEN) {
+        websocket.send(JSON.stringify({ event: "setSettings", context, payload: settings }));
+      }
+    }
+
+    function normalizeBar(bars, value, fallback) {
+      return bars.includes(value) ? value : fallback;
+    }
+
+    function normalize() {
+      const sources = availableSources().map(([value]) => value);
+      const source = sources.includes(settings.source) ? settings.source : "codex-auto";
+      const bars = BAR_OPTIONS[barGroup(source)].map(([value]) => value);
+      const topWindow = normalizeBar(bars, settings.topWindow, "five-hour");
+      const bottomWindow = normalizeBar(bars, settings.bottomWindow, "weekly");
+      const changed =
+        (settings.source !== undefined && source !== settings.source) ||
+        (settings.topWindow !== undefined && topWindow !== settings.topWindow) ||
+        (settings.bottomWindow !== undefined && bottomWindow !== settings.bottomWindow);
+      settings = { ...settings, source, topWindow, bottomWindow };
+      return changed;
+    }
+
+    function render() {
+      document.getElementById("source").innerHTML = optionHtml(availableSources(), settings.source);
+      document.getElementById("source").value = settings.source;
+      const bars = BAR_OPTIONS[barGroup(settings.source)];
+      document.getElementById("top").innerHTML = optionHtml(bars, settings.topWindow);
+      document.getElementById("top").value = settings.topWindow;
+      document.getElementById("bottom").innerHTML = optionHtml(bars, settings.bottomWindow);
+      document.getElementById("bottom").value = settings.bottomWindow;
+    }
+
+    window.connectElgatoStreamDeckSocket = (port, uuid, registerEvent, info, actionInfo) => {
+      const action = JSON.parse(actionInfo);
+      context = action.context;
+      settings = action.payload?.settings ?? {};
+      platform = info?.application?.platform === "windows" ? "windows" : "mac";
+      const changed = normalize();
+      render();
+      websocket = new WebSocket(`ws://127.0.0.1:${port}`);
+      websocket.addEventListener("open", () => {
+        websocket.send(JSON.stringify({ event: registerEvent, uuid }));
+        if (changed) save();
+      });
+    };
+
+    document.getElementById("source").addEventListener("change", (event) => {
+      settings = { ...settings, source: event.target.value };
+      normalize();
+      render();
+      save();
+    });
+
+    document.getElementById("top").addEventListener("change", (event) => {
+      settings = { ...settings, topWindow: event.target.value };
+      normalize();
+      render();
+      save();
+    });
+
+    document.getElementById("bottom").addEventListener("change", (event) => {
+      settings = { ...settings, bottomWindow: event.target.value };
+      normalize();
+      render();
+      save();
+    });
+  </script>
+</body>
+</html>

@@ -21,7 +21,7 @@ import {
 } from "./render.js";
 import { openCodexThread } from "#codex";
 import type { OpenCodeSource } from "#opencode";
-import type { T3CodeSource } from "#t3code";
+import type { T3CodeSource, T3UsageSnapshots } from "#t3code";
 import { visualStatusFromMicro } from "#agents";
 import { parseTaskSource, selectTaskCandidates, usesActiveQueue } from "#agents";
 import type {
@@ -32,18 +32,27 @@ import type {
   ReasoningAdjustment,
   RoutedAgentSlot,
   TaskSource,
-  UsageLimitMode,
   UsageSnapshot,
+  UsageSource,
   UsageWindowKind,
 } from "#agents";
-import { selectAccountUsage, selectUsageWindow, usageTheme, type AccountUsageSource } from "#usage";
+import {
+  selectAccountUsage,
+  selectUsageBarWindow,
+  selectUsageWindow,
+  usageLabel,
+  usageTheme,
+  type AccountUsageSource,
+  type UsageKeySettings,
+} from "#usage";
 
 export type FixedIconSource = { kind: "local"; keycapId: string } | { kind: "builtin"; name: BuiltinIconName };
 
 type FixedIconRegistration = { action: KeyAction<{}>; source: FixedIconSource };
 type AgentRegistration = { action: KeyAction<{}>; slot: number };
 type MicroActionRegistration = { action: KeyAction<{}>; slot: MicroActionSlot };
-type UsageLimitRegistration = { action: KeyAction<{}>; mode: UsageLimitMode };
+type UsageLimitRegistration = { action: KeyAction<{}>; settings: UsageKeySettings };
+type UsageOverviewRegistration = { action: KeyAction<{}>; settings: UsageKeySettings };
 type ActionIdentity = { id: string };
 type DisplayState = { action: KeyAction<{}>; generation: number; revision: number; cleared: boolean; image?: string };
 type AgentPress = { assignment?: RoutedAgentSlot; down: Promise<void>; abort: AbortController };
@@ -55,7 +64,18 @@ export type AgentDisplaySettings = {
   taskSource?: TaskSource;
 };
 
-type DeckControllerDependencies = { codex: CodexSource; openCode: OpenCodeSource; t3Code: T3CodeSource };
+type DeckControllerDependencies = {
+  codex: CodexSource;
+  openCode: OpenCodeSource;
+  t3Code: T3CodeSource;
+  t3Usage?: T3UsageSource;
+};
+
+type T3UsageSource = {
+  snapshots: T3UsageSnapshots;
+  health: HostHealth;
+  refresh(): Promise<void>;
+};
 
 const USER_ICON_ROOT = join(codexDeckStateRoot(), "icons");
 
@@ -74,7 +94,7 @@ export class DeckController {
   private titleListener?: ReturnType<typeof streamDeck.actions.onTitleParametersDidChange>;
   private readonly hostToggleActions = new Map<string, KeyAction<{}>>();
   private readonly usageLimitActions = new Map<string, UsageLimitRegistration>();
-  private readonly usageOverviewActions = new Map<string, KeyAction<{}>>();
+  private readonly usageOverviewActions = new Map<string, UsageOverviewRegistration>();
   private readonly rateLimitResetActions = new Map<string, KeyAction<{}>>();
   private readonly activityIndex = new LocalActivityIndex();
   private readonly activeQueueRankIndex = new ActiveQueueRankIndex();
@@ -85,6 +105,8 @@ export class DeckController {
   private animation?: NodeJS.Timeout;
   private refreshInFlight?: Promise<void>;
   private quotaInFlight?: Promise<void>;
+  private t3UsageInFlight?: Promise<void>;
+  private lastT3UsagePoll = 0;
   private sourceUnsubscribes: (() => void)[] = [];
   private projectionQueued = false;
   private codexStarted = false;
@@ -111,12 +133,17 @@ export class DeckController {
     return this.sources.t3Code;
   }
 
+  private get t3Usage(): T3UsageSource | undefined {
+    return this.sources.t3Usage;
+  }
+
   async start(): Promise<void> {
     const generation = ++this.displayGeneration;
     if (this.poll) clearTimeout(this.poll);
     if (this.animation) clearTimeout(this.animation);
     this.refreshInFlight = undefined;
     this.quotaInFlight = undefined;
+    this.t3UsageInFlight = undefined;
     this.codexStarted = false;
     this.displayStates.clear();
     this.stopped = false;
@@ -182,6 +209,7 @@ export class DeckController {
     this.codexStarted = false;
     this.refreshInFlight = undefined;
     this.quotaInFlight = undefined;
+    this.t3UsageInFlight = undefined;
     if (this.poll) clearInterval(this.poll);
     if (this.animation) clearInterval(this.animation);
     for (const button of this.agentButtons.values()) for (const press of button.active) press.abort.abort();
@@ -257,17 +285,17 @@ export class DeckController {
     this.unregister(action, this.hostToggleActions);
   }
 
-  registerUsageLimit(action: KeyAction<{}>, mode: UsageLimitMode): void {
+  registerUsageLimit(action: KeyAction<{}>, settings: UsageKeySettings): void {
     this.resetDisplayState(action);
-    const registration = { action, mode };
-    this.usageLimitActions.set(action.id, registration);
+    this.usageLimitActions.set(action.id, { action, settings });
+    this.refreshT3Usage();
     this.renderUsageAction("Usage limit", action);
   }
 
-  updateUsageLimitMode(action: KeyAction<{}>, mode: UsageLimitMode): void {
+  updateUsageLimitSettings(action: KeyAction<{}>, settings: UsageKeySettings): void {
     if (this.usageLimitActions.get(action.id)?.action !== action) this.resetDisplayState(action);
-    const registration = { action, mode };
-    this.usageLimitActions.set(action.id, registration);
+    this.usageLimitActions.set(action.id, { action, settings });
+    this.refreshT3Usage();
     this.renderUsageAction("Usage limit", action);
   }
 
@@ -275,9 +303,17 @@ export class DeckController {
     this.unregister(action, this.usageLimitActions);
   }
 
-  registerUsageOverview(action: KeyAction<{}>): void {
+  registerUsageOverview(action: KeyAction<{}>, settings: UsageKeySettings): void {
     this.resetDisplayState(action);
-    this.usageOverviewActions.set(action.id, action);
+    this.usageOverviewActions.set(action.id, { action, settings });
+    this.refreshT3Usage();
+    this.renderUsageAction("Usage overview", action);
+  }
+
+  updateUsageOverviewSettings(action: KeyAction<{}>, settings: UsageKeySettings): void {
+    if (this.usageOverviewActions.get(action.id)?.action !== action) this.resetDisplayState(action);
+    this.usageOverviewActions.set(action.id, { action, settings });
+    this.refreshT3Usage();
     this.renderUsageAction("Usage overview", action);
   }
 
@@ -419,6 +455,7 @@ export class DeckController {
     if (this.stopped) return;
     void this.refresh();
     void this.t3Code.refresh().catch((error) => streamDeck.logger.error(`T3 refresh failed: ${String(error)}`));
+    this.refreshT3Usage();
     if (process.platform !== "darwin" || this.quotaInFlight) return;
     const generation = this.displayGeneration;
     const pending = readCodexBarUsage()
@@ -451,6 +488,35 @@ export class DeckController {
   private syncTaskSourceDemand(): Promise<void> {
     this.t3Code.syncDemand(this.taskSource, this.codex.localHost, this.stopped);
     return this.openCode.syncDemand(this.taskSource, this.codex.localHost, this.stopped);
+  }
+
+  private refreshT3Usage(): void {
+    if (this.stopped || !this.t3Usage || this.t3UsageInFlight) return;
+    if (!this.hasT3UsageDemand()) return;
+    const now = Date.now();
+    if (now - this.lastT3UsagePoll < 60_000) return;
+    this.lastT3UsagePoll = now;
+    const generation = this.displayGeneration;
+    const pending = this.t3Usage
+      .refresh()
+      .then(() => {
+        if (this.isCurrentGeneration(generation)) this.requestProjection();
+      })
+      .catch((error) => {
+        if (this.isCurrentGeneration(generation)) streamDeck.logger.error(`T3 usage refresh failed: ${String(error)}`);
+      });
+    this.t3UsageInFlight = pending;
+    void pending.finally(() => {
+      if (this.t3UsageInFlight === pending) this.t3UsageInFlight = undefined;
+    });
+  }
+
+  private hasT3UsageDemand(): boolean {
+    const usesT3 = (settings: UsageKeySettings): boolean =>
+      settings.source === "t3-codex" || settings.source === "t3-claude" || settings.source === "t3-opencode";
+    for (const registration of this.usageLimitActions.values()) if (usesT3(registration.settings)) return true;
+    for (const registration of this.usageOverviewActions.values()) if (usesT3(registration.settings)) return true;
+    return false;
   }
 
   private async refreshDisplay(): Promise<void> {
@@ -574,8 +640,8 @@ export class DeckController {
         ...[...this.usageLimitActions.values()].map((registration) =>
           registeredRender(registration.action, () => this.renderUsageLimit(registration)),
         ),
-        ...[...this.usageOverviewActions.values()].map((action) =>
-          registeredRender(action, () => this.renderUsageOverview(action)),
+        ...[...this.usageOverviewActions.values()].map((registration) =>
+          registeredRender(registration.action, () => this.renderUsageOverview(registration)),
         ),
         ...[...this.rateLimitResetActions.values()].map((action) =>
           registeredRender(action, () => this.renderRateLimitReset(action)),
@@ -667,22 +733,34 @@ export class DeckController {
     await this.setImage(action, renderHostTargetKey(label, this.targetHealth().state, theme));
   }
 
-  private async renderUsageLimit({ action, mode }: UsageLimitRegistration): Promise<void> {
-    const source = this.accountUsageSource();
+  private async renderUsageLimit({ action, settings }: UsageLimitRegistration): Promise<void> {
+    const source = this.accountUsageSource(settings.source);
     const usage = source.usage;
-    const window = selectUsageWindow(usage, mode);
-    const requestedKind: UsageWindowKind = mode === "auto" ? (window?.kind ?? "other") : mode;
+    const window = selectUsageWindow(usage, settings.mode);
+    const requestedKind: UsageWindowKind = settings.mode === "auto" ? (window?.kind ?? "other") : settings.mode;
     await this.setImage(action, renderUsageLimitKey(window, requestedKind, usageTheme(source), source.health.state));
   }
 
-  private async renderUsageOverview(action: KeyAction<{}>): Promise<void> {
-    const source = this.accountUsageSource();
+  private async renderUsageOverview({ action, settings }: UsageOverviewRegistration): Promise<void> {
+    const source = this.accountUsageSource(settings.source);
     const usage = source.usage;
-    await this.setImage(action, renderUsageOverviewKey(usage?.windows ?? [], usageTheme(source), source.health.state));
+    const topWindow = selectUsageBarWindow(usage, settings.topWindow);
+    const bottomWindow = selectUsageBarWindow(usage, settings.bottomWindow);
+    await this.setImage(
+      action,
+      renderUsageOverviewKey(
+        topWindow,
+        usageLabel(settings.topWindow),
+        bottomWindow,
+        usageLabel(settings.bottomWindow),
+        usageTheme(source),
+        source.health.state,
+      ),
+    );
   }
 
   private async renderRateLimitReset(action: KeyAction<{}>): Promise<void> {
-    const source = this.accountUsageSource();
+    const source = this.accountUsageSource("codex-auto");
     const usage = source.usage;
     await this.setImage(
       action,
@@ -715,12 +793,21 @@ export class DeckController {
     return this.codex.localSnapshot?.snapshot;
   }
 
-  private accountUsageSource(): AccountUsageSource {
+  private accountUsageSource(source: UsageSource): AccountUsageSource {
+    if (source === "t3-codex" || source === "t3-claude" || source === "t3-opencode") {
+      return {
+        health: this.t3Usage?.health ?? { state: "offline", changedAt: Date.now() },
+        hostId: this.codex.localHost?.hostId,
+        usage: this.t3Usage?.snapshots[source],
+        theme: this.codex.localSnapshot?.snapshot.theme,
+      };
+    }
     return selectAccountUsage(
       this.codex.localHost,
       this.codex.localSnapshot,
       this.codex.localHealth,
       this.codexBarUsage,
+      source,
     );
   }
 
@@ -734,7 +821,7 @@ export class DeckController {
         this.fixedActions.get(action.id)?.action ??
         this.hostToggleActions.get(action.id) ??
         this.usageLimitActions.get(action.id)?.action ??
-        this.usageOverviewActions.get(action.id) ??
+        this.usageOverviewActions.get(action.id)?.action ??
         this.rateLimitResetActions.get(action.id);
       if (registeredAction !== action) return undefined;
       state = { action, generation: this.displayGeneration, revision: 0, cleared: false };

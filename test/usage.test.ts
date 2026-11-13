@@ -228,16 +228,30 @@ test("single usage key preserves the circular design and centers numeric weight"
   assert.match(unavailable, />5H<\/text>/);
 });
 
-test("overview renders independent 5-hour and weekly progress bars", () => {
-  const svg = decode(renderUsageOverviewKey([fiveHour, weekly], "dark"));
+test("overview renders the two chosen bar windows in order", () => {
+  const svg = decode(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK", "dark"));
   assert.match(svg, /data-usage-window="5H"/);
   assert.match(svg, /data-usage-window="WK"/);
   assert.match(svg, /data-usage-used="26"/);
   assert.match(svg, /data-usage-used="88"/);
+  assert.ok(svg.indexOf('data-usage-window="5H"') < svg.indexOf('data-usage-window="WK"'));
 
-  const weeklyOnly = decode(renderUsageOverviewKey([weekly], "dark"));
+  const weeklyOnly = decode(renderUsageOverviewKey(undefined, "5H", weekly, "WK", "dark"));
   assert.match(weeklyOnly, /data-usage-window="5H"[\s\S]*>—<\/text>/);
   assert.match(weeklyOnly, /data-usage-window="WK"[\s\S]*>88%<\/text>/);
+
+  const fable: UsageWindow = {
+    id: "seven_day_fable",
+    kind: "weekly-fable",
+    usedPercent: 70,
+    remainingPercent: 30,
+    windowDurationMins: 10_080,
+    resetsAt: null,
+  };
+  const claude = decode(renderUsageOverviewKey(fable, "FBL", fiveHour, "5H", "dark"));
+  assert.match(claude, /data-usage-window="FBL"[\s\S]*>70%<\/text>/);
+  assert.match(claude, /data-usage-window="5H"[\s\S]*>26%<\/text>/);
+  assert.ok(claude.indexOf('data-usage-window="FBL"') < claude.indexOf('data-usage-window="5H"'));
 });
 
 test("legacy reset counter shows credits without offering a hold action", () => {
@@ -252,22 +266,36 @@ test("legacy reset counter shows credits without offering a hold action", () => 
 });
 
 test("usage actions and property inspector are packaged without official keycap artwork", async () => {
-  const [manifestSource, inspector, bridge] = await Promise.all([
+  const [manifestSource, limitInspector, overviewInspector, bridge] = await Promise.all([
     readFile(new URL("../static/manifest.json", import.meta.url), "utf8"),
     readFile(new URL("../static/property-inspector/usage-limit.html", import.meta.url), "utf8"),
+    readFile(new URL("../static/property-inspector/usage-overview.html", import.meta.url), "utf8"),
     readFile(new URL("../src/codex/bridge.ts", import.meta.url), "utf8"),
   ]);
-  const manifest = JSON.parse(manifestSource) as { Actions: Array<{ UUID: string; PropertyInspectorPath?: string }> };
+  const manifest = JSON.parse(manifestSource) as {
+    Actions: Array<{ UUID: string; Tooltip?: string; PropertyInspectorPath?: string }>;
+  };
   const actions = new Map(manifest.Actions.map((action) => [action.UUID, action]));
   assert.equal(
     actions.get("com.xonika9.codex-deck.usage-limit")?.PropertyInspectorPath,
     "static/property-inspector/usage-limit.html",
   );
-  assert.equal(actions.has("com.xonika9.codex-deck.usage-overview"), true);
+  assert.equal(
+    actions.get("com.xonika9.codex-deck.usage-overview")?.PropertyInspectorPath,
+    "static/property-inspector/usage-overview.html",
+  );
+  for (const uuid of ["com.xonika9.codex-deck.usage-limit", "com.xonika9.codex-deck.usage-overview"] as const) {
+    assert.doesNotMatch(actions.get(uuid)?.Tooltip ?? "", /Codex/, `${uuid} tooltip names the provider choice`);
+  }
   assert.equal(actions.has("com.xonika9.codex-deck.rate-limit-reset"), true);
-  assert.match(inspector, /value="auto"/);
-  assert.match(inspector, /value="five-hour"/);
-  assert.match(inspector, /value="weekly"/);
+  for (const inspector of [limitInspector, overviewInspector]) {
+    assert.match(inspector, /"codex-auto"/);
+    assert.match(inspector, /"t3-claude"/);
+    assert.match(inspector, /"t3-opencode"/);
+  }
+  assert.match(limitInspector, /"auto"/);
+  assert.match(limitInspector, /"weekly-fable"/);
+  assert.match(overviewInspector, /"monthly"/);
   assert.doesNotMatch(bridge, /rate-limit-reset-credits\/consume/);
   assert.match(bridge, /applicable_available_count/);
   assert.doesNotMatch(bridge, /profile_image_url/);

@@ -328,19 +328,20 @@ export function renderUsageLimitKey(
 }
 
 export function renderUsageOverviewKey(
-  usageWindows: UsageWindow[],
+  top: UsageWindow | undefined,
+  topLabel: string,
+  bottom: UsageWindow | undefined,
+  bottomLabel: string,
   theme: ThemeMode = "dark",
   health: HostHealthState = "ready",
 ): string {
   const surface = SURFACES[theme];
-  const fiveHour = usageWindows.find((window) => window.kind === "five-hour");
-  const weekly = usageWindows.find((window) => window.kind === "weekly");
   return toDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
     <defs><linearGradient id="keycap" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${surface.keyTop}"/><stop offset=".52" stop-color="${surface.keyMiddle}"/><stop offset="1" stop-color="${surface.keyBottom}"/></linearGradient></defs>
     <rect data-theme="${theme}" x="4" y="4" width="136" height="136" rx="18" fill="url(#keycap)" stroke="${surface.border}" stroke-width="2" stroke-opacity="${theme === "dark" ? ".88" : ".34"}"/>
     <rect x="7.5" y="7.5" width="129" height="129" rx="15" fill="none" stroke="${surface.innerBorder}" stroke-width="1"/>
-    ${renderUsageBar("5H", fiveHour, 33, surface, theme, health)}
-    ${renderUsageBar("WK", weekly, 82, surface, theme, health)}
+    ${renderUsageBar(topLabel, top, 33, surface, theme, health)}
+    ${renderUsageBar(bottomLabel, bottom, 82, surface, theme, health)}
   </svg>`);
 }
 

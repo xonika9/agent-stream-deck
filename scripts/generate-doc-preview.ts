@@ -51,7 +51,7 @@ function renderUsagePreview(): string {
   const cards = [
     { label: "5-hour limit", svg: svgFromDataUrl(renderUsageLimitKey(fiveHour, "five-hour")) },
     { label: "Weekly limit", svg: svgFromDataUrl(renderUsageLimitKey(weekly, "weekly")) },
-    { label: "Both windows", svg: svgFromDataUrl(renderUsageOverviewKey([fiveHour, weekly])) },
+    { label: "Both windows", svg: svgFromDataUrl(renderUsageOverviewKey(fiveHour, "5H", weekly, "WK")) },
     { label: "2 resets", svg: svgFromDataUrl(renderRateLimitResetKey(2)) },
     { label: "No resets", svg: svgFromDataUrl(renderRateLimitResetKey(0)) },
   ];

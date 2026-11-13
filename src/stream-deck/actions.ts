@@ -10,7 +10,7 @@ import streamDeck, {
 import type { DeckController, FixedIconSource } from "./controller.js";
 import type { OfficialKeycapId } from "#codex";
 import type { MicroActionSlot, MicroDirection, ReasoningAdjustment } from "#agents";
-import { parseUsageLimitMode } from "#usage";
+import { parseUsageSettings } from "#usage";
 
 abstract class AgentAction extends SingletonAction {
   constructor(
@@ -568,21 +568,20 @@ export class HostToggle extends SingletonAction {
   }
 }
 
-type UsageLimitSettings = { mode?: string };
+type UsageSettings = { mode?: string; source?: string; topWindow?: string; bottomWindow?: string };
 
 @action({ UUID: "com.xonika9.codex-deck.usage-limit" })
-export class UsageLimit extends SingletonAction<UsageLimitSettings> {
+export class UsageLimit extends SingletonAction<UsageSettings> {
   constructor(private readonly controller: DeckController) {
     super();
   }
 
-  override onWillAppear(ev: WillAppearEvent<UsageLimitSettings>): void {
-    if (ev.action.isKey()) this.controller.registerUsageLimit(ev.action, parseUsageLimitMode(ev.payload.settings.mode));
+  override onWillAppear(ev: WillAppearEvent<UsageSettings>): void {
+    if (ev.action.isKey()) this.controller.registerUsageLimit(ev.action, parseUsageSettings(ev.payload.settings));
   }
 
-  override onDidReceiveSettings(ev: DidReceiveSettingsEvent<UsageLimitSettings>): void {
-    if (ev.action.isKey())
-      this.controller.updateUsageLimitMode(ev.action, parseUsageLimitMode(ev.payload.settings.mode));
+  override onDidReceiveSettings(ev: DidReceiveSettingsEvent<UsageSettings>): void {
+    if (ev.action.isKey()) this.controller.updateUsageLimitSettings(ev.action, parseUsageSettings(ev.payload.settings));
   }
 
   override onWillDisappear(ev: WillDisappearEvent): void {
@@ -591,13 +590,18 @@ export class UsageLimit extends SingletonAction<UsageLimitSettings> {
 }
 
 @action({ UUID: "com.xonika9.codex-deck.usage-overview" })
-export class UsageOverview extends SingletonAction {
+export class UsageOverview extends SingletonAction<UsageSettings> {
   constructor(private readonly controller: DeckController) {
     super();
   }
 
-  override onWillAppear(ev: WillAppearEvent): void {
-    if (ev.action.isKey()) this.controller.registerUsageOverview(ev.action);
+  override onWillAppear(ev: WillAppearEvent<UsageSettings>): void {
+    if (ev.action.isKey()) this.controller.registerUsageOverview(ev.action, parseUsageSettings(ev.payload.settings));
+  }
+
+  override onDidReceiveSettings(ev: DidReceiveSettingsEvent<UsageSettings>): void {
+    if (ev.action.isKey())
+      this.controller.updateUsageOverviewSettings(ev.action, parseUsageSettings(ev.payload.settings));
   }
 
   override onWillDisappear(ev: WillDisappearEvent): void {

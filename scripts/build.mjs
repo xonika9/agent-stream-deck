@@ -33,6 +33,10 @@ await cp(
   resolve("static/property-inspector/usage-limit.html"),
   resolve(output, "static/property-inspector/usage-limit.html"),
 );
+await cp(
+  resolve("static/property-inspector/usage-overview.html"),
+  resolve(output, "static/property-inspector/usage-overview.html"),
+);
 await cp(resolve("static/property-inspector/agent.html"), resolve(output, "static/property-inspector/agent.html"));
 
 await build({

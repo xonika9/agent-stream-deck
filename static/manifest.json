@@ -192,7 +192,7 @@
     {
       "UUID": "com.xonika9.codex-deck.usage-limit",
       "Name": "Usage Limit",
-      "Tooltip": "Shows remaining Codex usage for Auto, 5-hour, or Weekly mode.",
+      "Tooltip": "Shows remaining usage for the selected provider and window.",
       "Icon": "static/imgs/category-icon",
       "PropertyInspectorPath": "static/property-inspector/usage-limit.html",
       "Controllers": ["Keypad"],
@@ -201,8 +201,9 @@
     {
       "UUID": "com.xonika9.codex-deck.usage-overview",
       "Name": "Usage Overview",
-      "Tooltip": "Shows the 5-hour and weekly Codex usage windows together.",
+      "Tooltip": "Shows two usage windows for the selected provider.",
       "Icon": "static/imgs/category-icon",
+      "PropertyInspectorPath": "static/property-inspector/usage-overview.html",
       "Controllers": ["Keypad"],
       "States": [{ "Image": "static/imgs/key", "Title": "" }]
     },

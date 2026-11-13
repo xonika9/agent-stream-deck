@@ -8,10 +8,18 @@ import test, { type TestContext } from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import streamDeck, { type KeyAction, type TitleParametersDidChangeEvent } from "@elgato/streamdeck";
-import type { HostHealth, HostSnapshot, RoutedAgentSlot, TaskSource } from "#agents";
+import type { HostHealth, HostSnapshot, RoutedAgentSlot, TaskSource, UsageSnapshot } from "#agents";
 import { CodexMicroRendererBridge, type CodexSource } from "#codex";
 import { OpenCodeCollector, type OpenCodeCollectorSnapshot, OpenCodeSource, type OpenCodeTask } from "#opencode";
-import { Agent1, type AgentDisplaySettings, DeckController, RateLimitReset, ReasoningUp } from "#stream-deck";
+import {
+  Agent1,
+  type AgentDisplaySettings,
+  DeckController,
+  RateLimitReset,
+  ReasoningUp,
+  UsageLimit,
+  UsageOverview,
+} from "#stream-deck";
 import type { T3CodeSource } from "#t3code";
 import { CODEX_BAR_FRESH_MS } from "#usage";
 import { codexDeckStateRoot } from "../src/runtime/paths.js";
@@ -110,6 +118,28 @@ type Deck = {
   codex: CodexStub;
   openCode: OfflineOpenCodeSource;
   t3Code: T3Stub;
+  t3Usage: T3UsageStub;
+};
+
+function createT3UsageStub(): T3UsageStub {
+  const stub: T3UsageStub = {
+    snapshots: {},
+    health: { state: "connecting", reason: "awaiting-snapshot", changedAt: 1 },
+    refreshCalls: 0,
+    async refresh() {
+      stub.refreshCalls++;
+      await stub.refreshGate;
+    },
+  };
+  return stub;
+}
+
+type T3UsageStub = {
+  snapshots: Partial<Record<"t3-codex" | "t3-claude" | "t3-opencode", UsageSnapshot>>;
+  health: HostHealth;
+  refreshCalls: number;
+  refreshGate?: Promise<void>;
+  refresh(): Promise<void>;
 };
 
 function createDeck(
@@ -118,12 +148,14 @@ function createDeck(
   const codex = createCodexStub();
   const openCode = new OfflineOpenCodeSource(() => {}, options.foregroundOpenCode);
   const t3Code = createT3Stub(options.foregroundT3Code);
+  const t3Usage = createT3UsageStub();
   const controller = new DeckController({
     codex: codex as unknown as CodexSource,
     openCode,
     t3Code: t3Code as unknown as T3CodeSource,
+    t3Usage,
   });
-  return { controller, codex, openCode, t3Code };
+  return { controller, codex, openCode, t3Code, t3Usage };
 }
 
 async function isolateHome(context: TestContext): Promise<string> {
@@ -493,7 +525,12 @@ test("usage keys use the light theme when Codex has no renderer snapshot", async
   deck.codex.localHealth = { state: "degraded", reason: "codex-not-running", changedAt: 1 };
   const limit = fakeKey("usage-limit");
 
-  deck.controller.registerUsageLimit(limit.action, "five-hour");
+  deck.controller.registerUsageLimit(limit.action, {
+    source: "codex-auto",
+    mode: "five-hour",
+    topWindow: "five-hour",
+    bottomWindow: "weekly",
+  });
   await settle();
 
   assert.match(limit.images.at(-1)!, /data-theme="light"/);
@@ -862,10 +899,20 @@ for (const [name, platform, barAge, expected] of [
     deck.codex.localHealth = { state: "ready", changedAt: Date.now() };
     await startDeck(context, deck, { codexBarAge: barAge });
     const key = fakeKey(platform);
-    deck.controller.registerUsageLimit(key.action, "five-hour");
+    deck.controller.registerUsageLimit(key.action, {
+      source: "codex-auto",
+      mode: "five-hour",
+      topWindow: "five-hour",
+      bottomWindow: "weekly",
+    });
     await settle();
     const overview = fakeKey(`${platform}-overview`);
-    deck.controller.registerUsageOverview(overview.action);
+    deck.controller.registerUsageOverview(overview.action, {
+      source: "codex-auto",
+      mode: "auto",
+      topWindow: "five-hour",
+      bottomWindow: "weekly",
+    });
     await settle();
 
     const images = [...key.images, ...overview.images];
@@ -877,6 +924,210 @@ for (const [name, platform, barAge, expected] of [
     }
   });
 }
+
+function t3UsageSnapshot(windows: UsageSnapshot["windows"]): UsageSnapshot {
+  return { windows, observedAt: Date.now(), resetCreditsAvailable: null, resetCreditsApplicable: null };
+}
+
+const monthlyNine: UsageSnapshot["windows"] = [
+  {
+    id: "go_monthly",
+    kind: "monthly",
+    usedPercent: 9,
+    remainingPercent: 91,
+    windowDurationMins: 43_200,
+    resetsAt: null,
+  },
+];
+
+test("usage limit renders the chosen T3 source window with its label", async () => {
+  const deck = createDeck();
+  deck.t3Usage.snapshots = { "t3-opencode": t3UsageSnapshot(monthlyNine) };
+  deck.t3Usage.health = { state: "ready", changedAt: Date.now() };
+  const key = fakeKey("t3-monthly");
+  deck.controller.registerUsageLimit(key.action, {
+    source: "t3-opencode",
+    mode: "monthly",
+    topWindow: "five-hour",
+    bottomWindow: "monthly",
+  });
+  await settle();
+
+  const image = key.images.at(-1)!;
+  assert.match(image, /data-usage-used="9"/);
+  assert.match(image, />MO<\/text>/);
+});
+
+test("usage overview renders the two chosen T3 bar windows in order and applies bar changes", async () => {
+  const deck = createDeck();
+  deck.t3Usage.snapshots = {
+    "t3-claude": t3UsageSnapshot([
+      {
+        id: "five_hour",
+        kind: "five-hour",
+        usedPercent: 12,
+        remainingPercent: 88,
+        windowDurationMins: 300,
+        resetsAt: null,
+      },
+      {
+        id: "seven_day_fable",
+        kind: "weekly-fable",
+        usedPercent: 34,
+        remainingPercent: 66,
+        windowDurationMins: 10_080,
+        resetsAt: null,
+      },
+    ]),
+  };
+  deck.t3Usage.health = { state: "ready", changedAt: 1 };
+  const key = fakeKey("t3-overview");
+  deck.controller.registerUsageOverview(key.action, {
+    source: "t3-claude",
+    mode: "auto",
+    topWindow: "weekly-fable",
+    bottomWindow: "five-hour",
+  });
+  await settle();
+
+  const image = key.images.at(-1)!;
+  assert.match(image, /data-usage-window="FBL"[\s\S]*>34%<\/text>/);
+  assert.match(image, /data-usage-window="5H"[\s\S]*>12%<\/text>/);
+  assert.ok(image.indexOf('data-usage-window="FBL"') < image.indexOf('data-usage-window="5H"'));
+
+  deck.controller.updateUsageOverviewSettings(key.action, {
+    source: "t3-claude",
+    mode: "auto",
+    topWindow: "five-hour",
+    bottomWindow: "weekly-fable",
+  });
+  await settle();
+  const swapped = key.images.at(-1)!;
+  assert.ok(swapped.indexOf('data-usage-window="5H"') < swapped.indexOf('data-usage-window="FBL"'));
+});
+
+test("usage limit settings apply without re-registration", async () => {
+  const deck = createDeck();
+  deck.codex.localSnapshot = {
+    host,
+    snapshot: {
+      ...snapshot,
+      usage: t3UsageSnapshot([
+        {
+          id: "five-hour",
+          kind: "five-hour",
+          usedPercent: 73,
+          remainingPercent: 27,
+          windowDurationMins: 300,
+          resetsAt: null,
+        },
+      ]),
+    },
+    observedAt: Date.now(),
+  };
+  deck.codex.localHealth = { state: "ready", changedAt: 1 };
+  deck.t3Usage.snapshots = { "t3-opencode": t3UsageSnapshot(monthlyNine) };
+  deck.t3Usage.health = { state: "ready", changedAt: 1 };
+  const key = fakeKey("settings-change");
+  deck.controller.registerUsageLimit(key.action, {
+    source: "codex-auto",
+    mode: "five-hour",
+    topWindow: "five-hour",
+    bottomWindow: "weekly",
+  });
+  await settle();
+  assert.match(key.images.at(-1)!, /data-usage-used="73"/);
+
+  deck.controller.updateUsageLimitSettings(key.action, {
+    source: "t3-opencode",
+    mode: "monthly",
+    topWindow: "five-hour",
+    bottomWindow: "monthly",
+  });
+  await settle();
+  const image = key.images.at(-1)!;
+  assert.match(image, /data-usage-used="9"/);
+  assert.match(image, />MO<\/text>/);
+});
+
+test("T3 usage polls only with a T3 key and at most once every 60 seconds", async (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 1_000_000 });
+  const deck = createDeck();
+  deck.codex.localHealth = { state: "ready", changedAt: 1 };
+  await startDeck(context, deck);
+  const codexKey = fakeKey("codex-usage-key");
+  deck.controller.registerUsageLimit(codexKey.action, {
+    source: "codex-auto",
+    mode: "auto",
+    topWindow: "five-hour",
+    bottomWindow: "weekly",
+  });
+  context.mock.timers.tick(1_200);
+  await drain();
+  assert.equal(deck.t3Usage.refreshCalls, 0, "a Codex key creates no T3 usage demand");
+
+  const key = fakeKey("t3-usage-key");
+  deck.controller.registerUsageLimit(key.action, {
+    source: "t3-claude",
+    mode: "five-hour",
+    topWindow: "five-hour",
+    bottomWindow: "weekly",
+  });
+  await drain();
+  assert.equal(deck.t3Usage.refreshCalls, 1, "the first T3 key polls immediately");
+  context.mock.timers.tick(1_200);
+  await drain();
+  context.mock.timers.tick(1_200);
+  await drain();
+  assert.equal(deck.t3Usage.refreshCalls, 1, "usage polls are throttled to one per minute");
+  context.mock.timers.tick(60_000);
+  await drain();
+  assert.equal(deck.t3Usage.refreshCalls, 2, "the next minute polls again");
+});
+
+test("T3 usage shows retained windows while degraded and a dash while offline", async () => {
+  const deck = createDeck();
+  deck.t3Usage.snapshots = { "t3-opencode": t3UsageSnapshot(monthlyNine) };
+  deck.t3Usage.health = { state: "degraded", reason: "snapshot-stale", changedAt: 1 };
+  const key = fakeKey("t3-degraded");
+  deck.controller.registerUsageLimit(key.action, {
+    source: "t3-opencode",
+    mode: "monthly",
+    topWindow: "five-hour",
+    bottomWindow: "monthly",
+  });
+  await settle();
+
+  const degraded = key.images.at(-1)!;
+  assert.match(degraded, /data-usage-used="9"/);
+  assert.match(degraded, /#FF7A1A/, "the retained window keeps the warning color");
+
+  deck.t3Usage.snapshots = {};
+  deck.t3Usage.health = { state: "offline", changedAt: 2 };
+  await deck.controller.toggleTargetHost();
+  const offline = key.images.at(-1)!;
+  assert.doesNotMatch(offline, /data-usage-used=/);
+  assert.match(offline, />—<\/text>/);
+});
+
+test("usage key presses send no commands and spend no reset credits", async () => {
+  const deck = createDeck();
+  const limit = new UsageLimit(deck.controller);
+  const overview = new UsageOverview(deck.controller);
+  const reset = new RateLimitReset(deck.controller);
+  const key = fakeKey("usage-press", { onAlert: () => assert.fail("a usage press must not alert") });
+
+  await limit.onKeyDown?.(key.event);
+  await limit.onKeyUp?.(key.event);
+  await overview.onKeyDown?.(key.event);
+  await overview.onKeyUp?.(key.event);
+  await reset.onKeyDown?.(key.event);
+  await reset.onKeyUp?.(key.event);
+
+  assert.deepEqual(deck.codex.sends, []);
+  assert.equal(deck.codex.consumed, 0);
+  assert.equal(key.alerts(), 0);
+});
 
 type BridgeInternals = {
   lastSnapshot?: typeof snapshot;

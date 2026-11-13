@@ -7,41 +7,107 @@
   <style>
     :root { color-scheme: dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     body { margin: 0; padding: 14px; color: #d8d8d8; background: #2d2d2d; font-size: 12px; }
-    label { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 8px; }
+    label { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 8px; margin-top: 10px; }
+    label:first-of-type { margin-top: 0; }
     select { width: 100%; min-height: 28px; color: #efefef; background: #3b3b3b; border: 1px solid #555; border-radius: 4px; padding: 3px 7px; }
     p { margin: 12px 0 0 100px; color: #a9a9a9; line-height: 1.35; }
   </style>
 </head>
 <body>
   <label>
-    <span>Limit window</span>
-    <select id="mode">
-      <option value="auto">Automatic</option>
-      <option value="five-hour">5 hours</option>
-      <option value="weekly">Weekly</option>
-    </select>
+    <span>Source</span>
+    <select id="source"></select>
   </label>
-  <p>Automatic prefers the 5-hour window and falls back to weekly when Codex does not provide it.</p>
+  <label>
+    <span>Limit window</span>
+    <select id="mode"></select>
+  </label>
+  <p>Automatic prefers the 5-hour window and falls back to weekly when the provider does not offer it. T3 sources read limits from the local T3 Code app on macOS.</p>
   <script>
     let websocket;
     let context;
     let settings = {};
+    let platform = "mac";
+
+    const SOURCE_OPTIONS = [
+      ["codex-auto", "Codex · Automatic"],
+      ["codex-bar", "Codex · CodexBar"],
+      ["codex-app", "Codex · App"],
+      ["t3-codex", "T3 · Codex"],
+      ["t3-claude", "T3 · Claude"],
+      ["t3-opencode", "T3 · OpenCode"],
+    ];
+    const MODE_OPTIONS = {
+      codex: [["auto", "Automatic"], ["five-hour", "5 hours"], ["weekly", "Weekly"]],
+      "t3-claude": [["auto", "Automatic"], ["five-hour", "5 hours"], ["weekly", "Weekly"], ["weekly-fable", "Weekly · Fable"]],
+      "t3-opencode": [["auto", "Automatic"], ["five-hour", "5 hours"], ["weekly", "Weekly"], ["monthly", "Monthly"]],
+    };
+
+    function modeGroup(source) {
+      return source === "t3-claude" || source === "t3-opencode" ? source : "codex";
+    }
+
+    function availableSources() {
+      return platform === "windows" ? SOURCE_OPTIONS.filter(([value]) => !value.startsWith("t3-")) : SOURCE_OPTIONS;
+    }
+
+    function optionHtml(options, selected) {
+      return options
+        .map(([value, label]) => `<option value="${value}"${value === selected ? " selected" : ""}>${label}</option>`)
+        .join("");
+    }
+
+    function save() {
+      if (websocket?.readyState === WebSocket.OPEN) {
+        websocket.send(JSON.stringify({ event: "setSettings", context, payload: settings }));
+      }
+    }
+
+    function normalize() {
+      const sources = availableSources().map(([value]) => value);
+      const source = sources.includes(settings.source) ? settings.source : "codex-auto";
+      const modes = MODE_OPTIONS[modeGroup(source)].map(([value]) => value);
+      const mode = modes.includes(settings.mode) ? settings.mode : "auto";
+      const changed =
+        (settings.source !== undefined && source !== settings.source) ||
+        (settings.mode !== undefined && mode !== settings.mode);
+      settings = { ...settings, source, mode };
+      return changed;
+    }
+
+    function render() {
+      document.getElementById("source").innerHTML = optionHtml(availableSources(), settings.source);
+      document.getElementById("source").value = settings.source;
+      document.getElementById("mode").innerHTML = optionHtml(MODE_OPTIONS[modeGroup(settings.source)], settings.mode);
+      document.getElementById("mode").value = settings.mode;
+    }
 
     window.connectElgatoStreamDeckSocket = (port, uuid, registerEvent, info, actionInfo) => {
       const action = JSON.parse(actionInfo);
       context = action.context;
       settings = action.payload?.settings ?? {};
-      const mode = ["auto", "five-hour", "weekly"].includes(settings.mode) ? settings.mode : "auto";
-      document.getElementById("mode").value = mode;
+      platform = info?.application?.platform === "windows" ? "windows" : "mac";
+      const changed = normalize();
+      render();
       websocket = new WebSocket(`ws://127.0.0.1:${port}`);
-      websocket.addEventListener("open", () => websocket.send(JSON.stringify({ event: registerEvent, uuid })));
+      websocket.addEventListener("open", () => {
+        websocket.send(JSON.stringify({ event: registerEvent, uuid }));
+        if (changed) save();
+      });
     };
+
+    document.getElementById("source").addEventListener("change", (event) => {
+      settings = { ...settings, source: event.target.value };
+      normalize();
+      render();
+      save();
+    });
 
     document.getElementById("mode").addEventListener("change", (event) => {
       settings = { ...settings, mode: event.target.value };
-      if (websocket?.readyState === WebSocket.OPEN) {
-        websocket.send(JSON.stringify({ event: "setSettings", context, payload: settings }));
-      }
+      normalize();
+      render();
+      save();
     });
   </script>
 </body>
