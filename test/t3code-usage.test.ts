@@ -391,6 +391,32 @@ test("T3 usage reader degrades on a failed or malformed Exit", {
   }
 });
 
+test("T3 usage reader drops snapshots when degraded after five minutes without a good poll", {
+  skip: process.platform === "win32" ? "T3 usage reader is macOS-only" : false,
+}, async (context) => {
+  context.mock.timers.enable({ apis: ["Date"] });
+  const usage = await startUsageServer(await loadSample());
+  const root = await mkdtemp(join(tmpdir(), "deck-t3-usage-stale-"));
+  const logs: string[] = [];
+  try {
+    const { configPath, runtimePath } = await writeConnection(root, usage.origin);
+    const reader = new T3UsageReader((message) => logs.push(message), { configPath, runtimePath });
+    await reader.refresh();
+    assert.equal(reader.health.state, "ready");
+    assert.ok(reader.snapshots["t3-codex"], "a good poll stores snapshots");
+    context.mock.timers.tick(5 * 60_000 + 1_000);
+    usage.state.wsMode = "error-exit";
+    await reader.refresh();
+    assert.equal(reader.health.state, "degraded");
+    assert.deepEqual(reader.snapshots, {}, "stale snapshots clear once the last good poll ages out");
+    assert.deepEqual(logs, ["T3 usage connection unavailable: response is unsupported or too large."]);
+    secretFree(logs);
+  } finally {
+    await usage.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("T3 usage reader refuses a non-loopback origin without a network request", {
   skip: process.platform === "win32" ? "T3 usage reader is macOS-only" : false,
 }, async () => {

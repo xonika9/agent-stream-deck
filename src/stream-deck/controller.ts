@@ -39,6 +39,7 @@ import type {
   UsageWindowKind,
 } from "#agents";
 import {
+  isT3UsageSource,
   selectAccountUsage,
   selectUsageBarWindow,
   selectUsageWindow,
@@ -515,8 +516,7 @@ export class DeckController {
   }
 
   private hasT3UsageDemand(): boolean {
-    const usesT3 = (settings: UsageKeySettings): boolean =>
-      settings.source === "t3-codex" || settings.source === "t3-claude" || settings.source === "t3-opencode";
+    const usesT3 = (settings: UsageKeySettings): boolean => isT3UsageSource(settings.source);
     for (const registration of this.usageLimitActions.values()) if (usesT3(registration.settings)) return true;
     for (const registration of this.usageOverviewActions.values()) if (usesT3(registration.settings)) return true;
     return false;
@@ -806,7 +806,7 @@ export class DeckController {
   }
 
   private accountUsageSource(source: UsageSource): AccountUsageSource {
-    if (source === "t3-codex" || source === "t3-claude" || source === "t3-opencode") {
+    if (isT3UsageSource(source)) {
       return {
         health: this.t3Usage?.health ?? { state: "offline", changedAt: Date.now() },
         hostId: this.codex.localHost?.hostId,

@@ -115,6 +115,68 @@ test("a failing stub keeps the other rows and reports fail", async () => {
   }
 });
 
+test("an export failure is rejected with skipped rows and no check runs", async () => {
+  const repo = await initRepo();
+  const output = join(await mkdtemp(join(tmpdir(), "deck-acceptance-out-")), "result.json");
+  let calls = 0;
+  try {
+    const { outputPath, report } = await runStageAcceptance({
+      repoRoot: repo,
+      outputPath: output,
+      exportTree: async () => {
+        throw new Error("archive boom");
+      },
+      runCheck: async () => {
+        calls += 1;
+        return { exitCode: 0 };
+      },
+    });
+    assert.equal(outputPath, output);
+    assert.equal(report.result, "rejected");
+    assert.match(report.reason ?? "", /could not export/);
+    assert.equal(calls, 0);
+    assert.equal(report.checks.length, ACCEPTANCE_CHECKS.length);
+    assert.ok(report.checks.every((row) => row.status === "skipped" && row.exitCode === null && row.blocking));
+    const stored = JSON.parse(await readFile(output, "utf8"));
+    assert.deepEqual(stored, report);
+  } finally {
+    await rm(repo, { recursive: true, force: true });
+    await rm(join(output, ".."), { recursive: true, force: true }).catch(() => {});
+  }
+});
+
+test("a throwing check fails with a null exit code and a non-zero exit carries its tail", async () => {
+  const repo = await initRepo();
+  const output = join(await mkdtemp(join(tmpdir(), "deck-acceptance-out-")), "result.json");
+  try {
+    const { report } = await runStageAcceptance({
+      repoRoot: repo,
+      outputPath: output,
+      runCheck: async (check) => {
+        if (check.name === "test") throw new Error("runner boom");
+        if (check.name === "lint") return { exitCode: 1, outputTail: "lint tail" };
+        return { exitCode: 0 };
+      },
+    });
+    assert.equal(report.result, "fail");
+    assert.equal(report.checks.length, ACCEPTANCE_CHECKS.length);
+    const thrown = report.checks.find((row) => row.name === "test");
+    assert.equal(thrown?.status, "fail");
+    assert.equal(thrown?.exitCode, null);
+    assert.ok(!("outputTail" in (thrown ?? {})), "a throwing check has no tail to carry");
+    const lint = report.checks.find((row) => row.name === "lint");
+    assert.equal(lint?.status, "fail");
+    assert.equal(lint?.exitCode, 1);
+    assert.equal(lint?.outputTail, "lint tail");
+    assert.ok(
+      report.checks.filter((row) => row.name !== "test" && row.name !== "lint").every((row) => row.status === "pass"),
+    );
+  } finally {
+    await rm(repo, { recursive: true, force: true });
+    await rm(join(output, ".."), { recursive: true, force: true }).catch(() => {});
+  }
+});
+
 test("a HEAD change during the run is rejected", async () => {
   const repo = await initRepo();
   const output = join(await mkdtemp(join(tmpdir(), "deck-acceptance-out-")), "result.json");

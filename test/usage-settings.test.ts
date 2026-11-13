@@ -159,6 +159,19 @@ test("usage overview adds Monthly for T3 OpenCode and resets an unoffered top ba
   });
 });
 
+test("usage limit saves the corrected stale window on open", async () => {
+  const { connect, settingsSent } = await loadInspector("usage-limit.html", ["source", "mode"]);
+  const socket = connect({ source: "t3-codex", mode: "weekly-fable" });
+  assert.deepEqual(settingsSent(socket), [{ source: "t3-codex", mode: "auto" }]);
+});
+
+test("usage overview saves the corrected stale source on open", async () => {
+  const { element, connect, settingsSent } = await loadInspector("usage-overview.html", ["source", "top", "bottom"]);
+  const socket = connect({ source: "t3-claude" }, "windows");
+  assert.equal(element("source").value, "codex-auto");
+  assert.deepEqual(settingsSent(socket), [{ source: "codex-auto", topWindow: "five-hour", bottomWindow: "weekly" }]);
+});
+
 test("usage overview hides T3 sources on Windows", async () => {
   const { element, connect } = await loadInspector("usage-overview.html", ["source", "top", "bottom"]);
   connect({}, "windows");

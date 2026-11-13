@@ -61,6 +61,10 @@ const MODES_BY_SOURCE: Record<UsageSource, UsageLimitMode[]> = {
   "t3-opencode": ["auto", "five-hour", "weekly", "monthly"],
 };
 
+export function isT3UsageSource(source: UsageSource): source is "t3-codex" | "t3-claude" | "t3-opencode" {
+  return source === "t3-codex" || source === "t3-claude" || source === "t3-opencode";
+}
+
 export function parseUsageSource(value: unknown, platform: string = process.platform): UsageSource {
   if (platform === "win32") return "codex-auto";
   return value === "codex-auto" ||
