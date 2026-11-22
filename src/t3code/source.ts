@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { constants } from "node:fs";
 import { open, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { CodexHost, HostHealth, RoutedAgentSlot, TaskSource, TaskSourceSet } from "#agents";
 import { toTaskSourceSet } from "#agents";
 import { codexDeckStateRoot } from "../runtime/paths.js";
@@ -44,11 +44,13 @@ export async function validateLocalRuntime(config: RecordValue, runtimePath: str
   return { origin, token, pid: Number(runtime.pid) };
 }
 type RecordValue = Record<string, unknown>;
-type Options = { configPath?: string; runtimePath?: string; foreground?: () => Promise<void> };
+type Options = { configPath?: string; runtimePath?: string; foreground?: (threadUrl?: string) => Promise<void> };
 type LocalRuntime = { origin: string; token: string; pid: number };
 type FailureReason = "credential-rejected" | "runtime-unavailable" | "timeout" | "ssh-unavailable" | "invalid-response";
 type Environment = {
   namespace: string;
+  // Known from the saved SSH connection; the local one is read when a key is pressed.
+  environmentId?: string;
   // Log label: "local" or an SSH ordinal; never a host, identity or token.
   label: string;
   identity: string;
@@ -74,7 +76,7 @@ export class T3CodeSource {
   private readonly reportedFailures = new Map<string, FailureReason>();
   private readonly configPath: string;
   private readonly runtimePath: string;
-  private readonly foreground: () => Promise<void>;
+  private readonly foreground: (threadUrl?: string) => Promise<void>;
 
   constructor(
     private readonly log: (message: string) => void,
@@ -132,7 +134,7 @@ export class T3CodeSource {
     try {
       const config = await readPrivateConfig(this.configPath);
       if (generation !== this.generation || !this.demanded) return;
-      const desired = new Map<string, { label: string; identity: string; read: Environment["read"] }>();
+      const desired = new Map<string, Pick<Environment, "environmentId" | "label" | "identity" | "read">>();
       try {
         const runtime = await this.localRuntime(config);
         desired.set("", {
@@ -160,6 +162,7 @@ export class T3CodeSource {
               const namespace = `ssh:${connection.environmentId}:`;
               if (desired.has(namespace)) throw new Error("Duplicate T3 environment");
               desired.set(namespace, {
+                environmentId: connection.environmentId,
                 label: `SSH connection ${index + 1}`,
                 identity: JSON.stringify([connection.host, connection.environmentId, connection.token]),
                 read: async (request) => object(await t3SshRequest(connection.host, connection, request.signal)),
@@ -319,7 +322,7 @@ export class T3CodeSource {
   async open(assignment: RoutedAgentSlot, signal: AbortSignal): Promise<boolean> {
     if (!this.demanded || signal.aborted) return false;
     const generation = this.generation;
-    await this.foreground();
+    await this.foreground(await this.threadUrl(assignment.threadKey));
     if (signal.aborted || generation !== this.generation || !this.demanded) return false;
     const current = this.slots.find((slot) => slot.threadKey === assignment.threadKey);
     if (!current || current.activityAt !== assignment.activityAt || current.status !== assignment.status) return false;
@@ -330,6 +333,18 @@ export class T3CodeSource {
       this.publish();
     }
     return true;
+  }
+
+  // Undefined leaves the press at bringing T3 Code forward.
+  private async threadUrl(threadKey: RoutedAgentSlot["threadKey"]): Promise<string | undefined> {
+    const environment = [...this.environments.values()].find(({ slots }) =>
+      slots.some((slot) => slot.threadKey === threadKey),
+    );
+    if (!threadKey || !environment) return undefined;
+    const environmentId = environment.environmentId ?? (await readLocalEnvironmentId(this.runtimePath));
+    if (!environmentId) return undefined;
+    const threadId = threadKey.slice(environment.namespace.length);
+    return `t3code://threads/${encodeURIComponent(environmentId)}/${encodeURIComponent(threadId)}`;
   }
 
   private taskSlot(thread: RecordValue, index: number, now: number, namespace = ""): RoutedAgentSlot | null {
@@ -436,9 +451,14 @@ export async function readPrivateConfig(path: string): Promise<RecordValue> {
     await file.close();
   }
 }
-async function foregroundT3Code(): Promise<void> {
+async function readLocalEnvironmentId(runtimePath: string): Promise<string | undefined> {
+  const value = await readFile(join(dirname(runtimePath), "environment-id"), "utf8").catch(() => "");
+  return /^[A-Za-z0-9-]{1,128}$/u.exec(value.trim())?.[0];
+}
+async function foregroundT3Code(threadUrl?: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    execFile("/usr/bin/open", ["-b", "com.t3tools.t3code"], { timeout: 5_000 }, (error) =>
+    const target = threadUrl ? [threadUrl] : [];
+    execFile("/usr/bin/open", ["-b", "com.t3tools.t3code", ...target], { timeout: 5_000 }, (error) =>
       error ? reject(new Error("T3 Code activation failed")) : resolve(),
     );
   });

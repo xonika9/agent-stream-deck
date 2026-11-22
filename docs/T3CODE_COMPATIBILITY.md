@@ -85,9 +85,12 @@ ordinary question to its caller, a credential refresh, a request without an acti
 run and a provider-native subagent's request are not forwarded. Local display
 filters kept by the T3 application, such as hidden tags, are not visible to the plugin.
 Completed/failed results expire five minutes after their terminal timestamp and
-are omitted when T3 reports they have already been visited. A press foregrounds
-T3 Code and acknowledges only the exact displayed terminal revision locally.
-It does not navigate to a specific chat or publish a visited update. A newer
+are omitted when T3 reports they have already been visited. A press opens
+the displayed thread in T3 Code through its `t3code://threads/<environment>/<thread>`
+link and acknowledges only the exact displayed terminal revision locally. The link
+never carries a prompt. Remote threads need their environment connected in the T3
+application. If no link can be formed, the press only foregrounds T3 Code. The
+plugin itself publishes no visited update. A newer
 terminal timestamp admits the result again. Key-up sends no Codex command.
 T3 keys display `T3` and have no Codex context ring.
 
@@ -202,3 +205,10 @@ On 2026-11-22 the left-menu rule was read from the installed client of T3 Code N
 where running delegated tasks were present as `lineage.relationshipToParent: "subagent"`.
 No side chat, cross-environment delegation or pending subagent request was present;
 those cases are covered by fixtures only.
+
+The same T3 Code build registers the `t3code://threads/<environment>/<thread>` link.
+On 2026-11-22 the source's key-press path opened one running local thread and one
+running Fedora thread in the macOS application, confirmed by its window title. Both
+had plain UUID identifiers; identifiers that need percent-encoding, such as launched
+`mcp:launch:` threads, are covered by fixtures only. This is application validation,
+not a physical button press.

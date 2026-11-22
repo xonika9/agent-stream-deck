@@ -10,7 +10,7 @@
 
 [![CI workflow status](https://github.com/xonika9/agent-stream-deck/actions/workflows/ci.yml/badge.svg)](https://github.com/xonika9/agent-stream-deck/actions/workflows/ci.yml)
 
-Agent Deck brings Codex, OpenCode, and T3 Code tasks together on an Elgato Stream Deck. On macOS, six dynamic keys show tasks from one source or all three; Windows retains the local Codex integration. Codex also supports native Micro controls for task selection, actions, navigation, and reasoning effort. OpenCode and T3 Code keys show task status and bring their application to the foreground.
+Agent Deck brings Codex, OpenCode, and T3 Code tasks together on an Elgato Stream Deck. On macOS, six dynamic keys show tasks from one source or all three; Windows retains the local Codex integration. Codex also supports native Micro controls for task selection, actions, navigation, and reasoning effort. OpenCode keys show task status and bring their application to the foreground; T3 Code keys also open the displayed conversation.
 
 This repository is a fork and continuation of [dazer1234/codex-stream-deck](https://github.com/dazer1234/codex-stream-deck). Current development and releases are maintained by [xonika9](https://github.com/xonika9).
 
@@ -40,7 +40,7 @@ Choose the global task sources in any **Agent** action's Stream Deck property in
 | --- | --- | --- |
 | Codex | Local launcher: [macOS](docs/MACOS.md) or [Windows](docs/WINDOWS.md) | Selects the task through the native Codex integration. |
 | OpenCode | macOS Desktop local service or saved SSH connection: [compatibility](docs/OPENCODE_COMPATIBILITY.md) | Brings OpenCode Desktop forward; does not select a specific conversation. |
-| T3 Code | Separate read-only connection to the local server or a running remote Linux server over SSH: [setup and compatibility](docs/T3CODE_COMPATIBILITY.md) | Brings T3 Code forward; does not select a specific conversation. |
+| T3 Code | Separate read-only connection to the local server or a running remote Linux server over SSH: [setup and compatibility](docs/T3CODE_COMPATIBILITY.md) | Opens the displayed conversation in T3 Code. |
 
 For OpenCode and T3 Code, fresh completed or failed results leave the queue after five minutes, when the source reports them viewed, or when their key is pressed. A newer result from the same conversation can appear again. T3 acknowledgements remain local to the plugin; OpenCode also attempts to report the result viewed through its supported API.
 

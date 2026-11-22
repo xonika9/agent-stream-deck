@@ -33,7 +33,9 @@ and group/other-readable configuration. The saved origin must be loopback HTTP
 and match T3 runtime registration with a live process. Redirects are rejected,
 requests are bounded, and credentials are never logged or put in Stream Deck
 global settings. No T3 command dispatch, database access, desktop credential
-decryption, or public network HTTP access is added. See `docs/T3CODE_COMPATIBILITY.md`.
+decryption, or public network HTTP access is added. Pressing a task key passes
+macOS only a `t3code://threads/` link with the opaque environment and thread
+identifiers; it carries no prompt, title or credential. See `docs/T3CODE_COMPATIBILITY.md`.
 
 Known limitation: the live-process check confirms that the recorded process ID
 exists, not that it still owns the recorded port. If T3 Code exits without

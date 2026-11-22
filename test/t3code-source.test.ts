@@ -7,7 +7,7 @@ import { setImmediate as yieldIO } from "node:timers/promises";
 import { createServer } from "node:http";
 import { mkdtemp, writeFile, rm, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test, { type TestContext } from "node:test";
 import { T3CodeSource } from "#t3code";
 import type { CodexHost } from "#agents";
@@ -392,7 +392,14 @@ async function t3Fixture(context: TestContext) {
     return child;
   });
   syncBuiltinESMExports();
-  const source = new T3CodeSource(() => {}, { configPath, runtimePath, foreground: async () => {} });
+  const opened: (string | undefined)[] = [];
+  const source = new T3CodeSource(() => {}, {
+    configPath,
+    runtimePath,
+    foreground: async (threadUrl) => {
+      opened.push(threadUrl);
+    },
+  });
   const waitJob = (count: number) =>
     new Promise<RemoteJob>((resolve) => {
       const check = () => {
@@ -419,6 +426,7 @@ async function t3Fixture(context: TestContext) {
     });
   return {
     source,
+    opened,
     config,
     save,
     configPath,
@@ -868,6 +876,34 @@ test("T3 repeats a ready SSH environment while another SSH environment keeps its
       source.slots.map((slot) => slot.threadKey),
       ["local", "ssh:remote:task", "ssh:fast:task"],
     );
+  } finally {
+    await fixture.close();
+  }
+});
+
+test("T3 press opens the exact local or remote thread and falls back to the application", {
+  skip: process.platform === "win32",
+}, async (context) => {
+  const fixture = await t3Fixture(context);
+  const { source, wait, waitJob, opened } = fixture;
+  fixture.local.payload = shell("thread:task%3Aa/b", "Local");
+  const press = async (threadKey: string) => {
+    const assignment = source.slots.find((slot) => slot.threadKey === threadKey)!;
+    assert.equal(await source.open(assignment, new AbortController().signal), true);
+    return opened.at(-1);
+  };
+  const environmentIdPath = join(dirname(fixture.runtimePath), "environment-id");
+  try {
+    source.syncDemand("T3 Code", host, false);
+    (await waitJob(1)).finish(shell("mcp:launch:1", "Remote"));
+    await wait(() => source.health.state === "ready");
+    assert.equal(await press("ssh:remote:mcp:launch:1"), "t3code://threads/remote/mcp%3Alaunch%3A1");
+    assert.equal(await press("thread:task%3Aa/b"), undefined);
+    await writeFile(environmentIdPath, "local-environment\n");
+    assert.equal(await press("thread:task%3Aa/b"), "t3code://threads/local-environment/thread%3Atask%253Aa%2Fb");
+    await writeFile(environmentIdPath, "../other?prompt=x");
+    assert.equal(await press("thread:task%3Aa/b"), undefined);
+    assert.equal(opened.length, 4);
   } finally {
     await fixture.close();
   }
