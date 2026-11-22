@@ -9,9 +9,10 @@ import { codexDeckStateRoot } from "../runtime/paths.js";
 
 import { T3CredentialRejectedError, T3SshUnavailableError, t3SshRequest, validateSshConnection } from "./ssh.js";
 import { readShell } from "./shell-reader.js";
-import { type ThreadRef, sidebarThreads } from "./sidebar.js";
+import { type ThreadRef, sidebarThreads, staysUntilRead } from "./sidebar.js";
 
 const TERMINAL_WINDOW_MS = 5 * 60_000;
+const MAX_ACKNOWLEDGED = 1_000;
 export type LocalConnection = { origin: string; token: string; pid: number };
 export type LocalConnectionOptions = { configPath?: string; runtimePath?: string };
 
@@ -287,10 +288,7 @@ export class T3CodeSource {
 
   private publish(): void {
     this.slots = this.visibleSlots();
-    const present = new Set(this.slots.map((slot) => slot.threadKey));
     const now = Date.now();
-    for (const [id, at] of this.acknowledged)
-      if (!present.has(id) && now - at > TERMINAL_WINDOW_MS) this.acknowledged.delete(id);
     const environments = [...this.environments.values()];
     const state =
       this.configurationFailed || environments.some((environment) => environment.state === "degraded")
@@ -355,7 +353,10 @@ export class T3CodeSource {
     const current = this.slots.find((slot) => slot.threadKey === assignment.threadKey);
     if (!current || current.activityAt !== assignment.activityAt || current.status !== assignment.status) return false;
     if ((current.status === "unread" || current.status === "error") && current.activityAt !== undefined) {
+      // A result may stay unread in T3 indefinitely, so a press is forgotten by count rather than by age.
+      this.acknowledged.delete(current.threadKey!);
       this.acknowledged.set(current.threadKey!, current.activityAt);
+      if (this.acknowledged.size > MAX_ACKNOWLEDGED) this.acknowledged.delete(this.acknowledged.keys().next().value!);
       for (const environment of this.environments.values())
         environment.slots = environment.slots.filter((slot) => slot !== current);
       this.publish();
@@ -407,7 +408,7 @@ export class T3CodeSource {
     else if (thread.status === "completed" || thread.status === "failed") {
       if (
         terminalAt === undefined ||
-        now - terminalAt > TERMINAL_WINDOW_MS ||
+        (now - terminalAt > TERMINAL_WINDOW_MS && !staysUntilRead(thread)) ||
         terminalAt > now + 60_000 ||
         this.acknowledged.get(namespace + thread.id) === terminalAt ||
         (timestamp(thread.lastVisitedAt) ?? 0) >= terminalAt

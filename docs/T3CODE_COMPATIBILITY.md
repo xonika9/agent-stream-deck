@@ -87,8 +87,13 @@ not forwarded. A task delegated from another environment is omitted only while t
 thread that delegated it is in the queue, and keeps its own orange key when it asks
 the user; T3 itself nests it whenever that thread is known and not archived. Local display
 filters kept by the T3 application, such as hidden tags, are not visible to the plugin.
-Completed/failed results expire five minutes after their terminal timestamp and
-are omitted when T3 reports they have already been visited. A press opens
+A completed or failed result stays until T3 reports it visited, the thread is settled
+or otherwise omitted, or its key is pressed. A thread the user has never opened, which
+T3 does not mark unread, instead expires five minutes after its terminal timestamp, as
+does work another agent drives (subagents, side chats and delegated tasks). Opening the
+conversation in T3 Code records the visit on its server, so the key clears on the next
+successful read without a press. Presses are remembered only until the plugin restarts, for the
+latest 1,000 conversations. A press opens
 the displayed thread in T3 Code through its `t3code://threads/<environment>/<thread>`
 link and acknowledges only the exact displayed terminal revision locally. The link
 never carries a prompt. Remote threads need their environment connected in the T3

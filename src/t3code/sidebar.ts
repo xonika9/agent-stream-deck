@@ -8,6 +8,12 @@ function isNested(thread: RecordValue): boolean {
   return lineage?.relationshipToParent === "subagent" || lineage?.sideChat === true;
 }
 
+// T3 marks a thread unread only once the user has opened it. Work another agent drives may never be opened,
+// and its accumulated history must not reach the queue, so it does not wait to be read.
+export function staysUntilRead(thread: RecordValue): boolean {
+  return Boolean(thread.lastVisitedAt) && !isNested(thread) && delegation(thread) === undefined;
+}
+
 // Mirrors which nested requests T3 surfaces to the user: the calling agent answers an ordinary
 // subagent question, and a provider-native subagent's request already belongs to its parent.
 // A side chat has no calling agent, so its proposed plan also waits for the user.

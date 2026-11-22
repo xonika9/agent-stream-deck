@@ -23,6 +23,7 @@ test("remote Python reader filters growing history before SSH and fails closed o
     thread("background", "completed", { pendingBackgroundTasks: [{}] }),
     thread("done", "completed", { latestRunCompletedAt: iso() }),
     thread("failed", "failed", { latestRunCompletedAt: iso() }),
+    thread("unread", "completed", { latestRunCompletedAt: iso(-600_000), lastVisitedAt: iso(-700_000) }),
     thread("subagent", "waiting", {
       creationSource: "mcp",
       delegatedFrom: { environmentId: "origin-environment", threadId: "origin", title: "must-not-cross-ssh" },
@@ -35,6 +36,17 @@ test("remote Python reader filters growing history before SSH and fails closed o
     thread("settled", "running", { settledOverride: "settled" }),
     thread("snoozed", "running", { snoozedUntil: iso(60_000) }),
     thread("viewed", "completed", { latestRunCompletedAt: iso(), lastVisitedAt: iso() }),
+    ...[
+      { lineage: { parentThreadId: "working", relationshipToParent: "subagent" } },
+      { lineage: { parentThreadId: "working", relationshipToParent: "fork", sideChat: true } },
+      { delegatedFrom: { environmentId: "origin-environment", threadId: "origin" } },
+    ].map((origin) =>
+      thread("unread-by-agent", "completed", {
+        latestRunCompletedAt: iso(-600_000),
+        lastVisitedAt: iso(-700_000),
+        ...origin,
+      }),
+    ),
   ];
   const history = Array.from({ length: 12_000 }, () =>
     thread("old", "completed", { latestRunCompletedAt: iso(-600_000), lineage: "x".repeat(800) }),
@@ -82,12 +94,12 @@ test("remote Python reader filters growing history before SSH and fails closed o
     assert.equal(result.schemaVersion, 2);
     assert.deepEqual(
       result.threads.map((item) => item.id),
-      ["working", "approval", "background", "done", "failed", "subagent"],
+      ["working", "approval", "background", "done", "failed", "unread", "subagent"],
     );
     assert.equal(result.threads[0]?.title, 'Задача 😀 ["{}"]');
     assert.equal(result.threads[1]?.pendingRuntimeRequest, true);
     assert.deepEqual(result.threads[2]?.pendingBackgroundTasks, [true]);
-    assert.deepEqual(result.threads[5], {
+    assert.deepEqual(result.threads[6], {
       id: "subagent",
       title: 'Задача 😀 ["{}"]',
       status: "waiting",

@@ -615,6 +615,72 @@ test("T3 acknowledges the exact remote revision during a pending cycle without r
   }
 });
 
+test("T3 keeps an opened thread's result until it is read, settled or pressed", {
+  skip: process.platform === "win32",
+}, async (context) => {
+  const start = 1_000_000;
+  context.mock.timers.enable({ apis: ["Date"], now: start });
+  const fixture = await t3Fixture(context);
+  const { source, wait, waitJob } = fixture;
+  const at = (offset: number) => new Date(start + offset).toISOString();
+  const thread = (id: string, extra = {}) => ({
+    id,
+    title: id,
+    status: "completed",
+    latestRunCompletedAt: at(0),
+    lastVisitedAt: at(-1),
+    ...extra,
+  });
+  const subagent = { lineage: { parentThreadId: "gone", relationshipToParent: "subagent" } };
+  const delegated = { delegatedFrom: { environmentId: "unknown", threadId: "origin" } };
+  const statuses = async (threads: unknown[]) => {
+    fixture.local.payload = {
+      schemaVersion: 2,
+      threads: [...threads, { id: "marker", title: "m", status: "running" }],
+    };
+    const before = source.slots.find((slot) => slot.threadKey === "marker");
+    await source.refresh();
+    const marker = () => source.slots.find((slot) => slot.threadKey === "marker");
+    await wait(() => marker() !== undefined && marker() !== before);
+    return source.slots.filter((slot) => slot.threadKey !== "marker").map((slot) => [slot.threadKey, slot.status]);
+  };
+  try {
+    source.syncDemand("T3 Code", host, false);
+    await waitJob(1);
+    const threads = [
+      thread("opened"),
+      thread("broken", { status: "failed" }),
+      thread("never", { lastVisitedAt: null }),
+      thread("delegated", delegated),
+      thread("subagent", subagent),
+    ];
+    assert.deepEqual(await statuses(threads), [
+      ["opened", "unread"],
+      ["broken", "error"],
+      ["never", "unread"],
+      ["delegated", "unread"],
+    ]);
+    context.mock.timers.tick(24 * 60 * 60_000);
+    assert.deepEqual(await statuses(threads), [
+      ["opened", "unread"],
+      ["broken", "error"],
+    ]);
+    assert.deepEqual(
+      await statuses([thread("opened", { lastVisitedAt: at(0) }), thread("broken", { settledAt: at(1) })]),
+      [],
+    );
+    // The press outlives the five-minute window although T3 still reports the result unread.
+    await statuses([thread("opened")]);
+    const assignment = source.slots.find((slot) => slot.threadKey === "opened")!;
+    assert.equal(await source.open(assignment, new AbortController().signal), true);
+    context.mock.timers.tick(24 * 60 * 60_000);
+    assert.deepEqual(await statuses([thread("opened")]), []);
+    assert.deepEqual(await statuses([thread("opened", { latestRunCompletedAt: at(1) })]), [["opened", "unread"]]);
+  } finally {
+    await fixture.close();
+  }
+});
+
 test("T3 replacement, removal, disable and stop retire only their own pending generations", {
   skip: process.platform === "win32",
 }, async (context) => {

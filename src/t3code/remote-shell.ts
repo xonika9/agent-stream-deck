@@ -77,6 +77,11 @@ def timestamp(value):
  if not isinstance(value, str): return 0
  try: return datetime.datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp() * 1000
  except (ValueError, OverflowError, OSError): return 0
+def stays_until_read(thread):
+ lineage, source = thread.get("lineage"), thread.get("delegatedFrom")
+ nested = isinstance(lineage, dict) and (lineage.get("relationshipToParent") == "subagent" or lineage.get("sideChat") is True)
+ delegated = isinstance(source, dict) and isinstance(source.get("environmentId"), str) and isinstance(source.get("threadId"), str)
+ return truthy(thread.get("lastVisitedAt")) and not nested and not delegated
 def compact_thread(thread, now):
  if not isinstance(thread, dict) or not isinstance(thread.get("id"), str) or not thread["id"] or len(thread["id"]) > 512 or not isinstance(thread.get("title"), str) or not isinstance(thread.get("status"), str): raise ValueError("thread")
  if any(truthy(thread.get(key)) for key in ("deletedAt", "archivedAt", "settledAt")) or thread.get("settledOverride") == "settled" or timestamp(thread.get("snoozedUntil")) > now: return None
@@ -86,7 +91,7 @@ def compact_thread(thread, now):
  working = (activity if activity is not None else thread["status"]) in ("preparing", "queued", "starting", "running", "waiting") or background
  if not approval and not working:
   terminal = timestamp(thread.get("latestRunCompletedAt"))
-  if thread["status"] not in ("completed", "failed") or terminal <= 0 or now - terminal > 300000 or timestamp(thread.get("lastVisitedAt")) >= terminal: return None
+  if thread["status"] not in ("completed", "failed") or terminal <= 0 or now - terminal > 300000 and not stays_until_read(thread) or timestamp(thread.get("lastVisitedAt")) >= terminal: return None
  fields = ("id", "title", "status", "deletedAt", "archivedAt", "settledAt", "settledOverride", "snoozedUntil", "activityRunStartedAt", "latestUserAuthoredMessageAt", "latestRunRequestedAt", "latestRunCompletedAt", "activityRunStatus", "lastVisitedAt", "creationSource")
  result = {key: thread[key] for key in fields if key in thread}
  request, lineage, source = thread.get("pendingRuntimeRequest"), thread.get("lineage"), thread.get("delegatedFrom")
