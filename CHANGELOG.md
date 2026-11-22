@@ -2,6 +2,29 @@
 
 Versions through `0.7.0.2` below are the historical upstream releases by Dazer. Starting with `1.0.0`, releases belong to the xonika9 fork and use its own plugin identity. Releases after `2.2.2` use calendar versions `YY.M.D.N` (Moscow date, daily release number).
 
+## 26.11.22.2 - 2026-11-22
+
+### Highlights
+
+- Pressing a T3 Code key opens the displayed conversation in T3 Code, for the local server and for remote servers connected over SSH. If no conversation link can be formed, the press brings T3 Code forward as before.
+- T3 Code keys follow T3's left menu: subagents, delegated tasks and side chats no longer take keys of their own. When one of them asks for an approval that only you can give, its visible parent conversation turns orange; if that parent is not in the queue, the asking task keeps its own key.
+
+### Fixes
+
+- With both OpenCode and T3 Code selected, sessions that T3 Code runs through OpenCode no longer get a second key that opens OpenCode Desktop.
+
+### Compatibility
+
+- Conversation links and the OpenCode session rule were checked against T3 Code Nightly `0.1.11-nightly.20261119.4918` and OpenCode `2.3.2`. The session rule is not a public contract; an unrecognized session stays visible.
+- Opening a remote conversation requires its environment to be connected in the T3 Code application. While both sources are selected, T3 Code work that runs through OpenCode on a machine whose T3 server is not connected to Agent Deck is hidden.
+- Profiles, saved settings, existing connections and plugin and action UUIDs are unchanged. Windows actions are unchanged.
+
+### Validation
+
+- Local automated macOS validation passed with Node 24.16.0 through `npm run release:prepare`: clean dependency install, lint, import boundaries, types, version agreement, tests with two existing Windows-only skips, plugin validation, packaging, archive integrity, checksums and release artifact auditing.
+- Live application checks: the key-press code opened one local and one Fedora conversation in T3 Code; a development build of the same code ran in the Stream Deck app and filled its keys from the live local and Fedora sources. Side chats, tasks delegated between environments and pending subagent requests were covered by fixtures only.
+- This packaged build was not installed; physical key presses and native Windows were not validated.
+
 ## 26.11.22.1 - 2026-11-22
 
 ### Highlights
