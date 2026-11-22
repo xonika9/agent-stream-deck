@@ -9,6 +9,7 @@ import { codexDeckStateRoot } from "../runtime/paths.js";
 
 import { T3CredentialRejectedError, T3SshUnavailableError, t3SshRequest, validateSshConnection } from "./ssh.js";
 import { readShell } from "./shell-reader.js";
+import { sidebarThreads } from "./sidebar.js";
 
 const TERMINAL_WINDOW_MS = 5 * 60_000;
 export type LocalConnection = { origin: string; token: string; pid: number };
@@ -214,9 +215,12 @@ export class T3CodeSource {
         )
           throw new Error("Unsupported shell");
         const observedAt = Date.now();
-        const candidate = shell.threads.flatMap((value, index) => {
-          const slot = this.taskSlot(object(value), index, observedAt, environment.namespace);
-          return slot ? [slot] : [];
+        const candidate = sidebarThreads(
+          shell.threads.map(object),
+          (thread) => this.taskSlot(thread, 0, observedAt, environment.namespace) !== null,
+        ).flatMap(({ thread, asked }, index) => {
+          const slot = this.taskSlot(thread, index, observedAt, environment.namespace);
+          return slot ? [asked ? { ...slot, status: "approval" } : slot] : [];
         });
         if (!current()) return;
         // Recheck the exact acknowledgement at commit, including the environment namespace.

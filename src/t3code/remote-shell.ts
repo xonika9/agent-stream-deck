@@ -87,9 +87,12 @@ def compact_thread(thread, now):
  if not approval and not working:
   terminal = timestamp(thread.get("latestRunCompletedAt"))
   if thread["status"] not in ("completed", "failed") or terminal <= 0 or now - terminal > 300000 or timestamp(thread.get("lastVisitedAt")) >= terminal: return None
- fields = ("id", "title", "status", "deletedAt", "archivedAt", "settledAt", "settledOverride", "snoozedUntil", "activityRunStartedAt", "latestUserAuthoredMessageAt", "latestRunRequestedAt", "latestRunCompletedAt", "activityRunStatus", "lastVisitedAt")
+ fields = ("id", "title", "status", "deletedAt", "archivedAt", "settledAt", "settledOverride", "snoozedUntil", "activityRunStartedAt", "latestUserAuthoredMessageAt", "latestRunRequestedAt", "latestRunCompletedAt", "activityRunStatus", "lastVisitedAt", "creationSource")
  result = {key: thread[key] for key in fields if key in thread}
- result["pendingRuntimeRequest"] = truthy(thread.get("pendingRuntimeRequest"))
+ request, lineage = thread.get("pendingRuntimeRequest"), thread.get("lineage")
+ result["pendingRuntimeRequest"] = {key: request[key] for key in ("kind", "userOnly") if key in request} if isinstance(request, dict) and "kind" in request else truthy(request)
+ if isinstance(lineage, dict): result["lineage"] = {key: lineage[key] for key in ("parentThreadId", "relationshipToParent", "sideChat") if key in lineage}
+ if truthy(thread.get("delegatedFrom")): result["delegatedFrom"] = True
  result["hasActionableProposedPlan"] = truthy(thread.get("hasActionableProposedPlan"))
  result["pendingBackgroundTasks"] = [True] if background else []
  return result

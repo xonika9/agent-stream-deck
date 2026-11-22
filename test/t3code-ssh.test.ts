@@ -23,6 +23,12 @@ test("remote Python reader filters growing history before SSH and fails closed o
     thread("background", "completed", { pendingBackgroundTasks: [{}] }),
     thread("done", "completed", { latestRunCompletedAt: iso() }),
     thread("failed", "failed", { latestRunCompletedAt: iso() }),
+    thread("subagent", "waiting", {
+      creationSource: "mcp",
+      delegatedFrom: { environmentId: "must-not-cross-ssh", threadId: "origin" },
+      lineage: { parentThreadId: "working", relationshipToParent: "subagent", rootThreadId: "must-not-cross-ssh" },
+      pendingRuntimeRequest: { id: "must-not-cross-ssh", kind: "user_input", userOnly: true },
+    }),
   ];
   const ignored = [
     thread("archived", "running", { archivedAt: iso() }),
@@ -76,11 +82,22 @@ test("remote Python reader filters growing history before SSH and fails closed o
     assert.equal(result.schemaVersion, 2);
     assert.deepEqual(
       result.threads.map((item) => item.id),
-      ["working", "approval", "background", "done", "failed"],
+      ["working", "approval", "background", "done", "failed", "subagent"],
     );
     assert.equal(result.threads[0]?.title, 'Задача 😀 ["{}"]');
     assert.equal(result.threads[1]?.pendingRuntimeRequest, true);
     assert.deepEqual(result.threads[2]?.pendingBackgroundTasks, [true]);
+    assert.deepEqual(result.threads[5], {
+      id: "subagent",
+      title: 'Задача 😀 ["{}"]',
+      status: "waiting",
+      creationSource: "mcp",
+      delegatedFrom: true,
+      lineage: { parentThreadId: "working", relationshipToParent: "subagent" },
+      pendingRuntimeRequest: { kind: "user_input", userOnly: true },
+      hasActionableProposedPlan: false,
+      pendingBackgroundTasks: [],
+    });
     assert.equal(JSON.stringify(result).includes("must-not-cross-ssh"), false);
     assert.ok(Buffer.byteLength(JSON.stringify(result)) < 4096);
     for (const invalid of [

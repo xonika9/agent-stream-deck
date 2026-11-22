@@ -76,6 +76,14 @@ opaque IDs, normalized states and timestamps reach the renderer.
 Pending input/approval/plans appear orange; preparing/queued/starting/running
 work appears blue; fresh completion appears green; failed results appear red.
 Archived, deleted, settled, snoozed, idle and interrupted chats are omitted.
+Threads that T3's left menu nests inside another thread are omitted too: subagents
+(including delegated tasks), side chats and tasks delegated from another environment.
+Forks and independently launched threads remain. When a hidden thread asks the user,
+its nearest visible ancestor in the same environment turns orange; if that ancestor
+is not in the queue, the asking thread keeps its own key. As in T3, an agent's
+ordinary question to its caller, a credential refresh, a request without an active
+run and a provider-native subagent's request are not forwarded. Local display
+filters kept by the T3 application, such as hidden tags, are not visible to the plugin.
 Completed/failed results expire five minutes after their terminal timestamp and
 are omitted when T3 reports they have already been visited. A press foregrounds
 T3 Code and acknowledges only the exact displayed terminal revision locally.
@@ -188,3 +196,9 @@ records (over eleven MB), five relevant tasks, split UTF-8/JSON input, malformed
 snapshots and the per-record, depth and relevant-task guards. Local fixtures
 execute the actual Python program with an isolated HOME and HTTP service. These
 checks verify collection and guards, not physical Stream Deck operation.
+
+On 2026-11-22 the left-menu rule was read from the installed client of T3 Code Nightly
+`0.1.11-nightly.20261119.4918` and compared with the live local and Fedora shells,
+where running delegated tasks were present as `lineage.relationshipToParent: "subagent"`.
+No side chat, cross-environment delegation or pending subagent request was present;
+those cases are covered by fixtures only.

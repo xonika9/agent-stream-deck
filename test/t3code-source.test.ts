@@ -873,6 +873,94 @@ test("T3 repeats a ready SSH environment while another SSH environment keeps its
   }
 });
 
+test("T3 hides threads nested in the left menu and shows their user requests on the visible ancestor", {
+  skip: process.platform === "win32",
+}, async (context) => {
+  const fixture = await t3Fixture(context);
+  const { source, wait, waitJob, local } = fixture;
+  const thread = (id: string, extra = {}) => ({
+    id,
+    title: id,
+    status: "running",
+    activityRunStatus: "running",
+    pendingRuntimeRequest: null,
+    lineage: { parentThreadId: null, relationshipToParent: null },
+    ...extra,
+  });
+  const child = (id: string, parentThreadId: string, extra = {}) =>
+    thread(id, {
+      createdBy: "agent",
+      creationSource: "mcp",
+      lineage: { parentThreadId, relationshipToParent: "subagent" },
+      ...extra,
+    });
+  const asks = (kind: string, extra = {}) => ({
+    activityRunStatus: "waiting",
+    pendingRuntimeRequest: { id: "request", kind, ...extra },
+  });
+  const statuses = async (threads: unknown[]) => {
+    local.payload = { schemaVersion: 2, threads: [...threads, thread("marker")] };
+    const before = source.slots[0];
+    await source.refresh();
+    await wait(() => source.slots.length > 0 && source.slots[0] !== before);
+    return source.slots.filter((slot) => slot.threadKey !== "marker").map((slot) => [slot.threadKey, slot.status]);
+  };
+  try {
+    source.syncDemand("All", host, false);
+    await waitJob(1);
+    await wait(() => source.slots.length > 0);
+    const root = thread("root");
+    const forked = { lineage: { parentThreadId: "root", relationshipToParent: "fork" } };
+    const side = { lineage: { parentThreadId: "root", relationshipToParent: "fork", sideChat: true } };
+    assert.deepEqual(
+      await statuses([
+        child("subagent", "root"),
+        thread("fork", forked),
+        thread("side", side),
+        thread("delegated", { delegatedFrom: { environmentId: "other", threadId: "origin" } }),
+        root,
+        child("done", "root", {
+          status: "completed",
+          activityRunStatus: null,
+          latestRunCompletedAt: new Date().toISOString(),
+        }),
+      ]),
+      [
+        ["fork", "working"],
+        ["root", "working"],
+      ],
+    );
+    // The request climbs through a nested parent; record order does not matter.
+    assert.deepEqual(
+      await statuses([child("nested", "subagent", asks("command_approval")), child("subagent", "root"), root]),
+      [["root", "approval"]],
+    );
+    assert.deepEqual(await statuses([root, thread("side", { ...side, ...asks("user_input") })]), [
+      ["root", "approval"],
+    ]);
+    assert.deepEqual(await statuses([root, child("subagent", "root", asks("user_input", { userOnly: true }))]), [
+      ["root", "approval"],
+    ]);
+    // These requests do not wait for the user in T3.
+    for (const request of [
+      asks("user_input"),
+      asks("auth_refresh"),
+      { ...asks("command_approval"), activityRunStatus: null },
+      { ...asks("command_approval"), creationSource: "provider" },
+    ])
+      assert.deepEqual(await statuses([root, child("subagent", "root", request)]), [["root", "working"]]);
+    // Without a visible ancestor the request stays on its own key.
+    const orphan = child("orphan", "gone", asks("command_approval"));
+    assert.deepEqual(await statuses([orphan]), [["orphan", "approval"]]);
+    const settled = thread("gone", { settledAt: new Date().toISOString() });
+    assert.deepEqual(await statuses([settled, orphan]), [["orphan", "approval"]]);
+    const first = child("first", "second", asks("command_approval"));
+    assert.deepEqual(await statuses([first, child("second", "first")]), [["first", "approval"]]);
+  } finally {
+    await fixture.close();
+  }
+});
+
 test("T3 starts on demand using caller cadence without registering another repeating clock", {
   skip: process.platform === "win32",
 }, async (context) => {
