@@ -42,7 +42,7 @@ if ($SelfTest) {
   )
   $failures = @($cases | Where-Object { $_.Actual -ne $_.Expected })
   if ($failures.Count -gt 0) { throw "Watcher self-test failed: $($failures.Name -join ', ')" }
-  Write-Host "Codex Deck watcher self-test passed ($($cases.Count) cases)."
+  Write-Host "Agent Deck watcher self-test passed ($($cases.Count) cases)."
   exit 0
 }
 
@@ -114,7 +114,7 @@ function Clear-StalePortFile {
   }
   catch { }
   Remove-Item -LiteralPath $statePath -Force -ErrorAction SilentlyContinue
-  Write-WatcherLog 'Removed a stale Codex Deck bridge port file.'
+  Write-WatcherLog 'Removed a stale Agent Deck bridge port file.'
 }
 
 function Test-LauncherReady {
@@ -129,19 +129,19 @@ function Test-LauncherReady {
 
 function Invoke-CodexDeckLauncher([switch]$ForceRestart) {
   if (-not (Test-LauncherReady)) {
-    throw 'The Codex Deck launcher bundle or Node.js is unavailable; Codex was not restarted.'
+    throw 'The Agent Deck launcher bundle or Node.js is unavailable; Codex was not restarted.'
   }
   $arguments = @('-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $launcherPath)
   if ($ForceRestart) { $arguments += '-ForceRestart' }
   $output = & $powerShellPath @arguments 2>&1
   foreach ($line in $output) { Write-WatcherLog "Launcher: $line" }
-  if ($LASTEXITCODE -ne 0) { throw "Codex Deck launcher failed with exit code $LASTEXITCODE." }
+  if ($LASTEXITCODE -ne 0) { throw "Agent Deck launcher failed with exit code $LASTEXITCODE." }
 }
 
 $createdNew = $false
 $mutex = [Threading.Mutex]::new($true, $mutexName, [ref]$createdNew)
 if (-not $createdNew) {
-  Write-Host 'A Codex Deck watcher is already running.'
+  Write-Host 'An Agent Deck watcher is already running.'
   $mutex.Dispose()
   exit 0
 }
@@ -191,7 +191,7 @@ try {
           $sawStoppedSession = $false
           $handledGeneration = $generation
           if ($lastHealthyGeneration -ne $generation) {
-            Write-WatcherLog "Healthy Codex Deck bridge detected for Codex $($codex.Version) on port $port."
+            Write-WatcherLog "Healthy Agent Deck bridge detected for Codex $($codex.Version) on port $port."
             Invoke-CodexDeckLauncher
             $lastHealthyGeneration = $generation
           }

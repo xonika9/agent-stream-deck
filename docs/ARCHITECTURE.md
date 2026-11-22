@@ -263,7 +263,7 @@ CDP provides privileged access to the Codex renderer. Binding to `127.0.0.1` pre
 
 ## Data flow
 
-Codex Deck has no Codex relay server, analytics endpoint, or update service. Runtime data stays between Stream Deck, the local plugin, the local Codex renderer, and selected OpenCode services. OpenCode's existing SSH path may reach saved Fedora connections through an authenticated temporary loopback forward. Endpoints, targets, credentials, messages, locations, and permission/form content remain inside that adapter and are not logged or rendered. A bounded, sanitized OpenCode task title flows only into the same-process local Stream Deck renderer. No old relay token or private runtime state belongs in a release.
+Agent Deck has no Codex relay server, analytics endpoint, or update service. Runtime data stays between Stream Deck, the local plugin, the local Codex renderer, and selected OpenCode services. OpenCode's existing SSH path may reach saved Fedora connections through an authenticated temporary loopback forward. Endpoints, targets, credentials, messages, locations, and permission/form content remain inside that adapter and are not logged or rendered. A bounded, sanitized OpenCode task title flows only into the same-process local Stream Deck renderer. No old relay token or private runtime state belongs in a release.
 
 ## Compatibility boundary
 

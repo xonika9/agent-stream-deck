@@ -2,6 +2,21 @@
 
 Versions through `0.7.0.2` below are the historical upstream releases by Dazer. Starting with `1.0.0`, releases belong to the xonika9 fork and use its own plugin identity. Releases after `2.2.2` use calendar versions `YY.M.D.N` (Moscow date, daily release number).
 
+## 26.11.22.1 - 2026-11-22
+
+### Highlights
+
+- The product is called Agent Deck everywhere it is shown: the plugin name and action category in Stream Deck, launcher and watcher messages, the bundled guides, and GitHub release titles.
+
+### Compatibility
+
+- Only the displayed name changes. The plugin and action UUIDs, package and launcher filenames, the Windows startup shortcut, local data directories, profiles and saved settings keep their existing Codex Deck identifiers, so this version installs over the previous one.
+
+### Validation
+
+- Local automated macOS validation passed with Node 24.16.0 through `npm run release:prepare`: clean dependency install, lint, import boundaries, types, version agreement, tests with two existing Windows-only skips, plugin validation, packaging, archive integrity, checksums and release artifact auditing.
+- The renamed build was not run in the Stream Deck app; physical-device images and native Windows were not validated.
+
 ## 26.11.13.3 - 2026-11-13
 
 ### Highlights

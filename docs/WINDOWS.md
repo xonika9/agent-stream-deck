@@ -59,7 +59,7 @@ The launcher does not patch the installed Codex package.
 ## Uninstall
 
 1. Run `Start-CodexDeck.ps1 -UninstallStartup` before deleting the launcher.
-2. Remove Codex Deck in Stream Deck's plugin settings.
+2. Remove Agent Deck in Stream Deck's plugin settings.
 3. Delete `%LOCALAPPDATA%\CodexDeck` only if you also want to remove local icons, identity, relay configuration, and diagnostics.
 
 Uninstalling the watcher does not close or restart Codex.

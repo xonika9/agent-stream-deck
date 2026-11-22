@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible Codex Deck problem
+description: Report a reproducible Agent Deck problem
 title: "[Bug]: "
 labels: [bug]
 body:

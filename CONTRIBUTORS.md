@@ -1,6 +1,6 @@
 # Contributors
 
-Thanks to everyone who helps improve Codex Deck.
+Thanks to everyone who helps improve Agent Deck.
 
 - [Dmitrii Fedosov (@fedosovdn)](https://github.com/fedosovdn) — fixed Micro
   module discovery when Codex omits lazy chunks from resource timings and added

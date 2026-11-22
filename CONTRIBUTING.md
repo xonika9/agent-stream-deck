@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve Codex Deck.
+Thanks for helping improve Agent Deck.
 
 Use Node.js 24 or newer for development and launchers. The plugin uses SDK 3
 and requires Stream Deck 7.1 or newer.

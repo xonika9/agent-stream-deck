@@ -6,7 +6,7 @@ Publication changes durable public state. Use this order so every step has a sin
 2. Commit only the release-owned files with `chore(release): prepare vYY.M.D.N`, require a clean worktree, then rerun the checks whose output depends on the committed tree.
 3. Push `main` to the verified `origin` without force and confirm the remote branch resolves to the candidate commit.
 4. Create one annotated local tag `vYY.M.D.N` at that commit and push only that tag. Never recreate, retarget, or overwrite it.
-5. Create a draft GitHub Release for the existing tag with the changelog section as release notes and every file from `outputs/release-vYY.M.D.N/` as an asset.
+5. Create a draft GitHub Release titled `Agent Deck YY.M.D.N` for the existing tag, with the changelog section as release notes and every file from `outputs/release-vYY.M.D.N/` as an asset.
 6. Verify the draft's tag target, title, notes, and asset names, then make it public and mark it latest.
 7. Read the public release back from GitHub and compare its target commit and asset inventory with the local candidate.
 

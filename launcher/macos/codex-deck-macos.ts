@@ -700,7 +700,7 @@ async function uninstallLaunchAgent(): Promise<void> {
     await rm(path, { force: true });
   }
   await rm(WATCHER_LOCK_PATH, { recursive: true, force: true });
-  console.log("Codex Deck LaunchAgent removed. host.json and the icons directory were preserved.");
+  console.log("Agent Deck LaunchAgent removed. host.json and the icons directory were preserved.");
 }
 
 async function dryRun(): Promise<void> {
@@ -740,7 +740,7 @@ async function startOnce(allowRestart: boolean): Promise<number> {
     await launchCodex(installation, port);
   }
   const result = await enableBridge(installation, port);
-  console.log(`Codex Deck ready on 127.0.0.1:${port}.`);
+  console.log(`Agent Deck ready on 127.0.0.1:${port}.`);
   console.log(JSON.stringify(result, null, 2));
   return 0;
 }
@@ -856,7 +856,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       process.exitCode = code;
     })
     .catch((error) => {
-      console.error(`Codex Deck: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`Agent Deck: ${error instanceof Error ? error.message : String(error)}`);
       process.exitCode = 1;
     });
 }

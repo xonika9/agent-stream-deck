@@ -73,7 +73,7 @@ The native handler was unavailable or the action is not valid in the current com
 
 ## Agent assignments are unexpected
 
-Codex Deck does not choose the six native tasks. Open **Codex Settings > Codex Micro > Agent keys** and select pinned, recently updated, priority, or custom assignments.
+Agent Deck does not choose the six native tasks. Open **Codex Settings > Codex Micro > Agent keys** and select pinned, recently updated, priority, or custom assignments.
 
 If **Active queue** is enabled, the plugin uses Codex's complete native pinned + unpinned sidebar catalog when available. It hides idle/off tasks, compacts the rest to at most six display positions, and can open an exact task outside the current six Micro slots through the native event handler. If optional catalog discovery fails, that host falls back to its six Micro slots. `custom` stays limited to its configured six candidates, which the queue may still compact. Disable the queue to inspect or use the exact native local positions again.
 

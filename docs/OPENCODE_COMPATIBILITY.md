@@ -13,7 +13,7 @@ service comes from its private service registration. Saved SSH connections come
 from the user-owned `opencode.settings` file; a CLI-managed remote service may
 instead supply bounded pairing and authenticated identity output entirely inside
 the SSH adapter. Because OpenCode Desktop currently
-writes that file as `0644`, Codex Deck accepts it only when its owner is the
+writes that file as `0644`, Agent Deck accepts it only when its owner is the
 current user and group/other users cannot modify it.
 
 ## Out of scope
@@ -24,7 +24,7 @@ current user and group/other users cannot modify it.
 - interactive SSH authentication;
 - launching a stopped local or remote OpenCode service.
 
-Unsupported connection kinds are ignored. Codex Deck never invokes `wsl.exe`,
+Unsupported connection kinds are ignored. Agent Deck never invokes `wsl.exe`,
 never opens `drafts.sqlite`, and never reads OpenCode process memory or Chromium
 storage.
 
@@ -48,7 +48,7 @@ Authenticated service identity prefers the current `/api/info` route and falls
 back to the legacy `/api/status` route only when needed. The selected route is
 reused across polls while the local registration is unchanged; a registration
 change requires a fresh probe. Each candidate route must independently prove a
-`401` or `403` unauthenticated boundary before Codex Deck sends the existing
+`401` or `403` unauthenticated boundary before Agent Deck sends the existing
 service credential.
 
 OpenCode `2.0.5` does not consistently publish `time.viewed` for remote roots.

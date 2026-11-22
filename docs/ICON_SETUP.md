@@ -1,6 +1,6 @@
 # Local Codex Micro icon setup
 
-Codex Deck does not distribute the official Codex Micro keycap SVGs. This workflow keeps exact local copies outside the repository and release.
+Agent Deck does not distribute the official Codex Micro keycap SVGs. This workflow keeps exact local copies outside the repository and release.
 
 ## Destination
 
@@ -42,8 +42,8 @@ This prompt intentionally limits the work to files already present in your insta
 
 ## Refresh
 
-After changing files, restart the Stream Deck app or remove and re-add the affected action. Codex Deck caches successfully loaded keycaps for the current plugin process.
+After changing files, restart the Stream Deck app or remove and re-add the affected action. Agent Deck caches successfully loaded keycaps for the current plugin process.
 
 ## Rights
 
-You are responsible for ensuring your use of third-party assets is permitted. The Codex Deck license covers only this repository's code and original artwork.
+You are responsible for ensuring your use of third-party assets is permitted. The Agent Deck license covers only this repository's code and original artwork.

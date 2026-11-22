@@ -16,7 +16,7 @@ export async function getOrCreateOpenCodeIdentitySecret(root = codexDeckStateRoo
     (rootMetadata.mode & 0o022) !== 0 ||
     (uid != null && rootMetadata.uid !== uid)
   )
-    throw new Error("Codex Deck state directory is unsafe.");
+    throw new Error("Agent Deck state directory is unsafe.");
   const path = join(root, "opencode-identity.key");
   const created = randomBytes(SECRET_BYTES);
   try {

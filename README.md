@@ -69,7 +69,7 @@ Other Stream Deck models may work, but the included layout and physical-device t
 4. Choose the task source in an **Agent** action's Stream Deck property inspector. For native Codex controls, configure agent assignments, actions, joystick, and encoder behavior in **Codex Settings > Codex Micro**.
 5. Build the two Stream Deck pages below.
 
-The Agent Deck name is used in this README; released package filenames, plugin/action UUIDs, and local data directories retain their existing Codex Deck identifiers.
+Agent Deck is the name of the product, its GitHub releases, and its Stream Deck category; released package and launcher filenames, plugin/action UUIDs, and local data directories retain their existing Codex Deck identifiers.
 
 
 > [!WARNING]

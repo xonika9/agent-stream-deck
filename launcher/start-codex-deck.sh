@@ -5,7 +5,7 @@ script_dir="${0:A:h}"
 runtime="$script_dir/codex-deck-macos.mjs"
 
 if [[ ! -f "$runtime" ]]; then
-  print -u2 "Codex Deck: bundled macOS runtime is missing. Run npm run build first."
+  print -u2 "Agent Deck: bundled macOS runtime is missing. Run npm run build first."
   exit 1
 fi
 
@@ -27,5 +27,5 @@ for node_candidate in "${node_candidates[@]}"; do
   exec "$node_candidate" "$runtime" "${@:-start}"
 done
 
-print -u2 "Codex Deck: Node.js 24 or newer was not found in PATH, Homebrew, NVM, or the Codex app bundle."
+print -u2 "Agent Deck: Node.js 24 or newer was not found in PATH, Homebrew, NVM, or the Codex app bundle."
 exit 1

@@ -121,7 +121,7 @@ function Install-WatcherBundle($Bundle, [string]$Destination = (Get-InstalledLau
 
 function Start-BridgeWatcher([string]$LauncherRoot = $PSScriptRoot) {
   $watcherPath = Join-Path $LauncherRoot 'Watch-CodexDeck.ps1'
-  if (-not (Test-Path -LiteralPath $watcherPath)) { throw "Codex Deck watcher not found: $watcherPath" }
+  if (-not (Test-Path -LiteralPath $watcherPath)) { throw "Agent Deck watcher not found: $watcherPath" }
   $powerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
   $readyPath = Join-Path (Join-Path $env:LOCALAPPDATA 'CodexDeck') 'watcher-ready.json'
   $startupToken = [Guid]::NewGuid().ToString('N')
@@ -183,7 +183,7 @@ function Set-StartupShortcut {
     $launcherRoot = Install-WatcherBundle $bundle
     $shortcutPath = Get-StartupShortcutPath
     $watcherPath = Join-Path $launcherRoot 'Watch-CodexDeck.ps1'
-    if (-not (Test-Path -LiteralPath $watcherPath)) { throw "Codex Deck watcher not found: $watcherPath" }
+    if (-not (Test-Path -LiteralPath $watcherPath)) { throw "Agent Deck watcher not found: $watcherPath" }
     $stopPath = Get-WatcherStopPath
     Remove-Item -LiteralPath $stopPath -Force -ErrorAction SilentlyContinue
     $shell = New-Object -ComObject WScript.Shell
@@ -191,7 +191,7 @@ function Set-StartupShortcut {
     $shortcut.TargetPath = (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe')
     $shortcut.Arguments = "-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watcherPath`" -RecoverExistingSession"
     $shortcut.WorkingDirectory = $launcherRoot
-    $shortcut.Description = 'Keep the Codex Deck bridge available while Codex is running'
+    $shortcut.Description = 'Keep the Agent Deck bridge available while Codex is running'
     $shortcut.IconLocation = "$env:SystemRoot\System32\shell32.dll,44"
     $shortcut.Save()
     Start-BridgeWatcher $launcherRoot
@@ -216,7 +216,7 @@ if ($UninstallStartup) {
     Remove-Item -LiteralPath $shortcutPath -Force
     Write-Host "Startup shortcut removed: $shortcutPath"
   } else {
-    Write-Host 'No Codex Deck startup shortcut was installed.'
+    Write-Host 'No Agent Deck startup shortcut was installed.'
   }
   $installedRoot = Get-InstalledLauncherRoot
   if (Test-Path -LiteralPath $installedRoot) {
@@ -326,5 +326,5 @@ try {
   & $node.Source $runtimeScript $port
   if ($LASTEXITCODE -ne 0) { throw 'The Codex Micro runtime could not be enabled.' }
 
-  Write-Host 'Codex Deck is ready. Keep this Codex session open while using Stream Deck.'
+  Write-Host 'Agent Deck is ready. Keep this Codex session open while using Stream Deck.'
 } finally { Remove-Item -LiteralPath $bundle.SourceRoot -Recurse -Force -ErrorAction SilentlyContinue }

@@ -1,11 +1,11 @@
 ---
 name: release
-description: Use in this repository when the maintainer asks to prepare or publish a Codex Deck release — «подготовь релиз», «выпусти релиз», «зарелизь новую версию», "prepare a release", "publish the release". Do not use for an ordinary changelog edit, build, commit, push, or pull request.
+description: Use in this repository when the maintainer asks to prepare or publish an Agent Deck release — «подготовь релиз», «выпусти релиз», «зарелизь новую версию», "prepare a release", "publish the release". Do not use for an ordinary changelog edit, build, commit, push, or pull request.
 ---
 
 # Release
 
-Prepare or publish a Codex Deck version from the complete repository state. The latest public tag, its full diff to the candidate, the package and Stream Deck manifests, `CHANGELOG.md`, release documentation, and the generated artifact audit are the sources of truth.
+Prepare or publish an Agent Deck version from the complete repository state. The latest public tag, its full diff to the candidate, the package and Stream Deck manifests, `CHANGELOG.md`, release documentation, and the generated artifact audit are the sources of truth.
 
 This is a private repository-local skill. Its canonical source is `.claude/skills/release`; `.agents/skills` exposes the same source through a repository-relative symlink.
 

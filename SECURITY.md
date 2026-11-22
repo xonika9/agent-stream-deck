@@ -15,7 +15,7 @@ files, or local official SVG assets in a public issue.
 
 ## Important boundary
 
-Codex Deck starts Codex with a Chrome DevTools endpoint bound to `127.0.0.1`. This is intentionally local but remains accessible to processes running as the same Windows or macOS user. Do not expose, forward, or rebind that port to a network interface.
+Agent Deck starts Codex with a Chrome DevTools endpoint bound to `127.0.0.1`. This is intentionally local but remains accessible to processes running as the same Windows or macOS user. Do not expose, forward, or rebind that port to a network interface.
 
 The separate Codex relay, remote target selection, and relay tunnel launch paths have been removed. Old private connection files and tokens are ignored rather than deleted; they must still never be committed, logged, or packaged. Existing host action UUIDs remain local. The independent OpenCode SSH authority below is unchanged.
 
