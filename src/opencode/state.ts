@@ -116,6 +116,7 @@ export class OpenCodeTaskState {
       }
       if (!task) continue;
       if (root.displayTitle) task.displayTitle = root.displayTitle;
+      if (root.startedByT3) task.startedByT3 = true;
       candidates.push({ ...task, label: "" });
     }
     candidates.sort(compareTasks);

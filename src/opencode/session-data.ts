@@ -61,6 +61,7 @@ export function parseSession(value: unknown): RawSession {
     id: value.id,
     parentID: value.parentID as string | undefined,
     displayTitle: sanitizeDisplayTitle(value.title),
+    startedByT3: startedByT3(value),
     outcome: value.outcome as RawSession["outcome"],
     time: {
       created: value.time.created,
@@ -69,6 +70,21 @@ export function parseSession(value: unknown): RawSession {
       viewed: value.time.viewed as number | undefined,
     },
   };
+}
+
+// T3 Code has no public marker here. Its chats carry the rule that hides other T3 MCP servers, and its
+// short text-generation sessions combine a generated title with a single ask-everything rule.
+function startedByT3(session: Record<string, unknown>): boolean {
+  const rules = Array.isArray(session.permissions) ? session.permissions.filter(isRecord) : [];
+  const has = (action: string, effect: string) =>
+    rules.some((rule) => rule.action === action && rule.resource === "*" && rule.effect === effect);
+  if (has("t3-code-*", "deny")) return true;
+  return (
+    rules.length === 1 &&
+    has("*", "ask") &&
+    typeof session.title === "string" &&
+    /^T3 Code generate[A-Z][A-Za-z]*$/u.test(session.title)
+  );
 }
 
 export function sanitizeDisplayTitle(value: unknown): string | undefined {

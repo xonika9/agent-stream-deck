@@ -42,7 +42,7 @@ Choose the global task sources in any **Agent** action's Stream Deck property in
 | OpenCode | macOS Desktop local service or saved SSH connection: [compatibility](docs/OPENCODE_COMPATIBILITY.md) | Brings OpenCode Desktop forward; does not select a specific conversation. |
 | T3 Code | Separate read-only connection to the local server or a running remote Linux server over SSH: [setup and compatibility](docs/T3CODE_COMPATIBILITY.md) | Opens the displayed conversation in T3 Code. |
 
-For OpenCode and T3 Code, fresh completed or failed results leave the queue after five minutes, when the source reports them viewed, or when their key is pressed. A newer result from the same conversation can appear again. T3 acknowledgements remain local to the plugin; OpenCode also attempts to report the result viewed through its supported API.
+For OpenCode and T3 Code, fresh completed or failed results leave the queue after five minutes, when the source reports them viewed, or when their key is pressed. A newer result from the same conversation can appear again. T3 acknowledgements remain local to the plugin; OpenCode also attempts to report the result viewed through its supported API. With both sources selected, OpenCode sessions started by T3 Code appear only through T3 Code.
 
 T3 setup runs from a source checkout with Node.js 24 or newer and `npm ci`. It creates a separate read-only session; follow the [connection guide](docs/T3CODE_COMPATIBILITY.md) for local pairing or `npm run connect:t3:ssh -- <ssh-alias>`. The installed plugin then polls without a checkout process running. Native Micro action, joystick, encoder, reasoning, and new-task controls apply to Codex.
 

@@ -14,6 +14,8 @@ export type OpenCodeTask = {
   workStartRevision?: number;
   terminalAt?: number;
   viewedAt?: number;
+  /** T3 Code started this session, so its own source already represents the work. */
+  startedByT3?: true;
 };
 
 export type OpenCodeConnectionHealth = "ready" | "unavailable" | "incompatible" | "capacity-exceeded";
@@ -79,6 +81,7 @@ export type RawSession = {
   id: string;
   parentID?: string;
   displayTitle?: string;
+  startedByT3: boolean;
   outcome?: "succeeded" | "failed" | "interrupted";
   time: { created: number; updated: number; idle?: number; viewed?: number };
 };

@@ -71,6 +71,18 @@ When no Codex renderer snapshot is available to supply a theme, OpenCode Agent
 and usage keys use the renderer's light fallback rather than changing to dark.
 
 
+T3 Code runs some of its chats and subagents through the same managed OpenCode
+service. While the T3 Code task source is selected, sessions that T3 Code started are
+left to that source, so one task does not get a second key that opens OpenCode Desktop.
+Such a session is recognized by the session rule `t3-code-*` / `*` / `deny`, or, for
+T3's short text-generation sessions, by a `T3 Code generate…` title together with a
+single ask-everything rule. The rule's contents stay inside the adapter. Without the
+T3 Code source all sessions remain visible. The rules come from T3 Code Nightly
+`0.1.11-nightly.20261119.4918` with OpenCode `2.3.2`, checked on 2026-11-22 against the
+local and Fedora services; they are not a public contract, and an unrecognized session
+stays visible. Work on a machine whose T3 server is not connected to Agent Deck is
+hidden with them. Text-generation sessions are covered by fixtures only.
+
 Saved SSH profiles are compared by their normalized target, in addition to their
 stable opaque identity. After an authoritative protected settings read, a
 changed or removed profile closes only its collector-owned tunnel. An unreadable

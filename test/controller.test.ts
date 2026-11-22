@@ -1957,6 +1957,54 @@ for (const change of ["identical", "demand cancellation", "stop cancellation"] a
   });
 }
 
+test("OpenCode hides tasks started by T3 Code only while the T3 Code source is selected", {
+  skip: process.platform === "win32" ? "OpenCode collection runs only on macOS" : false,
+}, async (context) => {
+  await isolateHome(context);
+  const task = (sessionId: string, extra: Partial<OpenCodeTask> = {}): OpenCodeTask => ({
+    source: "opencode",
+    connectionId: "local",
+    sessionId,
+    label: sessionId,
+    status: "working",
+    ...extra,
+  });
+  const ready: OpenCodeCollectorSnapshot = {
+    version: 1,
+    observedAt: 1,
+    connections: [
+      {
+        connectionId: "local",
+        health: "ready",
+        complete: true,
+        observedAt: 1,
+        tasks: [
+          task("t3", { startedByT3: true }),
+          task("own"),
+          task("t3-asks", { startedByT3: true, status: "attention" }),
+        ],
+      },
+    ],
+  };
+  context.mock.method(OpenCodeCollector.prototype, "start", async () => ready);
+  context.mock.method(OpenCodeCollector.prototype, "stop", async () => {});
+  context.mock.method(OpenCodeCollector.prototype, "snapshot", () => ready);
+  const source = new OpenCodeSource(() => {});
+  context.after(() => source.stop());
+  const titles = () => source.openCodeSlots.map((slot) => [slot.title, slot.sourceSlot]);
+  await source.syncDemand("OpenCode", host, false);
+  const all = [
+    ["t3", 0],
+    ["own", 1],
+    ["t3-asks", 2],
+  ];
+  assert.deepEqual(titles(), all);
+  await source.syncDemand("All", host, false);
+  assert.deepEqual(titles(), [["own", 0]]);
+  await source.syncDemand(new Set(["Codex", "OpenCode"] as const), host, false);
+  assert.deepEqual(titles(), all);
+});
+
 for (const cancel of ["demand", "stop"] as const) {
   test(`OpenCode ${cancel} cancellation cannot let an old preparation clear its replacement`, {
     skip: process.platform === "win32" ? "OpenCode collection runs only on macOS" : false,

@@ -42,6 +42,7 @@ function session(
     idle?: number;
     viewed?: number;
     title?: string;
+    permissions?: unknown;
   } = {},
 ) {
   return {
@@ -50,6 +51,7 @@ function session(
     title: input.title ?? `PRIVATE TITLE ${id}`,
     location: { directory: `/private/${id}` },
     cost: 999,
+    permissions: input.permissions,
     tokens: { input: 123 },
     outcome: input.outcome,
     time: { created: updated - 100, updated, idle: input.idle, viewed: input.viewed },
@@ -532,6 +534,43 @@ test("projects only sanitized roots with attention precedence and mixed active a
   for (const privateValue of ["/private/", "SECRET_RESOURCE", "SECRET_FORM", "cost", "tokens", "location"]) {
     assert.equal(serialized.includes(privateValue), false, privateValue);
   }
+});
+
+test("marks only sessions that T3 Code started", async () => {
+  const rule = (action: string, effect: string, resource = "*") => ({ action, resource, effect });
+  const ask = [rule("*", "ask")];
+  const cases: [string, boolean, { title?: string; permissions?: unknown }][] = [
+    ["full", true, { permissions: [rule("*", "allow"), rule("t3-code-*", "deny"), rule("t3-code-id_*", "allow")] }],
+    ["asking", true, { permissions: [rule("shell", "ask"), rule("edit", "ask"), rule("t3-code-*", "deny")] }],
+    ["generation", true, { title: "T3 Code generateThreadTitle", permissions: ask }],
+    ["plain", false, {}],
+    ["own-rules", false, { permissions: [rule("*", "allow")] }],
+    ["other-effect", false, { permissions: [rule("t3-code-*", "allow")] }],
+    ["other-resource", false, { permissions: [rule("t3-code-*", "deny", "private")] }],
+    ["title-only", false, { title: "T3 Code generateThreadTitle" }],
+    ["own-title", false, { title: "T3 Code generate a report", permissions: ask }],
+    ["ask-only", false, { permissions: ask }],
+    ["malformed", false, { permissions: { action: "t3-code-*" } }],
+    ["malformed-rule", false, { permissions: [null, "t3-code-*"] }],
+  ];
+  const routes = basicRoutes();
+  routes["/api/session/active"] = response({
+    data: Object.fromEntries(cases.map(([id]) => [id, { type: "running" }])),
+  });
+  routes["/api/session?parentID=null&order=desc&limit=100"] = response({
+    data: cases.map(([id, , input]) => session(id, 999_000, input)),
+    cursor: {},
+  });
+  const setup = fixture({ files: { [`${STATE}/service.json`]: { body: localRegistration() } }, routes });
+  const collector = new OpenCodeCollector({ identitySecret: SECRET, dependencies: setup.dependencies });
+  const snapshot = await startAndRefresh(collector);
+  await collector.stop();
+  const tasks = snapshot.connections[0]!.tasks;
+  assert.deepEqual(
+    Object.fromEntries(tasks.map((task) => [task.sessionId, task.startedByT3 === true])),
+    Object.fromEntries(cases.map(([id, expected]) => [id, expected])),
+  );
+  assert.equal(JSON.stringify(snapshot).includes("t3-code-"), false);
 });
 
 test("bounds and sanitizes titles before local rendering", async () => {

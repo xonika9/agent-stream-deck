@@ -14,6 +14,8 @@ export class OpenCodeSource {
   private identitySecretPreparation?: Promise<Buffer>;
   private localHost?: CodexHost;
   private demanded = false;
+  // The T3 Code source shows these tasks itself; a second key would open the wrong application.
+  private hideT3Tasks = false;
   private readonly listeners = new Set<() => void>();
   private unsubscribeCollector?: () => void;
 
@@ -65,6 +67,7 @@ export class OpenCodeSource {
     stopped: boolean,
   ): Promise<void> {
     this.demanded = !stopped && shouldCollectOpenCode(toTaskSourceSet(taskSource), process.platform);
+    this.hideT3Tasks = toTaskSourceSet(taskSource).has("T3 Code");
     this.localHost = host;
     const demanded = this.demanded;
     if (demanded && this.preparation) return this.preparation;
@@ -155,6 +158,7 @@ export class OpenCodeSource {
       : { state: "degraded", reason: "native-signals-unavailable", changedAt: observedAt };
     this.openCodeSlots = snapshot.connections
       .flatMap((connection) => connection.tasks.map((task) => ({ task, observedAt: connection.observedAt })))
+      .filter(({ task }) => !this.hideT3Tasks || !task.startedByT3)
       .map(({ task, observedAt: connectionObservedAt }, sourceSlot) =>
         openCodeTaskSlot(task, sourceSlot, connectionObservedAt, this.localHost!),
       );
