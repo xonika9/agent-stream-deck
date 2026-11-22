@@ -166,8 +166,8 @@ test("usage settings parse with defaults and legacy mode", () => {
   assert.equal(parseUsageSettings({ mode: "weekly" }).mode, "weekly");
   assert.equal(parseUsageSource("t3-claude", "darwin"), "t3-claude");
   assert.equal(parseUsageSource("bogus", "darwin"), "codex-auto");
-  assert.equal(parseUsageSettings({ source: "t3-codex", mode: "weekly-fable" }).mode, "auto");
-  assert.equal(parseUsageSettings({ source: "t3-claude", mode: "weekly-fable" }).mode, "weekly-fable");
+  assert.equal(parseUsageSettings({ source: "t3-codex", mode: "weekly-fable" }, "darwin").mode, "auto");
+  assert.equal(parseUsageSettings({ source: "t3-claude", mode: "weekly-fable" }, "darwin").mode, "weekly-fable");
   assert.equal(parseUsageSettings({ topWindow: "bogus", bottomWindow: "monthly" }).topWindow, "five-hour");
   assert.equal(parseUsageSettings({ topWindow: "bogus", bottomWindow: "monthly" }).bottomWindow, "monthly");
 });
