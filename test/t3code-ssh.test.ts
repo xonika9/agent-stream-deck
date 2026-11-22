@@ -25,7 +25,7 @@ test("remote Python reader filters growing history before SSH and fails closed o
     thread("failed", "failed", { latestRunCompletedAt: iso() }),
     thread("subagent", "waiting", {
       creationSource: "mcp",
-      delegatedFrom: { environmentId: "must-not-cross-ssh", threadId: "origin" },
+      delegatedFrom: { environmentId: "origin-environment", threadId: "origin", title: "must-not-cross-ssh" },
       lineage: { parentThreadId: "working", relationshipToParent: "subagent", rootThreadId: "must-not-cross-ssh" },
       pendingRuntimeRequest: { id: "must-not-cross-ssh", kind: "user_input", userOnly: true },
     }),
@@ -92,7 +92,7 @@ test("remote Python reader filters growing history before SSH and fails closed o
       title: 'Задача 😀 ["{}"]',
       status: "waiting",
       creationSource: "mcp",
-      delegatedFrom: true,
+      delegatedFrom: { environmentId: "origin-environment", threadId: "origin" },
       lineage: { parentThreadId: "working", relationshipToParent: "subagent" },
       pendingRuntimeRequest: { kind: "user_input", userOnly: true },
       hasActionableProposedPlan: false,

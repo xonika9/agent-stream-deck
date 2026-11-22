@@ -892,6 +892,14 @@ test("T3 press opens the exact local or remote thread and falls back to the appl
     assert.equal(await source.open(assignment, new AbortController().signal), true);
     return opened.at(-1);
   };
+  const reload = async () => {
+    const before = source.slots.find((slot) => slot.threadKey === "thread:task%3Aa/b");
+    await source.refresh();
+    await wait(() => {
+      const now = source.slots.find((slot) => slot.threadKey === "thread:task%3Aa/b");
+      return now !== undefined && now !== before;
+    });
+  };
   const environmentIdPath = join(dirname(fixture.runtimePath), "environment-id");
   try {
     source.syncDemand("T3 Code", host, false);
@@ -900,8 +908,10 @@ test("T3 press opens the exact local or remote thread and falls back to the appl
     assert.equal(await press("ssh:remote:mcp:launch:1"), "t3code://threads/remote/mcp%3Alaunch%3A1");
     assert.equal(await press("thread:task%3Aa/b"), undefined);
     await writeFile(environmentIdPath, "local-environment\n");
+    await reload();
     assert.equal(await press("thread:task%3Aa/b"), "t3code://threads/local-environment/thread%3Atask%253Aa%2Fb");
     await writeFile(environmentIdPath, "../other?prompt=x");
+    await reload();
     assert.equal(await press("thread:task%3Aa/b"), undefined);
     assert.equal(opened.length, 4);
   } finally {
@@ -953,7 +963,6 @@ test("T3 hides threads nested in the left menu and shows their user requests on 
         child("subagent", "root"),
         thread("fork", forked),
         thread("side", side),
-        thread("delegated", { delegatedFrom: { environmentId: "other", threadId: "origin" } }),
         root,
         child("done", "root", {
           status: "completed",
@@ -977,6 +986,9 @@ test("T3 hides threads nested in the left menu and shows their user requests on 
     assert.deepEqual(await statuses([root, child("subagent", "root", asks("user_input", { userOnly: true }))]), [
       ["root", "approval"],
     ]);
+    const plan = { status: "completed", activityRunStatus: null, hasActionableProposedPlan: true };
+    assert.deepEqual(await statuses([root, thread("side", { ...side, ...plan })]), [["root", "approval"]]);
+    assert.deepEqual(await statuses([root, child("subagent", "root", plan)]), [["root", "working"]]);
     // These requests do not wait for the user in T3.
     for (const request of [
       asks("user_input"),
@@ -993,6 +1005,105 @@ test("T3 hides threads nested in the left menu and shows their user requests on 
     const first = child("first", "second", asks("command_approval"));
     assert.deepEqual(await statuses([first, child("second", "first")]), [["first", "approval"]]);
   } finally {
+    await fixture.close();
+  }
+});
+
+test("T3 hides a task delegated from another environment only while its origin is queued", {
+  skip: process.platform === "win32",
+}, async (context) => {
+  const fixture = await t3Fixture(context);
+  const { source, wait, waitJob } = fixture;
+  const thread = (id: string, extra = {}) => ({
+    id,
+    title: id,
+    status: "running",
+    activityRunStatus: "running",
+    ...extra,
+  });
+  const from = (environmentId: string, threadId: string) => ({ delegatedFrom: { environmentId, threadId } });
+  await writeFile(join(dirname(fixture.runtimePath), "environment-id"), "local-environment");
+  let jobs = 0;
+  // Both environments carry a marker, so each assertion waits for both commits.
+  const markers = () =>
+    ["marker", "ssh:remote:marker"].map((key) => source.slots.find((slot) => slot.threadKey === key));
+  const keys = async (local: unknown[], remote: unknown[]) => {
+    fixture.local.payload = { schemaVersion: 2, threads: [...local, thread("marker")] };
+    const before = markers();
+    await source.refresh();
+    (await waitJob(++jobs)).finish({ schemaVersion: 2, threads: [...remote, thread("marker")] });
+    await wait(() => markers().every((marker, index) => marker !== undefined && marker !== before[index]));
+    return source.slots
+      .filter((slot) => !slot.threadKey!.endsWith("marker"))
+      .map((slot) => [slot.threadKey, slot.status]);
+  };
+  try {
+    source.syncDemand("All", host, false);
+    const delegated = thread("delegated", from("local-environment", "origin"));
+    assert.deepEqual(await keys([thread("origin")], [delegated]), [["origin", "working"]]);
+    assert.deepEqual(await keys([thread("delegated", from("remote", "origin"))], [thread("origin")]), [
+      ["ssh:remote:origin", "working"],
+    ]);
+    // An absent, archived or differently owned origin leaves the task on its own key.
+    assert.deepEqual(await keys([], [delegated]), [["ssh:remote:delegated", "working"]]);
+    assert.deepEqual(await keys([thread("origin", { archivedAt: new Date().toISOString() })], [delegated]), [
+      ["ssh:remote:delegated", "working"],
+    ]);
+    assert.deepEqual(await keys([thread("origin")], [thread("delegated", from("unknown", "origin"))]), [
+      ["origin", "working"],
+      ["ssh:remote:delegated", "working"],
+    ]);
+    // A request, its own or from a subagent, keeps the delegated key; an ordinary question does not.
+    const request = (kind: string) => ({ activityRunStatus: "waiting", pendingRuntimeRequest: { kind } });
+    assert.deepEqual(await keys([thread("origin")], [{ ...delegated, ...request("command_approval") }]), [
+      ["origin", "working"],
+      ["ssh:remote:delegated", "approval"],
+    ]);
+    const lineage = { parentThreadId: "delegated", relationshipToParent: "subagent" };
+    assert.deepEqual(
+      await keys([thread("origin")], [delegated, thread("child", { lineage, ...request("command_approval") })]),
+      [
+        ["origin", "working"],
+        ["ssh:remote:delegated", "approval"],
+      ],
+    );
+    assert.deepEqual(await keys([thread("origin")], [{ ...delegated, ...request("user_input") }]), [
+      ["origin", "working"],
+    ]);
+  } finally {
+    await fixture.close();
+  }
+});
+
+test("T3 press passes macOS only the application and the thread link", {
+  skip: process.platform === "win32",
+}, async (context) => {
+  const fixture = await t3Fixture(context);
+  const calls: [string, string[]][] = [];
+  context.mock.method(childProcess, "execFile", (file: string, args: string[], _options: unknown, done: () => void) => {
+    calls.push([file, args]);
+    done();
+  });
+  syncBuiltinESMExports();
+  const source = new T3CodeSource(() => {}, { configPath: fixture.configPath, runtimePath: fixture.runtimePath });
+  try {
+    source.syncDemand("T3 Code", host, false);
+    (await fixture.waitJob(1)).finish(shell("task", "Remote title"));
+    await new Promise<void>((resolve) => {
+      const check = () => source.health.state === "ready" && resolve();
+      source.subscribe(check);
+      check();
+    });
+    const press = (threadKey: string) =>
+      source.open(source.slots.find((slot) => slot.threadKey === threadKey)!, new AbortController().signal);
+    assert.equal(await press("ssh:remote:task"), true);
+    assert.equal(await press("local"), true);
+    assert.deepEqual(calls, [
+      ["/usr/bin/open", ["-b", "com.t3tools.t3code", "t3code://threads/remote/task"]],
+      ["/usr/bin/open", ["-b", "com.t3tools.t3code"]],
+    ]);
+  } finally {
+    source.stop();
     await fixture.close();
   }
 });

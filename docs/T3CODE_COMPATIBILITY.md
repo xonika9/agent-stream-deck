@@ -77,12 +77,15 @@ Pending input/approval/plans appear orange; preparing/queued/starting/running
 work appears blue; fresh completion appears green; failed results appear red.
 Archived, deleted, settled, snoozed, idle and interrupted chats are omitted.
 Threads that T3's left menu nests inside another thread are omitted too: subagents
-(including delegated tasks), side chats and tasks delegated from another environment.
-Forks and independently launched threads remain. When a hidden thread asks the user,
-its nearest visible ancestor in the same environment turns orange; if that ancestor
-is not in the queue, the asking thread keeps its own key. As in T3, an agent's
-ordinary question to its caller, a credential refresh, a request without an active
-run and a provider-native subagent's request are not forwarded. Local display
+(including delegated tasks) and side chats. Forks and independently launched threads
+remain. When a hidden thread asks the user, its nearest visible ancestor in the same
+environment turns orange; if that ancestor is not in the queue, the asking thread
+keeps its own key. A side chat's proposed plan counts as such a request. As in T3, an
+agent's ordinary question to its caller, a subagent's proposed plan, a credential
+refresh, a request without an active run and a provider-native subagent's request are
+not forwarded. A task delegated from another environment is omitted only while the
+thread that delegated it is in the queue, and keeps its own orange key when it asks
+the user; T3 itself nests it whenever that thread is known and not archived. Local display
 filters kept by the T3 application, such as hidden tags, are not visible to the plugin.
 Completed/failed results expire five minutes after their terminal timestamp and
 are omitted when T3 reports they have already been visited. A press opens

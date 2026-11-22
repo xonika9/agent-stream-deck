@@ -9,7 +9,7 @@ import { codexDeckStateRoot } from "../runtime/paths.js";
 
 import { T3CredentialRejectedError, T3SshUnavailableError, t3SshRequest, validateSshConnection } from "./ssh.js";
 import { readShell } from "./shell-reader.js";
-import { sidebarThreads } from "./sidebar.js";
+import { type ThreadRef, sidebarThreads } from "./sidebar.js";
 
 const TERMINAL_WINDOW_MS = 5 * 60_000;
 export type LocalConnection = { origin: string; token: string; pid: number };
@@ -49,13 +49,14 @@ type LocalRuntime = { origin: string; token: string; pid: number };
 type FailureReason = "credential-rejected" | "runtime-unavailable" | "timeout" | "ssh-unavailable" | "invalid-response";
 type Environment = {
   namespace: string;
-  // Known from the saved SSH connection; the local one is read when a key is pressed.
   environmentId?: string;
   // Log label: "local" or an SSH ordinal; never a host, identity or token.
   label: string;
   identity: string;
   read: (request: AbortController) => Promise<RecordValue>;
   slots: RoutedAgentSlot[];
+  // Slots to hide while the thread that delegated them is in the queue.
+  delegations: Map<string, ThreadRef>;
   state: "connecting" | "ready" | "degraded";
   request?: AbortController;
   pending?: Promise<void>;
@@ -137,9 +138,11 @@ export class T3CodeSource {
       const desired = new Map<string, Pick<Environment, "environmentId" | "label" | "identity" | "read">>();
       try {
         const runtime = await this.localRuntime(config);
+        const environmentId = await readLocalEnvironmentId(this.runtimePath);
         desired.set("", {
+          environmentId,
           label: "local",
-          identity: JSON.stringify([runtime.origin, runtime.token, runtime.pid]),
+          identity: JSON.stringify([runtime.origin, runtime.token, runtime.pid, environmentId]),
           read: async (request) => this.localShell(runtime, request),
         });
       } catch {
@@ -184,7 +187,13 @@ export class T3CodeSource {
       }
       for (const [namespace, candidate] of desired) {
         if (this.environments.has(namespace)) continue;
-        this.environments.set(namespace, { namespace, ...candidate, slots: [], state: "connecting" });
+        this.environments.set(namespace, {
+          namespace,
+          ...candidate,
+          slots: [],
+          delegations: new Map(),
+          state: "connecting",
+        });
         changed = true;
       }
       if (changed) this.publish();
@@ -218,12 +227,15 @@ export class T3CodeSource {
         )
           throw new Error("Unsupported shell");
         const observedAt = Date.now();
+        const delegations = new Map<string, ThreadRef>();
         const candidate = sidebarThreads(
           shell.threads.map(object),
           (thread) => this.taskSlot(thread, 0, observedAt, environment.namespace) !== null,
-        ).flatMap(({ thread, asked }, index) => {
+        ).flatMap(({ thread, asked, delegatedFrom }, index) => {
           const slot = this.taskSlot(thread, index, observedAt, environment.namespace);
-          return slot ? [asked ? { ...slot, status: "approval" } : slot] : [];
+          if (!slot) return [];
+          if (delegatedFrom && !asked) delegations.set(slot.threadKey!, delegatedFrom);
+          return [asked ? { ...slot, status: "approval" } : slot];
         });
         if (!current()) return;
         // Recheck the exact acknowledgement at commit, including the environment namespace.
@@ -232,6 +244,7 @@ export class T3CodeSource {
             (slot.status !== "unread" && slot.status !== "error") ||
             this.acknowledged.get(slot.threadKey!) !== slot.activityAt,
         );
+        environment.delegations = delegations;
         environment.state = "ready";
         if (this.reportedFailures.delete(environment.label))
           this.log(`T3 Code ${environment.label} connection recovered.`);
@@ -273,7 +286,7 @@ export class T3CodeSource {
   }
 
   private publish(): void {
-    this.slots = [...this.environments.values()].flatMap((environment) => environment.slots);
+    this.slots = this.visibleSlots();
     const present = new Set(this.slots.map((slot) => slot.threadKey));
     const now = Date.now();
     for (const [id, at] of this.acknowledged)
@@ -296,6 +309,21 @@ export class T3CodeSource {
             };
     }
     for (const listener of this.listeners) listener();
+  }
+
+  private visibleSlots(): RoutedAgentSlot[] {
+    const environments = [...this.environments.values()];
+    const queued = (ref: ThreadRef) =>
+      environments.some(
+        ({ environmentId, namespace, slots }) =>
+          environmentId === ref.environmentId && slots.some((slot) => slot.threadKey === namespace + ref.threadId),
+      );
+    return environments.flatMap(({ slots, delegations }) =>
+      slots.filter((slot) => {
+        const delegatedFrom = delegations.get(slot.threadKey!);
+        return !delegatedFrom || !queued(delegatedFrom);
+      }),
+    );
   }
 
   private async localRuntime(config: RecordValue): Promise<LocalRuntime> {
@@ -322,7 +350,7 @@ export class T3CodeSource {
   async open(assignment: RoutedAgentSlot, signal: AbortSignal): Promise<boolean> {
     if (!this.demanded || signal.aborted) return false;
     const generation = this.generation;
-    await this.foreground(await this.threadUrl(assignment.threadKey));
+    await this.foreground(this.threadUrl(assignment.threadKey));
     if (signal.aborted || generation !== this.generation || !this.demanded) return false;
     const current = this.slots.find((slot) => slot.threadKey === assignment.threadKey);
     if (!current || current.activityAt !== assignment.activityAt || current.status !== assignment.status) return false;
@@ -336,15 +364,13 @@ export class T3CodeSource {
   }
 
   // Undefined leaves the press at bringing T3 Code forward.
-  private async threadUrl(threadKey: RoutedAgentSlot["threadKey"]): Promise<string | undefined> {
+  private threadUrl(threadKey: RoutedAgentSlot["threadKey"]): string | undefined {
     const environment = [...this.environments.values()].find(({ slots }) =>
       slots.some((slot) => slot.threadKey === threadKey),
     );
-    if (!threadKey || !environment) return undefined;
-    const environmentId = environment.environmentId ?? (await readLocalEnvironmentId(this.runtimePath));
-    if (!environmentId) return undefined;
+    if (!threadKey || !environment?.environmentId) return undefined;
     const threadId = threadKey.slice(environment.namespace.length);
-    return `t3code://threads/${encodeURIComponent(environmentId)}/${encodeURIComponent(threadId)}`;
+    return `t3code://threads/${encodeURIComponent(environment.environmentId)}/${encodeURIComponent(threadId)}`;
   }
 
   private taskSlot(thread: RecordValue, index: number, now: number, namespace = ""): RoutedAgentSlot | null {
