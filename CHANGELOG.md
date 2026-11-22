@@ -2,6 +2,28 @@
 
 Versions through `0.7.0.2` below are the historical upstream releases by Dazer. Starting with `1.0.0`, releases belong to the xonika9 fork and use its own plugin identity. Releases after `2.2.2` use calendar versions `YY.M.D.N` (Moscow date, daily release number).
 
+## 26.11.22.3 - 2026-11-22
+
+### Highlights
+
+- A completed or failed T3 Code result in a conversation you have opened before no longer disappears after five minutes. Its key stays until you read the result in T3 Code, the conversation is settled, or you press the key.
+
+### Fixes
+
+- A pressed T3 Code result no longer returns when T3 Code has not recorded the visit. Presses are remembered for the latest 1,000 conversations until the plugin restarts.
+
+### Compatibility
+
+- Results in T3 Code conversations that were never opened, and results of subagents and delegated tasks that have a key of their own, still leave after five minutes. OpenCode and Codex results behave as before.
+- Unread results come before working tasks, so several unread conversations can take keys from working ones.
+- Profiles, saved settings, existing connections and plugin and action UUIDs are unchanged. Windows actions are unchanged.
+
+### Validation
+
+- Local automated macOS validation passed with Node 24.16.0 through `npm run release:prepare`: clean dependency install, lint, import boundaries, types, version agreement, tests with two existing Windows-only skips, plugin validation, packaging, archive integrity, checksums and release artifact auditing.
+- Live application checks: a development build of the same code ran in the Stream Deck app and filled its keys from the live local and Fedora sources. The new reader took about as long as the previous one on the live Fedora server. A result that stayed on a live key for more than five minutes was covered by fixtures only.
+- This packaged build was not installed; physical key presses and native Windows were not validated.
+
 ## 26.11.22.2 - 2026-11-22
 
 ### Highlights
