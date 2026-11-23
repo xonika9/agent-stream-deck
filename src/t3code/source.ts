@@ -13,6 +13,9 @@ import { type ThreadRef, sidebarThreads, staysUntilRead } from "./sidebar.js";
 
 const TERMINAL_WINDOW_MS = 5 * 60_000;
 const MAX_ACKNOWLEDGED = 1_000;
+// Each SSH read makes the remote T3 server serialize its whole shell, so remote environments start
+// at most this often instead of on every caller tick; the local loopback read keeps the caller cadence.
+const SSH_READ_INTERVAL_MS = 5_000;
 export type LocalConnection = { origin: string; token: string; pid: number };
 export type LocalConnectionOptions = { configPath?: string; runtimePath?: string };
 
@@ -55,6 +58,8 @@ type Environment = {
   label: string;
   identity: string;
   read: (request: AbortController) => Promise<RecordValue>;
+  readInterval: number;
+  nextReadAt?: number;
   slots: RoutedAgentSlot[];
   // Slots to hide while the thread that delegated them is in the queue.
   delegations: Map<string, ThreadRef>;
@@ -136,7 +141,10 @@ export class T3CodeSource {
     try {
       const config = await readPrivateConfig(this.configPath);
       if (generation !== this.generation || !this.demanded) return;
-      const desired = new Map<string, Pick<Environment, "environmentId" | "label" | "identity" | "read">>();
+      const desired = new Map<
+        string,
+        Pick<Environment, "environmentId" | "label" | "identity" | "read" | "readInterval">
+      >();
       try {
         const runtime = await this.localRuntime(config);
         const environmentId = await readLocalEnvironmentId(this.runtimePath);
@@ -145,6 +153,7 @@ export class T3CodeSource {
           label: "local",
           identity: JSON.stringify([runtime.origin, runtime.token, runtime.pid, environmentId]),
           read: async (request) => this.localShell(runtime, request),
+          readInterval: 0,
         });
       } catch {
         desired.set("", {
@@ -153,6 +162,7 @@ export class T3CodeSource {
           read: async () => {
             throw new LocalRuntimeUnavailableError("Local runtime unavailable");
           },
+          readInterval: 0,
         });
       }
       if (generation !== this.generation || !this.demanded) return;
@@ -170,6 +180,7 @@ export class T3CodeSource {
                 label: `SSH connection ${index + 1}`,
                 identity: JSON.stringify([connection.host, connection.environmentId, connection.token]),
                 read: async (request) => object(await t3SshRequest(connection.host, connection, request.signal)),
+                readInterval: SSH_READ_INTERVAL_MS,
               });
             } catch {
               configurationFailed = true;
@@ -210,7 +221,9 @@ export class T3CodeSource {
   }
 
   private collect(environment: Environment, generation: number): void {
-    if (environment.pending) return;
+    const now = Date.now();
+    if (environment.pending || now < (environment.nextReadAt ?? 0)) return;
+    environment.nextReadAt = now + environment.readInterval;
     const request = new AbortController();
     environment.request = request;
     const current = () =>

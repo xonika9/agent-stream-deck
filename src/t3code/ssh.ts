@@ -26,7 +26,7 @@ def request(path, token=None, body=None):
  headers = {"x-t3-orchestration-protocol":"2"}
  if token: headers["Authorization"] = "Bearer " + token
  if body is not None: headers["Content-Type"] = "application/x-www-form-urlencoded"
- with opener.open(urllib.request.Request(origin + path, data=body, headers=headers), timeout=4) as response:
+ with opener.open(urllib.request.Request(origin + path, data=body, headers=headers), timeout=7) as response:
   raw = response.read(${MAX_RESPONSE_BYTES + 1})
   if len(raw) > ${MAX_RESPONSE_BYTES}: raise ValueError("size")
   return json.loads(raw)
@@ -88,7 +88,9 @@ export async function t3SshRequest(host: string, input: object, signal: AbortSig
   // Validate a single saved SSH alias; no user command or SSH options are accepted.
   validateSshHost(host);
   const command = `python3 -c '${T3_REMOTE_SCRIPT.replaceAll("'", "'\\''")}'`;
-  const deadline = AbortSignal.timeout("pair" in input ? 10_000 : 4_000);
+  // A loaded remote server can need several seconds to serialize a large shell; the remote reader
+  // stops itself one second earlier so the SSH process never outlives this deadline.
+  const deadline = AbortSignal.timeout("pair" in input ? 10_000 : 8_000);
   const child = spawn(
     "/usr/bin/ssh",
     [

@@ -56,7 +56,8 @@ failed environment loses its stale cards without erasing successful snapshots.
 No remote service, relay or tunnel is started.
 
 T3 shell history is parsed incrementally with per-record size/depth limits and
-bounded retained relevant tasks. The four-second request budgets remain; the
-remote reader enforces its own deadline even after an SSH disconnect. Remote
+bounded retained relevant tasks. The local request budget is four seconds; an
+SSH request has eight, starts at most every five seconds, and its remote reader
+stops itself after seven, even after an SSH disconnect. Remote
 history and unused metadata are discarded on the SSH host before compact task
 data is returned; partial or malformed snapshots are never published.

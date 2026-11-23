@@ -458,7 +458,7 @@ test("T3 pending snapshots keep observation time; empty success and failure clea
     await wait(() => source.health.state === "ready");
     const remote = source.slots.find((slot) => slot.threadKey === "ssh:remote:task")!;
     const oldChangedAt = source.health.changedAt;
-    context.mock.timers.tick(1200);
+    context.mock.timers.tick(5000);
     await source.refresh();
     const second = await waitJob(2);
     await wait(() => source.slots[0]?.observedAt !== 0);
@@ -475,12 +475,12 @@ test("T3 pending snapshots keep observation time; empty success and failure clea
       source.slots.map((slot) => slot.threadKey),
       ["local"],
     );
-    context.mock.timers.tick(1200);
+    context.mock.timers.tick(5000);
     await source.refresh();
     (await waitJob(3)).finish(shell("task", "Recovered"));
     await wait(() => source.health.state === "ready");
     local.payload = { schemaVersion: 2, threads: [] };
-    context.mock.timers.tick(1200);
+    context.mock.timers.tick(5000);
     await source.refresh();
     const fourth = await waitJob(4);
     await wait(() => !source.slots.some((slot) => slot.threadKey === "local"));
@@ -502,7 +502,7 @@ test("T3 keeps the verified remote tasks through one SSH deadline, recovers, and
   context.mock.timers.enable({ apis: ["Date"], now: 100_000 });
   const deadlines: AbortController[] = [];
   context.mock.method(AbortSignal, "timeout", (milliseconds: number) => {
-    assert.equal(milliseconds, 4000);
+    assert.ok([4000, 8000].includes(milliseconds), String(milliseconds));
     const deadline = new AbortController();
     deadlines.push(deadline);
     return deadline.signal;
@@ -514,7 +514,7 @@ test("T3 keeps the verified remote tasks through one SSH deadline, recovers, and
     (await waitJob(1)).finish(shell("task", "Remote"));
     await wait(() => source.health.state === "ready");
     const remote = source.slots.find((slot) => slot.threadKey === "ssh:remote:task")!;
-    context.mock.timers.tick(1200);
+    context.mock.timers.tick(5000);
     await source.refresh();
     await waitJob(2);
     deadlines.at(-1)!.abort(new DOMException("Request deadline", "TimeoutError"));
@@ -525,19 +525,19 @@ test("T3 keeps the verified remote tasks through one SSH deadline, recovers, and
     );
     assert.equal(remote.observedAt, 100_000, "a timeout must not refresh the retained snapshot's age");
 
-    context.mock.timers.tick(1200);
+    context.mock.timers.tick(5000);
     await source.refresh();
     (await waitJob(3)).finish(shell("task", "Recovered"));
     await wait(() => source.health.state === "ready");
     assert.equal(source.slots.find((slot) => slot.threadKey === "ssh:remote:task")?.title, "Recovered");
 
-    context.mock.timers.tick(1200);
+    context.mock.timers.tick(5000);
     await source.refresh();
     await waitJob(4);
     deadlines.at(-1)!.abort(new DOMException("Request deadline", "TimeoutError"));
     await wait(() => source.health.state === "degraded");
     assert.equal(source.slots.find((slot) => slot.threadKey === "ssh:remote:task")?.title, "Recovered");
-    context.mock.timers.tick(1200);
+    context.mock.timers.tick(5000);
     await source.refresh();
     await waitJob(5);
     deadlines.at(-1)!.abort(new DOMException("Request deadline", "TimeoutError"));
@@ -588,7 +588,7 @@ test("T3 acknowledges the exact remote revision during a pending cycle without r
     (await waitJob(1)).finish(shell("task", "Done", 100_000));
     await wait(() => source.health.state === "ready");
     const assignment = source.slots.find((slot) => slot.threadKey === "ssh:remote:task")!;
-    context.mock.timers.tick(1200);
+    context.mock.timers.tick(5000);
     await source.refresh();
     const pending = await waitJob(2);
     assert.equal(await source.open(assignment, new AbortController().signal), true);
@@ -604,7 +604,7 @@ test("T3 acknowledges the exact remote revision during a pending cycle without r
       source.slots.some((slot) => slot.threadKey === "ssh:remote:task"),
       false,
     );
-    context.mock.timers.tick(1200);
+    context.mock.timers.tick(5000);
     await source.refresh();
     (await waitJob(3)).finish(shell("task", "Done again", 100_001));
     await wait(() => source.slots.some((slot) => slot.title === "Done again"));
@@ -790,7 +790,7 @@ test("T3 admits eight SSH environments concurrently and rejects excess and dupli
     admitted.finish(shell("task", "Admitted"));
     await wait(() => source.slots.some((slot) => slot.title === "Admitted"));
     assert.equal(source.health.state, "degraded");
-    context.mock.timers.tick(1200);
+    context.mock.timers.tick(5000);
     await source.refresh();
     const cancelled = await waitJob(10);
     await chmod(fixture.configPath, 0o644);
@@ -879,7 +879,7 @@ test("T3 rejects an oversized local response without erasing an authenticated re
     await wait(() => source.health.state === "ready");
     const remote = source.slots.find((slot) => slot.threadKey === "ssh:remote:task");
     local.payload = shell("local", "x".repeat(8 * 1024 * 1024));
-    context.mock.timers.tick(1200);
+    context.mock.timers.tick(5000);
     await source.refresh();
     const pending = await waitJob(2);
     await wait(() => source.health.state === "degraded");
@@ -926,7 +926,7 @@ test("T3 repeats a ready SSH environment while another SSH environment keeps its
     (await waitJob(2)).finish(shell("task", "Fast 0"));
     await wait(() => source.slots.some((slot) => slot.title === "Fast 0"));
     for (let revision = 1; revision <= 3; revision++) {
-      context.mock.timers.tick(1200);
+      context.mock.timers.tick(5000);
       await source.refresh();
       const fast = await waitJob(revision + 2);
       assert.equal(fast.input.environmentId, "fast");
@@ -942,6 +942,35 @@ test("T3 repeats a ready SSH environment while another SSH environment keeps its
       source.slots.map((slot) => slot.threadKey),
       ["local", "ssh:remote:task", "ssh:fast:task"],
     );
+  } finally {
+    await fixture.close();
+  }
+});
+
+test("T3 starts SSH reads at most every five seconds while the local read follows each caller tick", {
+  skip: process.platform === "win32",
+}, async (context) => {
+  context.mock.timers.enable({ apis: ["Date"] });
+  const fixture = await t3Fixture(context);
+  const { source, local, wait, waitJob } = fixture;
+  try {
+    source.syncDemand("All", host, false);
+    (await waitJob(1)).finish(shell("task", "Remote"));
+    await wait(() => source.health.state === "ready");
+    // 1200 ms and 4900 ms after the SSH read started: each local tick commits, SSH stays idle.
+    for (const [step, title] of [
+      [1200, "Local 1"],
+      [3700, "Local 2"],
+    ] as const) {
+      context.mock.timers.tick(step);
+      local.payload = shell("local", title);
+      await source.refresh();
+      await wait(() => source.slots.some((slot) => slot.title === title));
+      assert.equal(fixture.jobs.length, 1);
+    }
+    context.mock.timers.tick(100);
+    await source.refresh();
+    assert.equal((await waitJob(2)).input.environmentId, "remote");
   } finally {
     await fixture.close();
   }
@@ -1078,6 +1107,7 @@ test("T3 hides threads nested in the left menu and shows their user requests on 
 test("T3 hides a task delegated from another environment only while its origin is queued", {
   skip: process.platform === "win32",
 }, async (context) => {
+  context.mock.timers.enable({ apis: ["Date"] });
   const fixture = await t3Fixture(context);
   const { source, wait, waitJob } = fixture;
   const thread = (id: string, extra = {}) => ({
@@ -1096,6 +1126,7 @@ test("T3 hides a task delegated from another environment only while its origin i
   const keys = async (local: unknown[], remote: unknown[]) => {
     fixture.local.payload = { schemaVersion: 2, threads: [...local, thread("marker")] };
     const before = markers();
+    context.mock.timers.tick(5000);
     await source.refresh();
     (await waitJob(++jobs)).finish({ schemaVersion: 2, threads: [...remote, thread("marker")] });
     await wait(() => markers().every((marker, index) => marker !== undefined && marker !== before[index]));

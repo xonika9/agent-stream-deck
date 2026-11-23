@@ -104,7 +104,7 @@ def compact_thread(thread, now):
 
 def read_shell_records(token, now):
  headers = {"x-t3-orchestration-protocol":"2", "Authorization":"Bearer " + token}
- with opener.open(urllib.request.Request(origin + "/api/orchestration/shell", headers=headers), timeout=4) as response:
+ with opener.open(urllib.request.Request(origin + "/api/orchestration/shell", headers=headers), timeout=7) as response:
   result, found_threads, size = {"threads": []}, False, 0
   for key, value, array_start in ShellRecords(response).records():
    if array_start:
@@ -126,7 +126,7 @@ def read_shell_records(token, now):
 def read_shell(token, now):
  def deadline(*args): raise TimeoutError("shell deadline")
  previous = signal.signal(signal.SIGALRM, deadline)
- signal.setitimer(signal.ITIMER_REAL, 4)
+ signal.setitimer(signal.ITIMER_REAL, 7)
  try: return read_shell_records(token, now)
  finally:
   signal.setitimer(signal.ITIMER_REAL, 0)
