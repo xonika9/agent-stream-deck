@@ -281,7 +281,7 @@ for (const root of roots) {
 }
 
 if (failures.length) {
-  console.error("Release audit failed:\n" + failures.map((failure) => `- ${failure}`).join("\n"));
+  console.error(`Release audit failed:\n${failures.map((failure) => `- ${failure}`).join("\n")}`);
   process.exit(1);
 }
 console.log(`Release audit passed for ${roots.length} artifact roots.`);
