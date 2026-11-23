@@ -2,6 +2,17 @@
 
 Versions through `0.7.0.2` below are the historical upstream releases by Dazer. Starting with `1.0.0`, releases belong to the xonika9 fork and use its own plugin identity. Releases after `2.2.2` use calendar versions `YY.M.D.N` (Moscow date, daily release number).
 
+## 26.11.23.1 - 2026-11-23
+
+### Fixes
+
+- T3 Code tasks from a saved SSH connection no longer disappear every few minutes behind a "Signals uncertain" key when the remote machine is busy. The plugin now reads each SSH connection at most every five seconds instead of continuously, and a remote read may take up to eight seconds instead of four.
+
+### Compatibility
+
+- State changes of T3 Code tasks on an SSH connection can reach the keys up to five seconds later than before. Local T3 Code, Codex and OpenCode keep their previous refresh rate and limits.
+- Profiles, saved settings, existing connections and plugin and action UUIDs are unchanged. Windows actions are unchanged.
+
 ## 26.11.22.3 - 2026-11-22
 
 ### Highlights
