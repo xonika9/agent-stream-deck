@@ -88,8 +88,8 @@ export async function t3SshRequest(host: string, input: object, signal: AbortSig
   // Validate a single saved SSH alias; no user command or SSH options are accepted.
   validateSshHost(host);
   const command = `python3 -c '${T3_REMOTE_SCRIPT.replaceAll("'", "'\\''")}'`;
-  // A loaded remote server can need several seconds to serialize a large shell; the remote reader
-  // stops itself one second earlier so the SSH process never outlives this deadline.
+  // A loaded remote server can need several seconds to serialize a large shell. This deadline kills
+  // the local SSH process; the remote reader's own 7 s deadline bounds it after an SSH disconnect.
   const deadline = AbortSignal.timeout("pair" in input ? 10_000 : 8_000);
   const child = spawn(
     "/usr/bin/ssh",

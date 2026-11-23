@@ -501,8 +501,14 @@ test("T3 keeps the verified remote tasks through one SSH deadline, recovers, and
 }, async (context) => {
   context.mock.timers.enable({ apis: ["Date"], now: 100_000 });
   const deadlines: AbortController[] = [];
+  let localDeadlines = 0;
   context.mock.method(AbortSignal, "timeout", (milliseconds: number) => {
-    assert.ok([4000, 8000].includes(milliseconds), String(milliseconds));
+    // Local loopback reads keep four seconds; only SSH deadlines are collected for the aborts below.
+    if (milliseconds === 4000) {
+      localDeadlines++;
+      return new AbortController().signal;
+    }
+    assert.equal(milliseconds, 8000);
     const deadline = new AbortController();
     deadlines.push(deadline);
     return deadline.signal;
@@ -546,6 +552,7 @@ test("T3 keeps the verified remote tasks through one SSH deadline, recovers, and
       source.slots.map((slot) => slot.threadKey),
       ["local"],
     );
+    assert.ok(localDeadlines > 0);
   } finally {
     await fixture.close();
   }

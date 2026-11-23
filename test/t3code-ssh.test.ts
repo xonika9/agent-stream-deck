@@ -164,14 +164,14 @@ class Opener:
 opener = Opener()
 def test_deadline(*args): raise RuntimeError("reader exceeded its own deadline")
 signal.signal(signal.SIGALRM, test_deadline)
-signal.setitimer(signal.ITIMER_REAL, 6)
+signal.setitimer(signal.ITIMER_REAL, 10)
 try: read_shell("fixture-token", 0)
 except TimeoutError: print(json.dumps({"deadline": True, "closed": closed}))
 `;
   const result = await new Promise<string>((resolve, reject) => {
     const child = childProcess.spawn("python3", ["-c", program], {
       stdio: ["pipe", "pipe", "pipe"],
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(12_000),
     });
     let output = "";
     let error = "";
