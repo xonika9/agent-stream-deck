@@ -3,8 +3,8 @@ import { chmod, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { buildOptions } from "./build-options.mjs";
 
-const output = resolve("release/codex-deck-launcher");
-const macOutput = resolve("release/codex-deck-launcher-macos");
+const output = resolve("release/agent-deck-launcher");
+const macOutput = resolve("release/agent-deck-launcher-macos");
 await rm(output, { recursive: true, force: true });
 await rm(macOutput, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
@@ -42,18 +42,18 @@ for (const filename of [
   await cp(resolve(wsSource, "lib", filename), resolve(wsOutput, "lib", filename));
 }
 
-for (const filename of ["Start Codex Deck.cmd", "Start-CodexDeck.ps1", "Watch-CodexDeck.ps1", "README.txt"]) {
+for (const filename of ["Start Agent Deck.cmd", "Start-AgentDeck.ps1", "Watch-AgentDeck.ps1", "README.txt"]) {
   await cp(resolve("launcher", filename), resolve(output, filename));
 }
 await copyPublicDocs(output);
 
 await build({
   ...buildOptions("macos", process.argv.includes("--release")),
-  entryPoints: [resolve("launcher/macos/codex-deck-macos.ts")],
-  outfile: resolve(macOutput, "codex-deck-macos.mjs"),
+  entryPoints: [resolve("launcher/macos/agent-deck-macos.ts")],
+  outfile: resolve(macOutput, "agent-deck-macos.mjs"),
 });
 
-for (const filename of ["start-codex-deck.sh", "Start Codex Deck.command"]) {
+for (const filename of ["start-agent-deck.sh", "Start Agent Deck.command"]) {
   const destination = resolve(macOutput, filename);
   const contents = await readFile(resolve("launcher", filename), "utf8");
   await writeFile(destination, contents.replace(/\r\n/g, "\n"), { encoding: "utf8", mode: 0o755 });

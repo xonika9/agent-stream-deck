@@ -23,7 +23,7 @@ import {
 } from "#stream-deck";
 import type { T3CodeSource } from "#t3code";
 import { CODEX_BAR_FRESH_MS } from "#usage";
-import { codexDeckStateRoot } from "../src/runtime/paths.js";
+import { agentDeckStateRoot } from "../src/runtime/paths.js";
 import { createMicroSnapshot, host } from "./support/micro-snapshot.js";
 
 const snapshot = createMicroSnapshot();
@@ -949,7 +949,7 @@ for (const disappear of [false, true]) {
 
 test("startup and legacy host action use the local bridge while preserving old private selection files", async () => {
   const root = await mkdtemp(join(tmpdir(), "codex-local-startup-"));
-  const stateRoot = codexDeckStateRoot(process.platform, root, root);
+  const stateRoot = agentDeckStateRoot(process.platform, root, root);
   try {
     await mkdir(stateRoot, { recursive: true });
     const identity = { ...host, platform: process.platform === "darwin" ? "darwin" : "win32" };

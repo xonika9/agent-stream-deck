@@ -37,8 +37,8 @@ if (!process.env.DECK_SOURCE_TEST_HOME) {
       assert.match(result.stdout, /# fail 0/);
       const stateRoot =
         process.platform === "darwin"
-          ? join(home, "Library", "Application Support", "CodexDeck")
-          : join(home, "CodexDeck");
+          ? join(home, "Library", "Application Support", "AgentDeck")
+          : join(home, "AgentDeck");
       const identity = JSON.parse(await fsPromises.readFile(join(stateRoot, "host.json"), "utf8"));
       assert.equal(identity.hostId, "56fd97ad-7073-42cc-85ce-befa17546d7c");
       assert.equal(identity.platform, process.platform);
@@ -86,8 +86,8 @@ if (!process.env.DECK_SOURCE_TEST_HOME) {
   test("Codex source persists a platform correction only in subprocess temporary state", async (context) => {
     const stateRoot =
       process.platform === "darwin"
-        ? join(process.env.HOME!, "Library", "Application Support", "CodexDeck")
-        : join(process.env.LOCALAPPDATA!, "CodexDeck");
+        ? join(process.env.HOME!, "Library", "Application Support", "AgentDeck")
+        : join(process.env.LOCALAPPDATA!, "AgentDeck");
     await fsPromises.mkdir(stateRoot, { recursive: true });
     await fsPromises.writeFile(
       join(stateRoot, "host.json"),

@@ -20,6 +20,7 @@ import { homedir, hostname, platform, tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { applyRuntimeOverride, verifyMicroRuntime } from "#codex";
+import { agentDeckStateRoot, stateRoots } from "../../src/runtime/paths.js";
 import {
   createWatcherPolicyState,
   evaluateWatcherPolicy,
@@ -28,17 +29,42 @@ import {
 } from "./watcher-policy.js";
 
 const CODEX_BUNDLE_ID = "com.openai.codex";
-const AGENT_LABEL = "com.simeo.codex-deck.watcher";
-const STATE_ROOT = join(homedir(), "Library", "Application Support", "CodexDeck");
-const BRIDGE_STATE_PATH = join(STATE_ROOT, "codex-micro-bridge.json");
-const HOST_STATE_PATH = join(STATE_ROOT, "host.json");
-const WATCHER_STATE_PATH = join(STATE_ROOT, "watcher-state.json");
-const WATCHER_LOG_PATH = join(STATE_ROOT, "watcher.log");
-const WATCHER_STDERR_PATH = join(STATE_ROOT, "watcher.stderr.log");
-const WATCHER_LOCK_PATH = join(STATE_ROOT, "watcher.lock");
-const INSTALLED_RUNTIME_PATH = join(STATE_ROOT, "codex-deck-macos.mjs");
-const WATCHER_LAUNCHER_PATH = join(STATE_ROOT, "watcher-launch.sh");
-const LAUNCH_AGENT_PATH = join(homedir(), "Library", "LaunchAgents", `${AGENT_LABEL}.plist`);
+const AGENT_LABEL = "com.xonika9.agent-deck.watcher";
+// Pre-rename service and runtime names. The installer stops and removes that LaunchAgent before it
+// moves the legacy state directory, so the old watcher cannot keep writing into the old location.
+const LEGACY_AGENT_LABEL = "com.simeo.codex-deck.watcher";
+const LEGACY_RUNTIME_NAME = "codex-deck-macos.mjs";
+const LAUNCH_AGENTS_ROOT = join(homedir(), "Library", "LaunchAgents");
+const LAUNCH_AGENT_PATH = join(LAUNCH_AGENTS_ROOT, `${AGENT_LABEL}.plist`);
+const LEGACY_LAUNCH_AGENT_PATH = join(LAUNCH_AGENTS_ROOT, `${LEGACY_AGENT_LABEL}.plist`);
+// `root` follows the legacy directory until install moves it, then switches to the new one.
+const statePaths = {
+  root: agentDeckStateRoot("darwin"),
+  get bridge() {
+    return join(this.root, "codex-micro-bridge.json");
+  },
+  get host() {
+    return join(this.root, "host.json");
+  },
+  get watcherState() {
+    return join(this.root, "watcher-state.json");
+  },
+  get watcherLog() {
+    return join(this.root, "watcher.log");
+  },
+  get watcherStderr() {
+    return join(this.root, "watcher.stderr.log");
+  },
+  get watcherLock() {
+    return join(this.root, "watcher.lock");
+  },
+  get runtime() {
+    return join(this.root, "agent-deck-macos.mjs");
+  },
+  get watcherLauncher() {
+    return join(this.root, "watcher-launch.sh");
+  },
+};
 const POLL_MS = 1_000;
 const LOG_LIMIT_BYTES = 1_000_000;
 const INSTALLATION_METADATA_LIMIT = 128;
@@ -300,12 +326,12 @@ async function computerName(): Promise<string> {
 }
 
 async function hostState(): Promise<HostState> {
-  const existing = await readJson<Partial<HostState>>(HOST_STATE_PATH);
+  const existing = await readJson<Partial<HostState>>(statePaths.host);
   const hostId =
     typeof existing?.hostId === "string" && /^[0-9a-f-]{36}$/i.test(existing.hostId) ? existing.hostId : randomUUID();
   const value = { hostId, hostName: await computerName() };
   if (existing?.hostId !== value.hostId || existing.hostName !== value.hostName)
-    await atomicWriteJson(HOST_STATE_PATH, value);
+    await atomicWriteJson(statePaths.host, value);
   return value;
 }
 
@@ -318,7 +344,7 @@ async function writeBridgeState(port: number, installation: CodexInstallation): 
     ...host,
     codexVersion: installation.version,
   };
-  await atomicWriteJson(BRIDGE_STATE_PATH, state);
+  await atomicWriteJson(statePaths.bridge, state);
   return state;
 }
 
@@ -331,7 +357,7 @@ async function removeStaleBridgeState(
   activePort: number | null,
   log?: (message: string) => Promise<void>,
 ): Promise<boolean> {
-  const removed = await removeStaleBridgeStateFile(BRIDGE_STATE_PATH, activePort);
+  const removed = await removeStaleBridgeStateFile(statePaths.bridge, activePort);
   if (removed && log) await log("Removed stale bridge state.");
   return removed;
 }
@@ -399,15 +425,15 @@ async function enableBridge(
 
 async function rotateLog(): Promise<void> {
   try {
-    if ((await stat(WATCHER_LOG_PATH)).size < LOG_LIMIT_BYTES) return;
+    if ((await stat(statePaths.watcherLog)).size < LOG_LIMIT_BYTES) return;
   } catch {
     return;
   }
-  await rm(`${WATCHER_LOG_PATH}.3`, { force: true });
+  await rm(`${statePaths.watcherLog}.3`, { force: true });
   for (const [from, to] of [
-    [`${WATCHER_LOG_PATH}.2`, `${WATCHER_LOG_PATH}.3`],
-    [`${WATCHER_LOG_PATH}.1`, `${WATCHER_LOG_PATH}.2`],
-    [WATCHER_LOG_PATH, `${WATCHER_LOG_PATH}.1`],
+    [`${statePaths.watcherLog}.2`, `${statePaths.watcherLog}.3`],
+    [`${statePaths.watcherLog}.1`, `${statePaths.watcherLog}.2`],
+    [statePaths.watcherLog, `${statePaths.watcherLog}.1`],
   ] as const) {
     try {
       await rename(from, to);
@@ -418,9 +444,9 @@ async function rotateLog(): Promise<void> {
 }
 
 async function log(message: string): Promise<void> {
-  await mkdir(STATE_ROOT, { recursive: true, mode: 0o700 });
+  await mkdir(statePaths.root, { recursive: true, mode: 0o700 });
   await rotateLog();
-  const file = await open(WATCHER_LOG_PATH, "a", 0o600);
+  const file = await open(statePaths.watcherLog, "a", 0o600);
   try {
     await file.write(`${new Date().toISOString()} [${process.pid}] ${message}\n`);
   } finally {
@@ -434,7 +460,7 @@ function safeLog(message: string): void {
   });
 }
 
-export async function acquirePidLock(lockPath = WATCHER_LOCK_PATH): Promise<(() => Promise<void>) | null> {
+export async function acquirePidLock(lockPath = statePaths.watcherLock): Promise<(() => Promise<void>) | null> {
   await mkdir(dirname(lockPath), { recursive: true, mode: 0o700 });
   try {
     await mkdir(lockPath, { mode: 0o700 });
@@ -493,7 +519,7 @@ async function runWatcher(): Promise<number> {
   });
 
   await log(`Watcher started. token=${process.argv[3] ?? ""}`);
-  let policy = resumeWatcherPolicyState(await readJson<WatcherPolicyState>(WATCHER_STATE_PATH));
+  let policy = resumeWatcherPolicyState(await readJson<WatcherPolicyState>(statePaths.watcherState));
   let enabledSignature = "";
   try {
     while (true) {
@@ -507,7 +533,7 @@ async function runWatcher(): Promise<number> {
           bridgeHealthy: port != null,
         });
         policy = decision.state;
-        await atomicWriteJson(WATCHER_STATE_PATH, policy);
+        await atomicWriteJson(statePaths.watcherState, policy);
 
         if (port != null) {
           const signature = `${main!.generation}:${port}`;
@@ -536,7 +562,7 @@ async function runWatcher(): Promise<number> {
   }
 }
 
-export function buildWatcherLaunchScript(runtimePath = INSTALLED_RUNTIME_PATH, startupToken = ""): string {
+export function buildWatcherLaunchScript(runtimePath = statePaths.runtime, startupToken = ""): string {
   const shellQuote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`;
   return `#!/bin/zsh
 set -u
@@ -559,12 +585,12 @@ for node_candidate in "\${candidates[@]}"; do
   exec "$node_candidate" "$runtime" "\${1:-watch}" ${shellQuote(startupToken)}
 done
 
-print -r -- "$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ) [launcher] Node.js 24 or newer was not found; watcher did not start." >> ${shellQuote(WATCHER_LOG_PATH)}
+print -r -- "$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ) [launcher] Node.js 24 or newer was not found; watcher did not start." >> ${shellQuote(statePaths.watcherLog)}
 exit 78
 `;
 }
 
-export function buildLaunchAgentPlist(watcherLauncherPath = WATCHER_LAUNCHER_PATH): string {
+export function buildLaunchAgentPlist(watcherLauncherPath = statePaths.watcherLauncher): string {
   const xml = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -588,7 +614,7 @@ export function buildLaunchAgentPlist(watcherLauncherPath = WATCHER_LAUNCHER_PAT
   <key>StandardOutPath</key>
   <string>/dev/null</string>
   <key>StandardErrorPath</key>
-  <string>${xml(WATCHER_STDERR_PATH)}</string>
+  <string>${xml(statePaths.watcherStderr)}</string>
 </dict>
 </plist>
 `;
@@ -602,8 +628,8 @@ function builtRuntimeSource(): string {
     "..",
     "..",
     "release",
-    "codex-deck-launcher-macos",
-    "codex-deck-macos.mjs",
+    "agent-deck-launcher-macos",
+    "agent-deck-macos.mjs",
   );
 }
 
@@ -611,6 +637,48 @@ function currentUserId(): number {
   if (typeof process.getuid !== "function")
     throw new Error("A POSIX user ID is required to manage the macOS LaunchAgent.");
   return process.getuid();
+}
+
+function stopLaunchAgent(label: string): void {
+  const service = `gui/${currentUserId()}/${label}`;
+  const stopped = spawnSync("/bin/launchctl", ["bootout", service], { encoding: "utf8" });
+  if (stopped.status !== 0) {
+    const existing = spawnSync("/bin/launchctl", ["print", service], { encoding: "utf8" });
+    if (existing.status === 0) {
+      throw new Error("The installed watcher could not be stopped; its runtime was left unchanged.");
+    }
+  }
+}
+
+async function waitForLegacyWatcherExit(lockPath: string): Promise<void> {
+  const pid = Number((await readFile(join(lockPath, "pid"), "utf8").catch(() => "")).trim());
+  if (!Number.isInteger(pid) || pid <= 0) return;
+  const deadline = Date.now() + 15_000;
+  // A stale lock may name a reused PID, so only a process still running the old runtime counts.
+  while (run("/bin/ps", ["-p", String(pid), "-o", "command="], { allowFailure: true }).includes(LEGACY_RUNTIME_NAME)) {
+    if (Date.now() >= deadline) throw new Error(`The old watcher (PID ${pid}) did not exit.`);
+    await delay(250);
+  }
+}
+
+/** Moves the pre-rename directory in one same-volume rename; never merges into existing newer data. */
+async function migrateLegacyStateRoot(): Promise<string> {
+  const { target, legacy } = stateRoots("darwin");
+  if (!(await isDirectory(legacy))) return target;
+  await waitForLegacyWatcherExit(join(legacy, "watcher.lock"));
+  try {
+    // rename(2) keeps every inode, so private files keep their owner and 0600/0700 modes.
+    await rename(legacy, target);
+    console.log(`Moved Agent Deck data from ${legacy} to ${target}.`);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "ENOTEMPTY" && code !== "EEXIST") throw error;
+    console.warn(
+      `Both ${legacy} and ${target} exist. Agent Deck uses ${target}; ${legacy} was left untouched. ` +
+        "Move anything you still need from it by hand, then delete it.",
+    );
+  }
+  return target;
 }
 
 async function installLaunchAgent(): Promise<void> {
@@ -622,10 +690,10 @@ async function installLaunchAgent(): Promise<void> {
   ) {
     throw new Error("Build the macOS launcher first with `npm run build`.");
   }
-  await mkdir(STATE_ROOT, { recursive: true, mode: 0o700 });
-  await mkdir(dirname(LAUNCH_AGENT_PATH), { recursive: true });
-  const temporaryRuntime = `${INSTALLED_RUNTIME_PATH}.${process.pid}.tmp.mjs`;
-  const temporaryLauncher = `${WATCHER_LAUNCHER_PATH}.${process.pid}.tmp`;
+  // Preflight outside the state directory: it may still be the legacy one that is moved below.
+  const preflightRoot = await mkdtemp(join(tmpdir(), "agent-deck-install-"));
+  const temporaryRuntime = join(preflightRoot, "agent-deck-macos.mjs");
+  const temporaryLauncher = join(preflightRoot, "watcher-launch.sh");
   const startupToken = randomUUID();
   let oldWatcherStopped = false;
   try {
@@ -635,27 +703,30 @@ async function installLaunchAgent(): Promise<void> {
     // Exercise the same Node resolver and bundled runtime used at sign-in before
     // stopping the installed watcher. Self-test never touches Codex or its data.
     run("/bin/zsh", [temporaryLauncher, "self-test"]);
-    const service = `gui/${currentUserId()}/${AGENT_LABEL}`;
-    const stopped = spawnSync("/bin/launchctl", ["bootout", service], { encoding: "utf8" });
-    if (stopped.status !== 0) {
-      const existing = spawnSync("/bin/launchctl", ["print", service], { encoding: "utf8" });
-      if (existing.status === 0) {
-        throw new Error("The installed watcher could not be stopped; its runtime was left unchanged.");
-      }
-    }
+    stopLaunchAgent(LEGACY_AGENT_LABEL);
     oldWatcherStopped = true;
-    await rename(temporaryRuntime, INSTALLED_RUNTIME_PATH);
-    await atomicWrite(WATCHER_LAUNCHER_PATH, buildWatcherLaunchScript(INSTALLED_RUNTIME_PATH, startupToken), 0o700);
+    stopLaunchAgent(AGENT_LABEL);
+    await rm(LEGACY_LAUNCH_AGENT_PATH, { force: true });
+    statePaths.root = await migrateLegacyStateRoot();
+    await mkdir(statePaths.root, { recursive: true, mode: 0o700 });
+    await mkdir(dirname(LAUNCH_AGENT_PATH), { recursive: true });
+    const stagedRuntime = `${statePaths.runtime}.${process.pid}.tmp.mjs`;
+    await copyFile(temporaryRuntime, stagedRuntime);
+    await chmod(stagedRuntime, 0o700);
+    await rename(stagedRuntime, statePaths.runtime);
+    await rm(join(statePaths.root, LEGACY_RUNTIME_NAME), { force: true });
+    await atomicWrite(statePaths.watcherLauncher, buildWatcherLaunchScript(statePaths.runtime, startupToken), 0o700);
     await atomicWrite(LAUNCH_AGENT_PATH, buildLaunchAgentPlist(), 0o644);
     await hostState();
     run("/bin/launchctl", ["bootstrap", `gui/${currentUserId()}`, LAUNCH_AGENT_PATH]);
+    const service = `gui/${currentUserId()}/${AGENT_LABEL}`;
     const deadline = Date.now() + 15_000;
     let ready = false;
     while (Date.now() < deadline) {
       const status = run("/bin/launchctl", ["print", service], { allowFailure: true });
       const pid = Number(status.match(/\bpid = (\d+)/)?.[1]);
-      const lockPid = Number((await readFile(join(WATCHER_LOCK_PATH, "pid"), "utf8").catch(() => "")).trim());
-      const logText = await readFile(WATCHER_LOG_PATH, "utf8").catch(() => "");
+      const lockPid = Number((await readFile(join(statePaths.watcherLock, "pid"), "utf8").catch(() => "")).trim());
+      const logText = await readFile(statePaths.watcherLog, "utf8").catch(() => "");
       if (
         pid > 0 &&
         pid === lockPid &&
@@ -678,28 +749,30 @@ async function installLaunchAgent(): Promise<void> {
     }
     throw error;
   } finally {
-    await rm(temporaryRuntime, { force: true });
-    await rm(temporaryLauncher, { force: true });
+    await rm(preflightRoot, { recursive: true, force: true });
   }
 }
 
 async function uninstallLaunchAgent(): Promise<void> {
-  run("/bin/launchctl", ["bootout", `gui/${currentUserId()}`, LAUNCH_AGENT_PATH], { allowFailure: true });
-  await rm(LAUNCH_AGENT_PATH, { force: true });
+  for (const plist of [LAUNCH_AGENT_PATH, LEGACY_LAUNCH_AGENT_PATH]) {
+    run("/bin/launchctl", ["bootout", `gui/${currentUserId()}`, plist], { allowFailure: true });
+    await rm(plist, { force: true });
+  }
   for (const path of [
-    INSTALLED_RUNTIME_PATH,
-    WATCHER_LAUNCHER_PATH,
-    BRIDGE_STATE_PATH,
-    WATCHER_STATE_PATH,
-    WATCHER_LOG_PATH,
-    `${WATCHER_LOG_PATH}.1`,
-    `${WATCHER_LOG_PATH}.2`,
-    `${WATCHER_LOG_PATH}.3`,
-    WATCHER_STDERR_PATH,
+    statePaths.runtime,
+    join(statePaths.root, LEGACY_RUNTIME_NAME),
+    statePaths.watcherLauncher,
+    statePaths.bridge,
+    statePaths.watcherState,
+    statePaths.watcherLog,
+    `${statePaths.watcherLog}.1`,
+    `${statePaths.watcherLog}.2`,
+    `${statePaths.watcherLog}.3`,
+    statePaths.watcherStderr,
   ]) {
     await rm(path, { force: true });
   }
-  await rm(WATCHER_LOCK_PATH, { recursive: true, force: true });
+  await rm(statePaths.watcherLock, { recursive: true, force: true });
   console.log("Agent Deck LaunchAgent removed. host.json and the icons directory were preserved.");
 }
 
@@ -707,7 +780,7 @@ async function dryRun(): Promise<void> {
   const installation = await discoverCodexInstallation();
   const main = findMainProcess(installation);
   const port = await healthyDebugPort(main);
-  const staleState = await readJson<{ port?: unknown }>(BRIDGE_STATE_PATH);
+  const staleState = await readJson<{ port?: unknown }>(statePaths.bridge);
   console.log(`Codex app: ${installation.appPath}`);
   console.log(`Bundle ID: ${installation.bundleId}`);
   console.log(`Version: ${installation.version} (${installation.buildVersion})`);
@@ -791,7 +864,7 @@ async function selfTest(): Promise<void> {
     "LaunchAgent startup race preserves the first normal session",
   );
 
-  const temporaryRoot = await mkdtemp(join(tmpdir(), "codex-deck-self-test-"));
+  const temporaryRoot = await mkdtemp(join(tmpdir(), "agent-deck-self-test-"));
   const lockPath = join(temporaryRoot, "watcher.lock");
   const firstLock = await acquirePidLock(lockPath);
   assert.ok(firstLock, "the first watcher acquires its PID lock");
@@ -846,7 +919,7 @@ async function main(): Promise<number> {
   if (command === "start") return await startOnce(process.argv.includes("--restart"));
   if (command === "--restart") return await startOnce(true);
   throw new Error(
-    "Usage: start-codex-deck.sh [start [--restart]|dry-run|self-test|install|uninstall|watch|print-launch-agent]",
+    "Usage: start-agent-deck.sh [start [--restart]|dry-run|self-test|install|uninstall|watch|print-launch-agent]",
   );
 }
 

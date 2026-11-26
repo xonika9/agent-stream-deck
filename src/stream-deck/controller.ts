@@ -1,7 +1,7 @@
 import streamDeck, { type KeyAction } from "@elgato/streamdeck";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { codexDeckStateRoot } from "../runtime/paths.js";
+import { agentDeckStateRoot } from "../runtime/paths.js";
 import { ActiveQueueRankIndex, projectActiveQueue } from "#agents";
 import type { CodexSource } from "#codex";
 import { readCodexBarUsage } from "#usage";
@@ -80,8 +80,6 @@ type T3UsageSource = {
   health: HostHealth;
   refresh(): Promise<void>;
 };
-
-const USER_ICON_ROOT = join(codexDeckStateRoot(), "icons");
 
 export class DeckController {
   private readonly agents = new Map<string, AgentRegistration>();
@@ -914,7 +912,7 @@ export class DeckController {
     const cacheKey = `${theme}:${keycapId}`;
     let pending = this.keycapImages.get(cacheKey);
     if (pending) return pending;
-    pending = readFile(join(USER_ICON_ROOT, `${keycapId}.svg`), "utf8")
+    pending = readFile(join(agentDeckStateRoot(), "icons", `${keycapId}.svg`), "utf8")
       .then((svg) => renderImportedKeycap(svg, theme))
       .catch(() => renderFallbackKeycap(keycapId, theme));
     this.keycapImages.set(cacheKey, pending);

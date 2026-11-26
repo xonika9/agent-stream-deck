@@ -2,7 +2,7 @@
 set -u
 
 script_dir="${0:A:h}"
-"$script_dir/start-codex-deck.sh" start
+"$script_dir/start-agent-deck.sh" start
 launcher_status=$?
 
 if [[ $launcher_status -eq 2 ]]; then
@@ -10,7 +10,7 @@ if [[ $launcher_status -eq 2 ]]; then
   print "May I restart Codex once to verify the macOS bridge? Any unsent composer text should be saved first."
   read "answer?Type yes to continue: "
   if [[ "$answer" == "yes" ]]; then
-    "$script_dir/start-codex-deck.sh" start --restart
+    "$script_dir/start-agent-deck.sh" start --restart
     launcher_status=$?
   else
     print "Codex was left running and unchanged."

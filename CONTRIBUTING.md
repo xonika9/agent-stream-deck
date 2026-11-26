@@ -40,7 +40,7 @@ and reinstall it only when launcher or watcher behavior changes:
 
 ```zsh
 npm run build
-release/codex-deck-launcher-macos/start-codex-deck.sh install
+release/agent-deck-launcher-macos/start-agent-deck.sh install
 ```
 
 ## Versioning

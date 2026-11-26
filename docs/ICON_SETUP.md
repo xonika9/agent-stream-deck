@@ -7,8 +7,8 @@ Agent Deck does not distribute the official Codex Micro keycap SVGs. This workfl
 Use the directory for the computer running Stream Deck:
 
 ```text
-Windows: %LOCALAPPDATA%\CodexDeck\icons
-macOS:   ~/Library/Application Support/CodexDeck/icons
+Windows: %LOCALAPPDATA%\AgentDeck\icons
+macOS:   ~/Library/Application Support/AgentDeck/icons
 ```
 
 Each SVG must be named after its Codex keycap ID. The known IDs in the tested Codex build are:
@@ -21,9 +21,9 @@ PLAY GIT BRCH MRG PR PAINT LAB PARTY TIME MIND+ MIND- SETUP FOLD UPL APPS
 Example destination names:
 
 ```text
-%LOCALAPPDATA%\CodexDeck\icons\FAST.svg
-%LOCALAPPDATA%\CodexDeck\icons\APPR.svg
-%LOCALAPPDATA%\CodexDeck\icons\MIND+.svg
+%LOCALAPPDATA%\AgentDeck\icons\FAST.svg
+%LOCALAPPDATA%\AgentDeck\icons\APPR.svg
+%LOCALAPPDATA%\AgentDeck\icons\MIND+.svg
 ```
 
 The plugin reads matching files for the six synchronized physical action slots

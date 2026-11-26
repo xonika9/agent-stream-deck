@@ -19,7 +19,7 @@ test("T3 connector requests only read access, saves a protected token, and never
       const params = new URLSearchParams(body);
       assert.equal(params.get("scope"), "orchestration:read");
       assert.equal(params.get("subject_token"), "pairing-fixture");
-      assert.equal(params.get("client_label"), "CodexDeck");
+      assert.equal(params.get("client_label"), "AgentDeck");
       response.setHeader("content-type", "application/json");
       response.end(
         JSON.stringify({ token_type: "Bearer", scope: "orchestration:read", access_token: "access-fixture" }),
@@ -58,6 +58,7 @@ test("T3 connector requests only read access, saves a protected token, and never
       join(home, ".t3", "userdata", "server-runtime.json"),
       JSON.stringify({ version: 1, origin, pid: process.pid }),
     );
+    // Only the pre-rename directory exists: connect must keep using it until the launcher moves it.
     const privateRoot = join(home, "Library", "Application Support", "CodexDeck");
     await mkdir(privateRoot, { recursive: true });
     const remote = { host: "fixture-host", environmentId: "fixture-environment", token: "remote-fixture" };
@@ -70,6 +71,7 @@ test("T3 connector requests only read access, saves a protected token, and never
     const contents = await readFile(configPath, "utf8");
     assert.deepEqual(JSON.parse(contents), { origin, token: "access-fixture", sshConnections: [remote] });
     assert.equal((await stat(configPath)).mode & 0o777, 0o600);
+    await assert.rejects(stat(join(home, "Library", "Application Support", "AgentDeck")), { code: "ENOENT" });
     const invalid = await run('{"credential":"private-malformed-fixture"');
     assert.equal(invalid.code, 1);
     assert.doesNotMatch(invalid.output, /private-malformed-fixture/u);

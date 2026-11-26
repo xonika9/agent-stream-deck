@@ -21,17 +21,17 @@ reproduces over a direct connection, continue with plugin diagnostics.
 ## Codex Micro is missing from Settings on Windows
 
 - You can safely run the launcher again while a launcher-started Codex session is open; it now reuses the existing debug session instead of restarting Codex.
-- Use `Start-CodexDeck.ps1 -ForceRestart` only when you explicitly want to restart Codex.
-- To keep it available across Windows sign-in, Codex restarts, and Codex app updates, run `Start-CodexDeck.ps1 -InstallStartup` once. This installs a persistent single-instance watcher. Remove it with `-UninstallStartup`.
+- Use `Start-AgentDeck.ps1 -ForceRestart` only when you explicitly want to restart Codex.
+- To keep it available across Windows sign-in, Codex restarts, and Codex app updates, run `Start-AgentDeck.ps1 -InstallStartup` once. This installs a persistent single-instance watcher. Remove it with `-UninstallStartup`.
 - Installing monitoring leaves an already-open normal Codex session untouched. Close and reopen Codex once, or run the launcher manually when you are ready for that one recovery restart.
-- Watcher diagnostics are stored in `%LOCALAPPDATA%\CodexDeck\watcher.log` and rotate automatically.
+- Watcher diagnostics are stored in `%LOCALAPPDATA%\AgentDeck\watcher.log` and rotate automatically.
 - Close all Codex windows.
-- Start Codex with `Start Codex Deck.cmd`.
-- After `-InstallStartup`, the watcher uses its durable copy under `%LOCALAPPDATA%\CodexDeck\launcher`; the extracted ZIP is no longer required.
+- Start Codex with `Start Agent Deck.cmd`.
+- After `-InstallStartup`, the watcher uses its durable copy under `%LOCALAPPDATA%\AgentDeck\launcher`; the extracted ZIP is no longer required.
 - Run this diagnostic from the launcher folder:
 
 ```powershell
-.\Start-CodexDeck.ps1 -DryRun
+.\Start-AgentDeck.ps1 -DryRun
 ```
 
 If the launcher times out after a Codex update, open an issue with the exact Codex version and launcher output.
@@ -41,18 +41,19 @@ If the launcher times out after a Codex update, open an issue with the exact Cod
 Run these from the extracted matching launcher:
 
 ```zsh
-./start-codex-deck.sh dry-run
-./start-codex-deck.sh self-test
-tail -n 100 "$HOME/Library/Application Support/CodexDeck/watcher.log"
+./start-agent-deck.sh dry-run
+./start-agent-deck.sh self-test
+tail -n 100 "$HOME/Library/Application Support/AgentDeck/watcher.log"
 ```
 
 Do not replace, re-sign, or edit the Codex app bundle. If `start` says an existing normal session needs a restart, it waits for your explicit `yes`.
 
 The installed watcher never launches Codex while it is closed. After you open Codex manually, one controlled recovery restart can occur if the new process lacks the loopback bridge. A global cooldown prevents further automatic restarts across replacement PIDs.
 
-If an older watcher is repeatedly relaunching Codex after a crash or empty battery, stop only that watcher first:
+If an older watcher is repeatedly relaunching Codex after a crash or empty battery, stop only that watcher first. Launchers released before the Agent Deck rename use the `com.simeo.codex-deck.watcher` label:
 
 ```zsh
+launchctl bootout "gui/$(id -u)/com.xonika9.agent-deck.watcher"
 launchctl bootout "gui/$(id -u)/com.simeo.codex-deck.watcher"
 ```
 
@@ -62,8 +63,9 @@ Then install the launcher from the newest release. This command does not start, 
 
 - Confirm Codex was started through the launcher.
 - Confirm the platform bridge state exists and contains a port number:
-  - Windows: `%LOCALAPPDATA%\CodexDeck\codex-micro-bridge.json`
-  - macOS: `~/Library/Application Support/CodexDeck/codex-micro-bridge.json`
+  - Windows: `%LOCALAPPDATA%\AgentDeck\codex-micro-bridge.json`
+  - macOS: `~/Library/Application Support/AgentDeck/codex-micro-bridge.json`
+  - Until the launcher's install step has moved it, the folder is still named `CodexDeck`.
 - Restart Stream Deck.
 - Do not run two launcher-started Codex instances at the same time.
 
@@ -96,7 +98,7 @@ If **Active queue** is enabled, the plugin uses Codex's complete native pinned +
 
 ## Local command icon does not appear
 
-- Verify the file is in `%LOCALAPPDATA%\CodexDeck\icons` on Windows or `~/Library/Application Support/CodexDeck/icons` on macOS.
+- Verify the file is in `%LOCALAPPDATA%\AgentDeck\icons` on Windows or `~/Library/Application Support/AgentDeck/icons` on macOS.
 - Verify the filename exactly matches the keycap ID reported by Codex, including `+` or `-`.
 - Verify the SVG has a numeric `viewBox`.
 - Restart Stream Deck after changing icon files.
@@ -116,7 +118,7 @@ Old remote selections and pairing files are ignored without deleting their priva
 - Codex app version and platform (`Get-AppxPackage OpenAI.Codex | Select-Object Version` on Windows; bundle version on macOS).
 - Stream Deck version and device model.
 - Windows version.
-- Whether `Start-CodexDeck.ps1 -DryRun` succeeds.
+- Whether `Start-AgentDeck.ps1 -DryRun` succeeds.
 - The relevant Stream Deck plugin log excerpt.
 - The exact action that failed.
 

@@ -6,8 +6,8 @@ const roots = process.argv.slice(2).length
   ? process.argv.slice(2).map((path) => resolve(path))
   : [
       resolve("com.xonika9.codex-deck.streamDeckPlugin"),
-      resolve("release/codex-deck-launcher"),
-      resolve("release/codex-deck-launcher-macos"),
+      resolve("release/agent-deck-launcher"),
+      resolve("release/agent-deck-launcher-macos"),
     ];
 
 const forbiddenFiles = new Set([

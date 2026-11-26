@@ -1,11 +1,9 @@
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { renderImportedKeycap } from "#stream-deck";
+import { agentDeckStateRoot } from "../src/runtime/paths.js";
 
-const iconRoot =
-  process.env.CODEX_DECK_ICON_DIR ??
-  join(process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local"), "CodexDeck", "icons");
+const iconRoot = process.env.CODEX_DECK_ICON_DIR ?? join(agentDeckStateRoot("win32"), "icons");
 const files = (await readdir(iconRoot)).filter((name) => name.toLowerCase().endsWith(".svg")).sort();
 if (files.length === 0) throw new Error(`No SVG files found in ${iconRoot}`);
 

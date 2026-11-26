@@ -14,7 +14,7 @@ internal code while retaining the explicitly allowlisted `ws` dependency.
 
 ### Launcher
 
-`Start-CodexDeck.ps1` finds the installed Microsoft Store Codex package. If a healthy debug-enabled Codex process already exists, it reuses its loopback port. Starting an already-running normal session requires an explicit launcher/recovery path; a read-only `-DryRun` never changes it. The launcher chooses an unused loopback port, writes it to `%LOCALAPPDATA%\CodexDeck\codex-micro-bridge.json`, and starts `ChatGPT.exe` with:
+`Start-AgentDeck.ps1` finds the installed Microsoft Store Codex package. If a healthy debug-enabled Codex process already exists, it reuses its loopback port. Starting an already-running normal session requires an explicit launcher/recovery path; a read-only `-DryRun` never changes it. The launcher chooses an unused loopback port, writes it to `%LOCALAPPDATA%\AgentDeck\codex-micro-bridge.json`, and starts `ChatGPT.exe` with:
 
 ```text
 --remote-debugging-address=127.0.0.1
@@ -25,7 +25,7 @@ The bundled runtime helper connects to that renderer and enables the Micro featu
 
 The launcher does not edit the Codex installation, Codex LevelDB, task database, rollout files, or logs.
 
-When startup monitoring is installed, a durable copy under `%LOCALAPPDATA%\CodexDeck\launcher` runs `Watch-CodexDeck.ps1` as
+When startup monitoring is installed, a durable copy under `%LOCALAPPDATA%\AgentDeck\launcher` runs `Watch-AgentDeck.ps1` as
 a single hidden PowerShell process. It dynamically resolves the newest Codex
 Microsoft Store package on every check, so an app update can change the install
 path without invalidating the watcher. A named mutex prevents duplicates.
@@ -37,7 +37,7 @@ The watcher follows three safety rules:
 3. A later Codex launch, update restart, or crash recovery without the required loopback port receives at most one recovery restart for that process generation.
 
 Stale port metadata is removed automatically. The bounded watcher log lives at
-`%LOCALAPPDATA%\CodexDeck\watcher.log`.
+`%LOCALAPPDATA%\AgentDeck\watcher.log`.
 
 On macOS, the launcher discovers the running or installed app by its signed
 bundle metadata, reads `CFBundleExecutable`, and launches the app bundle through
@@ -222,6 +222,8 @@ The existing `host-toggle` action keeps its UUID for saved profiles. It displays
 
 An installed watcher is a copied runtime. Reinstall the matching new launcher to replace it; a source build alone does not update or stop the old installed process. Stable host identity, user icons, and legacy private files remain preserved.
 
+The state directory was renamed from `CodexDeck` to `AgentDeck`. `agentDeckStateRoot` in `src/runtime/paths.ts` resolves it on every access: `AgentDeck` whenever it exists, otherwise an existing `CodexDeck`, otherwise `AgentDeck`. The PowerShell launcher and `scripts/t3-config-lock.mjs` mirror that rule. Only the launcher installer (`install` on macOS, `-InstallStartup` on Windows) moves the directory, after stopping the pre-rename watcher (LaunchAgent `com.simeo.codex-deck.watcher` or the `Codex Deck` startup shortcut), so that watcher cannot keep writing into the old location. The move is one same-volume rename; when both directories exist nothing is merged and `AgentDeck` wins. The plugin never moves the directory and follows the move without a restart. The Windows watcher mutex `Local\CodexDeckBridgeWatcher` keeps its old name so old and new watchers exclude each other.
+
 ### Rendering
 
 Agent keys are original deterministic SVGs generated in memory from task title and state. The status palette is:
@@ -246,7 +248,7 @@ not ready, the host-health mark replaces it so the two signals do not overlap.
 
 The renderer derives the active Codex appearance from explicit theme tokens when available and falls back to the computed renderer surface luminance. Dark mode uses layered charcoal surfaces rather than pure black, with off-white text and slightly lifted status colors for the Stream Deck display.
 
-Official Codex Micro keycap SVG contents are not part of the source or release. Optional user-local files are loaded from `%LOCALAPPDATA%\CodexDeck\icons` on Windows or `~/Library/Application Support/CodexDeck/icons` on macOS and wrapped in the project's neutral key surface at runtime.
+Official Codex Micro keycap SVG contents are not part of the source or release. Optional user-local files are loaded from `%LOCALAPPDATA%\AgentDeck\icons` on Windows or `~/Library/Application Support/AgentDeck/icons` on macOS and wrapped in the project's neutral key surface at runtime.
 
 The controller uses non-overlapping self-scheduled refreshes and caches the last
 image sent to each action instance. Unchanged keys therefore produce no repeated

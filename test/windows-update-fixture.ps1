@@ -1,7 +1,7 @@
 param([string]$Repository)
 $ErrorActionPreference = 'Stop'
 $tokens = $null; $errors = $null
-$ast = [Management.Automation.Language.Parser]::ParseFile((Join-Path $Repository 'launcher\Start-CodexDeck.ps1'), [ref]$tokens, [ref]$errors)
+$ast = [Management.Automation.Language.Parser]::ParseFile((Join-Path $Repository 'launcher\Start-AgentDeck.ps1'), [ref]$tokens, [ref]$errors)
 if ($errors.Count) { throw 'Launcher parser errors' }
 foreach ($function in $ast.FindAll({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] }, $false)) {
   Invoke-Expression $function.Extent.Text
@@ -33,8 +33,8 @@ try {
   if ((Get-Content -LiteralPath (Join-Path $state 'relay-client.json') -Raw) -cne $privateConfig) { throw 'Owned cleanup changed private settings' }
   $source = Join-Path $fixture 'source'
   New-Item -ItemType Directory -Path $source | Out-Null
-  foreach ($name in @('Start-CodexDeck.ps1', 'Watch-CodexDeck.ps1')) { Copy-Item (Join-Path $Repository "launcher/$name") (Join-Path $source $name) }
-  $fallback = Join-Path $fixture 'release/codex-deck-launcher'
+  foreach ($name in @('Start-AgentDeck.ps1', 'Watch-AgentDeck.ps1')) { Copy-Item (Join-Path $Repository "launcher/$name") (Join-Path $source $name) }
+  $fallback = Join-Path $fixture 'release/agent-deck-launcher'
   New-Item -ItemType Directory -Path $fallback -Force | Out-Null
   # Exercise the actual autonomous CLI bundle, including its entry-point guard.
   # Single-quoted JS literals: Windows PowerShell strips embedded double quotes from native arguments.
@@ -113,11 +113,26 @@ try {
     try { Request-WatcherStop } catch { $failed = $_.Exception.Message -match 'did not release its mutex' }
     if (-not $failed -or -not (Test-Path (Join-Path $state 'watcher.stop'))) { throw 'Busy old watcher must time out with stop marker retained' }
   } finally { Microsoft.PowerShell.Management\Stop-Process -Id $holder.Id -Force -ErrorAction SilentlyContinue }
-  foreach ($name in @('Configure-CodexDeckRelay.ps1', 'Configure-CodexDeckMobile.ps1', 'mobile-pairing.mjs', 'retained.txt')) { [IO.File]::WriteAllText((Join-Path $fixture $name), 'fixture') }
+  # The pre-rename root moves in one step; an empty new root is replaced, a populated one is never merged over.
+  $agentState = Join-Path $fixture 'AgentDeck'
+  if ((Get-StateRoot) -ne $state) { throw 'Unmigrated legacy data must stay in use' }
+  New-Item -ItemType Directory -Path $agentState | Out-Null
+  Move-LegacyStateRoot
+  if (Test-Path -LiteralPath $state) { throw 'Legacy state root was not moved' }
+  if ((Get-Content -LiteralPath (Join-Path $agentState 'relay-client.json') -Raw) -cne $privateConfig) { throw 'Migration changed private settings' }
+  if ((Get-StateRoot) -ne $agentState) { throw 'Migrated state root is not in use' }
+  New-Item -ItemType Directory -Path $state | Out-Null
+  [IO.File]::WriteAllText((Join-Path $state 'relay-client.json'), 'stale-fixture')
+  Move-LegacyStateRoot 3>$null
+  if ((Get-Content -LiteralPath (Join-Path $state 'relay-client.json') -Raw) -cne 'stale-fixture') { throw 'Legacy root changed although both roots exist' }
+  if ((Get-Content -LiteralPath (Join-Path $agentState 'relay-client.json') -Raw) -cne $privateConfig) { throw 'Newer data was overwritten' }
+  if ((Get-StateRoot) -ne $agentState) { throw 'The new root must win when both exist' }
+  foreach ($name in @('Configure-CodexDeckRelay.ps1', 'Configure-CodexDeckMobile.ps1', 'mobile-pairing.mjs', 'Start-CodexDeck.ps1', 'Watch-CodexDeck.ps1', 'retained.txt')) { [IO.File]::WriteAllText((Join-Path $fixture $name), 'fixture') }
   Install-WatcherBundle ([pscustomobject]@{ SourceRoot = $fixture }) $fixture | Out-Null
   if (Test-Path (Join-Path $fixture 'Configure-CodexDeckRelay.ps1')) { throw 'Same-root update retained retired script' }
+  if (Test-Path (Join-Path $fixture 'Watch-CodexDeck.ps1')) { throw 'Same-root update retained the pre-rename watcher' }
   if (-not (Test-Path (Join-Path $fixture 'retained.txt'))) { throw 'Unrelated file deleted' }
-  Write-Host 'Windows update ownership and same-root cleanup fixture passed.'
+  Write-Host 'Windows update ownership, state-root migration, and same-root cleanup fixture passed.'
 } finally {
   $env:LOCALAPPDATA = $originalLocalAppData
   Remove-Item -LiteralPath $fixture -Recurse -Force

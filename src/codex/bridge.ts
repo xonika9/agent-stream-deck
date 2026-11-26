@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 import WebSocket from "ws";
 import { buildActiveCatalogDiscoveryExpression, buildSnapshotPayloadExpression } from "./active-catalog-expression.js";
 import { readPinnedSidebarSlots } from "./sidebar.js";
-import { codexDeckStateRoot } from "../runtime/paths.js";
+import { agentDeckStateRoot } from "../runtime/paths.js";
 import { OFFICIAL_KEYCAP_IDS, type OfficialKeycapId } from "./keycaps.js";
 import { CodexSessionOwnershipIndex } from "./session-ownership.js";
 import type { MicroActionSlot, MicroDirection, MicroSnapshot, ReasoningAdjustment } from "#agents";
@@ -95,8 +95,6 @@ export function resolveAgentDispatch(
 }
 
 const execFileAsync = promisify(execFile);
-const PORT_FILE = join(codexDeckStateRoot(), "codex-micro-bridge.json");
-const WATCHER_STATE_FILE = join(codexDeckStateRoot(), "watcher-state.json");
 const DEVICE_STATE = {
   type: "codex-micro-device-state-changed",
   state: { status: "connected", error: null, battery: { percentage: 100, isCharging: true } },
@@ -930,7 +928,9 @@ async function discoverDebugPort(signal: AbortSignal): Promise<number> {
 
 async function readPortFile(): Promise<number | null> {
   try {
-    const data = JSON.parse(await readFile(PORT_FILE, "utf8")) as { port?: unknown };
+    const data = JSON.parse(await readFile(join(agentDeckStateRoot(), "codex-micro-bridge.json"), "utf8")) as {
+      port?: unknown;
+    };
     const port = Number(data.port);
     return Number.isInteger(port) && port > 0 && port <= 65535 ? port : null;
   } catch {
@@ -940,7 +940,9 @@ async function readPortFile(): Promise<number | null> {
 
 async function readMacCodexExecutablePath(): Promise<string | null | undefined> {
   try {
-    return macCodexExecutablePathFromWatcherState(await readFile(WATCHER_STATE_FILE, "utf8"));
+    return macCodexExecutablePathFromWatcherState(
+      await readFile(join(agentDeckStateRoot(), "watcher-state.json"), "utf8"),
+    );
   } catch {
     return undefined;
   }

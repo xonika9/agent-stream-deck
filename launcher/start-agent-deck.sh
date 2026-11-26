@@ -2,7 +2,7 @@
 set -euo pipefail
 
 script_dir="${0:A:h}"
-runtime="$script_dir/codex-deck-macos.mjs"
+runtime="$script_dir/agent-deck-macos.mjs"
 
 if [[ ! -f "$runtime" ]]; then
   print -u2 "Agent Deck: bundled macOS runtime is missing. Run npm run build first."

@@ -9,12 +9,16 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$launcherPath = Join-Path $PSScriptRoot 'Start-CodexDeck.ps1'
+$launcherPath = Join-Path $PSScriptRoot 'Start-AgentDeck.ps1'
 $powerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-$stateRoot = Join-Path $env:LOCALAPPDATA 'CodexDeck'
+# Same resolution as Get-StateRoot in Start-AgentDeck.ps1; -InstallStartup moves the legacy root first.
+$stateRoot = Join-Path $env:LOCALAPPDATA 'AgentDeck'
+$legacyStateRoot = Join-Path $env:LOCALAPPDATA 'CodexDeck'
+if (-not (Test-Path -LiteralPath $stateRoot) -and (Test-Path -LiteralPath $legacyStateRoot -PathType Container)) { $stateRoot = $legacyStateRoot }
 $statePath = Join-Path $stateRoot 'codex-micro-bridge.json'
 $stopPath = Join-Path $stateRoot 'watcher.stop'
 $logPath = Join-Path $stateRoot 'watcher.log'
+# Kept from before the rename so an old and a new watcher can never run side by side.
 $mutexName = 'Local\CodexDeckBridgeWatcher'
 
 function Test-RecoveryAllowed(
@@ -122,12 +126,12 @@ function Test-LauncherReady {
   if ($null -eq (Get-Command node -ErrorAction SilentlyContinue)) { return $false }
   $runtimeCandidates = @(
     (Join-Path $PSScriptRoot 'runtime-override.mjs'),
-    (Join-Path $PSScriptRoot '..\release\codex-deck-launcher\runtime-override.mjs')
+    (Join-Path $PSScriptRoot '..\release\agent-deck-launcher\runtime-override.mjs')
   )
   @($runtimeCandidates | Where-Object { Test-Path -LiteralPath $_ }).Count -gt 0
 }
 
-function Invoke-CodexDeckLauncher([switch]$ForceRestart) {
+function Invoke-AgentDeckLauncher([switch]$ForceRestart) {
   if (-not (Test-LauncherReady)) {
     throw 'The Agent Deck launcher bundle or Node.js is unavailable; Codex was not restarted.'
   }
@@ -160,8 +164,8 @@ try {
   $major = [int]((& $node.Source --version).TrimStart('v').Split('.')[0])
   if ($major -lt 24) { throw 'Node.js 24 or newer is required; watcher startup was not confirmed.' }
   $runtime = Join-Path $PSScriptRoot 'runtime-override.mjs'
-  if (-not (Test-Path -LiteralPath $runtime)) { $runtime = Join-Path $PSScriptRoot '..\release\codex-deck-launcher\runtime-override.mjs' }
-  & $node.Source --input-type=module -e "await import('node:url').then(m => import(m.pathToFileURL(process.argv[2]).href))" codex-deck-preflight $runtime
+  if (-not (Test-Path -LiteralPath $runtime)) { $runtime = Join-Path $PSScriptRoot '..\release\agent-deck-launcher\runtime-override.mjs' }
+  & $node.Source --input-type=module -e "await import('node:url').then(m => import(m.pathToFileURL(process.argv[2]).href))" agent-deck-preflight $runtime
   if ($LASTEXITCODE -ne 0) { throw 'The watcher runtime cannot load.' }
   [IO.File]::WriteAllText($readyPath, (@{ pid = $PID; token = $StartupToken } | ConvertTo-Json -Compress))
   Write-WatcherLog "Watcher started (pid=$PID, recoverExisting=$($RecoverExistingSession.IsPresent))."
@@ -192,7 +196,7 @@ try {
           $handledGeneration = $generation
           if ($lastHealthyGeneration -ne $generation) {
             Write-WatcherLog "Healthy Agent Deck bridge detected for Codex $($codex.Version) on port $port."
-            Invoke-CodexDeckLauncher
+            Invoke-AgentDeckLauncher
             $lastHealthyGeneration = $generation
           }
           $lastState = "healthy:$generation"
@@ -205,7 +209,7 @@ try {
             $handledGeneration = $generation
             Write-WatcherLog "Codex $($codex.Version) started without the bridge; performing one automatic recovery restart."
             Start-Sleep -Milliseconds 1500
-            Invoke-CodexDeckLauncher -ForceRestart
+            Invoke-AgentDeckLauncher -ForceRestart
             $hadHealthyBridge = $true
             $sawStoppedSession = $false
             $lastState = "recovered:$generation"

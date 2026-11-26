@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { codexDeckStateRoot } from "../src/runtime/paths.js";
+import { agentDeckStateRoot } from "../src/runtime/paths.js";
 import assert from "node:assert/strict";
 import { build } from "esbuild";
 import { once } from "node:events";
@@ -267,7 +267,7 @@ test("native bridge releases an unowned handshake attempt before retry", async (
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   port = (server.address() as import("node:net").AddressInfo).port;
-  const stateRoot = codexDeckStateRoot(process.platform, directory, directory);
+  const stateRoot = agentDeckStateRoot(process.platform, directory, directory);
   await mkdir(stateRoot, { recursive: true });
   await writeFile(join(stateRoot, "codex-micro-bridge.json"), JSON.stringify({ port }));
   const script = join(directory, "handshake.mjs");

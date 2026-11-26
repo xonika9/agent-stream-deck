@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { CodexHost, HostHealth, RoutedAgentSlot, TaskSource, TaskSourceSet } from "#agents";
 import { toTaskSourceSet } from "#agents";
-import { codexDeckStateRoot } from "../runtime/paths.js";
+import { agentDeckStateRoot } from "../runtime/paths.js";
 
 import { T3CredentialRejectedError, T3SshUnavailableError, t3SshRequest, validateSshConnection } from "./ssh.js";
 import { readShell } from "./shell-reader.js";
@@ -23,7 +23,7 @@ export type LocalConnection = { origin: string; token: string; pid: number };
 export type LocalConnectionOptions = { configPath?: string; runtimePath?: string };
 
 export function defaultT3ConfigPath(): string {
-  return join(codexDeckStateRoot("darwin"), "t3code.json");
+  return join(agentDeckStateRoot("darwin"), "t3code.json");
 }
 
 export function defaultT3RuntimePath(): string {
@@ -84,7 +84,7 @@ export class T3CodeSource {
   private readonly acknowledged = new Map<string, number>();
   // Last reported failure per log label, so each transition is logged once.
   private readonly reportedFailures = new Map<string, FailureReason>();
-  private readonly configPath: string;
+  private readonly configPath: string | undefined;
   private readonly runtimePath: string;
   private readonly foreground: (threadUrl?: string) => Promise<void>;
 
@@ -92,7 +92,7 @@ export class T3CodeSource {
     private readonly log: (message: string) => void,
     options: Options = {},
   ) {
-    this.configPath = options.configPath ?? join(codexDeckStateRoot("darwin"), "t3code.json");
+    this.configPath = options.configPath;
     this.runtimePath = options.runtimePath ?? join(homedir(), ".t3", "userdata", "server-runtime.json");
     this.foreground = options.foreground ?? foregroundT3Code;
   }
@@ -142,7 +142,7 @@ export class T3CodeSource {
 
   private async prepare(generation: number): Promise<void> {
     try {
-      const config = await readPrivateConfig(this.configPath);
+      const config = await readPrivateConfig(this.configPath ?? defaultT3ConfigPath());
       if (generation !== this.generation || !this.demanded) return;
       const desired = new Map<
         string,

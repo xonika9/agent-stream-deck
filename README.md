@@ -63,17 +63,17 @@ Other Stream Deck models may work, but the included layout and physical-device t
 
 1. Download `com.xonika9.codex-deck.streamDeckPlugin` from the matching xonika9 release and open it on the computer running Stream Deck.
 2. Download only the launcher for that computer:
-   - Windows: `codex-deck-launcher-windows-vYY.M.D.N.zip`
-   - macOS: `codex-deck-launcher-macos-vYY.M.D.N.zip`
+   - Windows: `agent-deck-launcher-windows-vYY.M.D.N.zip`
+   - macOS: `agent-deck-launcher-macos-vYY.M.D.N.zip`
 3. Follow [Windows](docs/WINDOWS.md) or [macOS](docs/MACOS.md).
 4. Choose the task source in an **Agent** action's Stream Deck property inspector. For native Codex controls, configure agent assignments, actions, joystick, and encoder behavior in **Codex Settings > Codex Micro**.
 5. Build the two Stream Deck pages below.
 
-Agent Deck is the name of the product, its GitHub releases, and its Stream Deck category; released package and launcher filenames, plugin/action UUIDs, and local data directories retain their existing Codex Deck identifiers.
+Agent Deck is the name of the product, its GitHub releases, its Stream Deck category, its launcher files, and its local data directories. The plugin and action UUIDs and the `.streamDeckPlugin` filename keep their existing `codex-deck` identifiers so saved profiles keep working. Installing the new launcher's watcher moves an existing `CodexDeck` data directory to `AgentDeck`; see [Windows](docs/WINDOWS.md#upgrading-from-a-codex-deck-launcher) or [macOS](docs/MACOS.md#upgrading-from-a-codex-deck-launcher).
 
 
 > [!WARNING]
-> The xonika9 fork uses the new plugin UUID `com.xonika9.codex-deck`. Stream Deck treats it as a different plugin from upstream `com.simeo.codex-deck`: existing actions, per-action settings, and global plugin settings are not migrated automatically. Save or export your profiles, install only one variant at a time, rebuild both pages with the new actions, and then remove the old plugin. Local Agent Deck host, legacy private relay, and icon data remain in the existing platform data directory; the macOS watcher intentionally keeps its established `com.simeo.codex-deck.watcher` service label.
+> The xonika9 fork uses the new plugin UUID `com.xonika9.codex-deck`. Stream Deck treats it as a different plugin from upstream `com.simeo.codex-deck`: existing actions, per-action settings, and global plugin settings are not migrated automatically. Save or export your profiles, install only one variant at a time, rebuild both pages with the new actions, and then remove the old plugin. Local Agent Deck host, legacy private relay, and icon data stay in the platform data directory and move with it to `AgentDeck`.
 
 ## Features
 
@@ -146,8 +146,8 @@ The public source and release intentionally exclude OpenAI's Codex Micro keycap 
 If you have the right to use the files already present in your own Codex installation, copy them outside the repository to:
 
 ```text
-Windows: %LOCALAPPDATA%\CodexDeck\icons
-macOS:   ~/Library/Application Support/CodexDeck/icons
+Windows: %LOCALAPPDATA%\AgentDeck\icons
+macOS:   ~/Library/Application Support/AgentDeck/icons
 ```
 
 Name each copy after its Codex keycap ID, such as `FAST.svg`, `APPR.svg`, `REJ.svg`, `SPLIT.svg`, or `MIC.svg`. Codex can inspect your local installation and copy the exact existing SVG files for you when explicitly instructed not to redraw, download, upload, publish, or commit them. See [Local icon setup](docs/ICON_SETUP.md) for the guarded workflow and complete filename list.

@@ -2,12 +2,10 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { hostname } from "node:os";
 import { dirname, join } from "node:path";
-import { codexDeckStateRoot } from "./paths.js";
+import { agentDeckStateRoot } from "./paths.js";
 import type { CodexHost } from "#agents";
 
-const HOST_FILE = join(codexDeckStateRoot(), "host.json");
-
-export async function getOrCreateHostIdentity(path = HOST_FILE): Promise<CodexHost> {
+export async function getOrCreateHostIdentity(path = hostFile()): Promise<CodexHost> {
   const existing = await readHostIdentity(path);
   const codexVersion = await readCodexVersion(join(dirname(path), "codex-micro-bridge.json"));
   const platform = process.platform === "darwin" ? "darwin" : "win32";
@@ -31,7 +29,7 @@ export async function getOrCreateHostIdentity(path = HOST_FILE): Promise<CodexHo
   return value;
 }
 
-export async function readHostIdentity(path = HOST_FILE): Promise<CodexHost | null> {
+export async function readHostIdentity(path = hostFile()): Promise<CodexHost | null> {
   try {
     const value = JSON.parse(await readFile(path, "utf8")) as Partial<CodexHost>;
     if (!isUuid(value.hostId) || typeof value.hostName !== "string" || !value.hostName.trim()) return null;
@@ -60,6 +58,10 @@ async function readCodexVersion(path: string): Promise<string | undefined> {
   } catch {
     return undefined;
   }
+}
+
+function hostFile(): string {
+  return join(agentDeckStateRoot(), "host.json");
 }
 
 function isUuid(value: unknown): value is string {

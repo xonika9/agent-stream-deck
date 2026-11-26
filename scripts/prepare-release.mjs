@@ -45,7 +45,7 @@ function assertReleaseVersion(version) {
 }
 
 function packageWindowsLauncher(outputPath) {
-  const source = join(root, "release", "codex-deck-launcher");
+  const source = join(root, "release", "agent-deck-launcher");
   if (process.platform === "win32") {
     run("powershell", [
       "-NoProfile",
@@ -107,10 +107,10 @@ async function main() {
   const pluginName = `${manifest.UUID}.streamDeckPlugin`;
   await copyFile(join(root, pluginName), join(output, pluginName));
 
-  const windowsArchive = join(output, `codex-deck-launcher-windows-v${version}.zip`);
+  const windowsArchive = join(output, `agent-deck-launcher-windows-v${version}.zip`);
   packageWindowsLauncher(windowsArchive);
 
-  const macArchive = join(output, `codex-deck-launcher-macos-v${version}.zip`);
+  const macArchive = join(output, `agent-deck-launcher-macos-v${version}.zip`);
   const macIncluded = await packageMacLauncher(macArchive, options.macArchive);
   if (!macIncluded) {
     console.warn(

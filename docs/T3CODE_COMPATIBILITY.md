@@ -20,20 +20,21 @@ Start T3 Code normally. Create a one-time pairing credential with its own CLI,
 then pipe the JSON directly into the connector:
 
 ```sh
-t3 auth pairing create --label CodexDeck --json | npm run connect:t3
+t3 auth pairing create --label AgentDeck --json | npm run connect:t3
 ```
 
 If `t3` is not installed on PATH, use the CLI bundled with the desktop app.
 For the characterized nightly macOS application:
 
 ```sh
-ELECTRON_RUN_AS_NODE=1 '/Applications/T3 Code (Nightly).app/Contents/MacOS/T3 Code (Nightly)' '/Applications/T3 Code (Nightly).app/Contents/Resources/app.asar/apps/server/dist/bin.mjs' auth pairing create --label CodexDeck --json | npm run connect:t3
+ELECTRON_RUN_AS_NODE=1 '/Applications/T3 Code (Nightly).app/Contents/MacOS/T3 Code (Nightly)' '/Applications/T3 Code (Nightly).app/Contents/Resources/app.asar/apps/server/dist/bin.mjs' auth pairing create --label AgentDeck --json | npm run connect:t3
 ```
 
 Running this command creates a separate T3 client session. The connector
 exchanges the one-time credential for only `orchestration:read`, verifies the
 shell endpoint, and stores the bearer token in the current user's
-`~/Library/Application Support/CodexDeck/t3code.json` with mode `0600`.
+`~/Library/Application Support/AgentDeck/t3code.json` with mode `0600`
+(`CodexDeck` until the launcher's `install` step has moved that folder).
 Do not paste credentials into chat or Stream Deck settings. Expired or revoked
 sessions require connecting again. The plugin never issues credentials itself.
 

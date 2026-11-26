@@ -17,21 +17,21 @@ On a platform other than macOS, pass a supplied macOS-built archive with `npm ru
 Inspect `outputs/release-vYY.M.D.N/` and require:
 
 - `com.xonika9.codex-deck.streamDeckPlugin`;
-- `codex-deck-launcher-windows-vYY.M.D.N.zip`;
-- `codex-deck-launcher-macos-vYY.M.D.N.zip` when preparing on macOS or when a macOS-built archive was supplied;
+- `agent-deck-launcher-windows-vYY.M.D.N.zip`;
+- `agent-deck-launcher-macos-vYY.M.D.N.zip` when preparing on macOS or when a macOS-built archive was supplied;
 - `SHA256SUMS.txt`, containing every other artifact exactly once with LF line endings.
 
 Then run:
 
 ```bash
-unzip -t outputs/release-vYY.M.D.N/codex-deck-launcher-windows-vYY.M.D.N.zip
+unzip -t outputs/release-vYY.M.D.N/agent-deck-launcher-windows-vYY.M.D.N.zip
 (cd outputs/release-vYY.M.D.N && shasum -a 256 -c SHA256SUMS.txt)
 ```
 
 When preparing on macOS or including a supplied macOS archive, also run:
 
 ```bash
-unzip -t outputs/release-vYY.M.D.N/codex-deck-launcher-macos-vYY.M.D.N.zip
+unzip -t outputs/release-vYY.M.D.N/agent-deck-launcher-macos-vYY.M.D.N.zip
 ```
 
 The macOS archive must be built on macOS, or supplied from a macOS build, because executable modes are part of that artifact's contract. The iPhone product and its source have been removed in 2.0.0. Do not require an iOS build for that deletion; validate absence from maintained entry points and release artifacts.

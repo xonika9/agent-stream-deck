@@ -4,17 +4,18 @@ import { spawnSync } from "node:child_process";
 import { build } from "esbuild";
 // @ts-expect-error Build options are shared with plain ESM release scripts.
 import { buildOptions } from "../scripts/build-options.mjs";
-import { chmod, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, realpath, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   buildCodexLaunchSpec,
   buildLaunchAgentPlist,
   buildWatcherLaunchScript,
   parseDebugPort,
-} from "../launcher/macos/codex-deck-macos.js";
-import { codexDeckStateRoot } from "../src/runtime/paths.js";
+} from "../launcher/macos/agent-deck-macos.js";
+import { readHostIdentity } from "../src/runtime/host-identity.js";
+import { agentDeckStateRoot, stateRoots } from "../src/runtime/paths.js";
 
 test("macOS launcher uses LaunchServices and passes loopback-only CDP arguments", () => {
   const spec = buildCodexLaunchSpec({ appPath: "/Applications/Unexpected Codex Name.app" }, 43123);
@@ -38,16 +39,52 @@ test("macOS launcher validates ports and parses both supported flag forms", () =
 });
 
 test("bridge and user icon state use the native macOS Application Support root", () => {
-  assert.equal(codexDeckStateRoot("darwin", "/Users/tester"), "/Users/tester/Library/Application Support/CodexDeck");
+  assert.equal(agentDeckStateRoot("darwin", "/Users/tester"), "/Users/tester/Library/Application Support/AgentDeck");
   assert.equal(
-    codexDeckStateRoot("win32", "C:\\Users\\tester", "C:\\Users\\tester\\AppData\\Local"),
-    "C:\\Users\\tester\\AppData\\Local\\CodexDeck",
+    agentDeckStateRoot("win32", "C:\\Users\\tester", "C:\\Users\\tester\\AppData\\Local"),
+    "C:\\Users\\tester\\AppData\\Local\\AgentDeck",
   );
 });
 
+test("state root keeps using the pre-rename directory until AgentDeck exists", async () => {
+  const home = await mkdtemp(join(tmpdir(), "agent-deck-roots-"));
+  try {
+    const support = join(home, "Library", "Application Support");
+    assert.equal(agentDeckStateRoot("darwin", home), join(support, "AgentDeck"), "fresh installs use AgentDeck");
+    await mkdir(join(support, "CodexDeck"), { recursive: true });
+    assert.equal(agentDeckStateRoot("darwin", home), join(support, "CodexDeck"), "unmigrated data stays in use");
+    await mkdir(join(support, "AgentDeck"));
+    assert.equal(agentDeckStateRoot("darwin", home), join(support, "AgentDeck"), "the new directory always wins");
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test("a running plugin follows the launcher's state directory move without a restart", async (context) => {
+  const home = await mkdtemp(join(tmpdir(), "agent-deck-follow-"));
+  const previous = { HOME: process.env.HOME, LOCALAPPDATA: process.env.LOCALAPPDATA };
+  process.env.HOME = home;
+  process.env.LOCALAPPDATA = home;
+  context.after(async () => {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    await rm(home, { recursive: true, force: true });
+  });
+  const { target, legacy } = stateRoots(process.platform, home, home);
+  const identity = { hostId: "8d3c8f7e-4b4e-4a49-9c43-2d1b1f6d1a10", hostName: "before-move" };
+  await mkdir(legacy, { recursive: true });
+  await writeFile(join(legacy, "host.json"), JSON.stringify(identity));
+  assert.equal((await readHostIdentity())?.hostName, "before-move");
+  await rename(legacy, target);
+  await writeFile(join(target, "host.json"), JSON.stringify({ ...identity, hostName: "after-move" }));
+  assert.equal((await readHostIdentity())?.hostName, "after-move");
+});
+
 test("LaunchAgent uses a dynamic Node resolver instead of pinning an NVM version", () => {
-  const launcher = buildWatcherLaunchScript("/tmp/Codex Deck/runtime.mjs");
-  const plist = buildLaunchAgentPlist("/tmp/Codex Deck/watcher-launch.sh");
+  const launcher = buildWatcherLaunchScript("/tmp/Agent Deck/runtime.mjs");
+  const plist = buildLaunchAgentPlist("/tmp/Agent Deck/watcher-launch.sh");
   assert.match(launcher, /\.nvm\/versions\/node\/\*\/bin\/node/);
   assert.match(launcher, /Contents\/Resources\/cua_node\/bin\/node/);
   assert.match(launcher, /Node\.js 24 or newer/);
@@ -59,7 +96,7 @@ test("LaunchAgent uses a dynamic Node resolver instead of pinning an NVM version
 
 test("manual and double-click launch resolve Node outside an interactive shell", async () => {
   const source = await import("node:fs/promises").then(({ readFile }) =>
-    readFile(new URL("../launcher/start-codex-deck.sh", import.meta.url), "utf8"),
+    readFile(new URL("../launcher/start-agent-deck.sh", import.meta.url), "utf8"),
   );
   assert.match(source, /\.nvm\/versions\/node\/\*\/bin\/node/);
   assert.match(source, /Contents\/Resources\/cua_node\/bin\/node/);
@@ -72,8 +109,8 @@ test("macOS release packaging preserves executable launchers", async () => {
     readFile(new URL("../scripts/package-macos-release.sh", import.meta.url), "utf8"),
   );
   assert.match(source, /chmod 755/);
-  assert.match(source, /start-codex-deck\.sh/);
-  assert.match(source, /Start Codex Deck\.command/);
+  assert.match(source, /start-agent-deck\.sh/);
+  assert.match(source, /Start Agent Deck\.command/);
   assert.match(source, /ditto -c -k/);
 });
 
@@ -85,7 +122,7 @@ test("macOS discovery reuses only stable metadata while checking fresh candidate
     const runtime = join(root, "runtime.mjs");
     await build({
       stdin: {
-        contents: "export { discoverCodexInstallation } from './launcher/macos/codex-deck-macos.ts';",
+        contents: "export { discoverCodexInstallation } from './launcher/macos/agent-deck-macos.ts';",
         loader: "ts",
         resolveDir: fileURLToPath(new URL("..", import.meta.url)),
       },
@@ -242,7 +279,7 @@ test("macOS discovery reuses only stable metadata while checking fresh candidate
   }
 });
 
-test("macOS watcher update fails before stopping on preflight failure and reports partial bootstrap failure", {
+test("macOS watcher update fails before stopping on preflight failure, migrates the legacy state root, and reports partial bootstrap failure", {
   skip: process.platform !== "darwin",
 }, async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "codex-watcher-install-")));
@@ -254,7 +291,7 @@ test("macOS watcher update fails before stopping on preflight failure and report
     await symlink(process.execPath, join(fixtureNode, "node"));
     const fixtureRuntime = join(root, "runtime.mjs");
     await build({
-      entryPoints: [fileURLToPath(new URL("../launcher/macos/codex-deck-macos.ts", import.meta.url))],
+      entryPoints: [fileURLToPath(new URL("../launcher/macos/agent-deck-macos.ts", import.meta.url))],
       outfile: fixtureRuntime,
       ...buildOptions("macos", true),
     });
@@ -292,8 +329,8 @@ test("macOS watcher update fails before stopping on preflight failure and report
         if (command === "/bin/launchctl") {
           calls.push(args);
           writeFileSync(${JSON.stringify(callsPath)}, JSON.stringify(calls));
-          if (process.env.INSTALL_SCENARIO === "live") {
-            if (args[0] === "bootstrap") watcher = childProcess.spawn("/bin/zsh", [join(process.env.HOME, "Library/Application Support/CodexDeck/watcher-launch.sh")], { env: { ...process.env, CHILD_WATCHER: "true", NODE_OPTIONS: "--import=" + JSON.stringify(${JSON.stringify(mockPath)}) }, stdio: "ignore" });
+          if (process.env.INSTALL_SCENARIO === "live" || process.env.INSTALL_SCENARIO === "both") {
+            if (args[0] === "bootstrap") watcher = childProcess.spawn("/bin/zsh", [join(process.env.HOME, "Library/Application Support/AgentDeck/watcher-launch.sh")], { env: { ...process.env, CHILD_WATCHER: "true", NODE_OPTIONS: "--import=" + JSON.stringify(${JSON.stringify(mockPath)}) }, stdio: "ignore" });
             watcher?.unref();
             return { status: 0, stdout: args[0] === "print" ? "state = running; pid = " + watcher.pid : "", stderr: "" };
           }
@@ -309,16 +346,48 @@ test("macOS watcher update fails before stopping on preflight failure and report
       syncBuiltinESMExports();
     `,
     );
-    for (const scenario of ["preflight", "bootstrap", "busy", "no-ready", "live"]) {
+    const support = join(root, "Library/Application Support");
+    const legacy = join(support, "CodexDeck");
+    const current = join(support, "AgentDeck");
+    const legacyPlist = join(root, "Library/LaunchAgents/com.simeo.codex-deck.watcher.plist");
+    const exists = (path: string) =>
+      stat(path).then(
+        () => true,
+        () => false,
+      );
+    // A pre-rename install: private files, user icons, the old runtime, and a lock left by a killed watcher.
+    await mkdir(join(legacy, "icons"), { recursive: true, mode: 0o700 });
+    await mkdir(join(legacy, "watcher.lock"), { mode: 0o700 });
+    await writeFile(join(legacy, "watcher.lock/pid"), "999999\n");
+    await writeFile(join(legacy, "t3code.json"), '{"token":"legacy-fixture"}\n', { mode: 0o600 });
+    await writeFile(join(legacy, "opencode-identity.key"), Buffer.alloc(32, 7), { mode: 0o600 });
+    await writeFile(
+      join(legacy, "host.json"),
+      '{"hostId":"8d3c8f7e-4b4e-4a49-9c43-2d1b1f6d1a10","hostName":"fixture"}\n',
+    );
+    await writeFile(join(legacy, "icons/FAST.svg"), "<svg/>");
+    await writeFile(join(legacy, "codex-deck-macos.mjs"), "// old runtime\n");
+    await mkdir(dirname(legacyPlist), { recursive: true });
+    await writeFile(legacyPlist, "<plist/>\n");
+    for (const scenario of ["preflight", "busy", "live", "bootstrap", "no-ready", "both"]) {
       const preflightFails = scenario === "preflight";
       await writeFile(callsPath, "[]");
+      if (scenario === "both") {
+        await mkdir(legacy, { mode: 0o700 });
+        await writeFile(join(legacy, "t3code.json"), '{"token":"stale-fixture"}\n', { mode: 0o600 });
+      }
       const result = spawnSync(process.execPath, ["--import", mockPath, fixtureRuntime, "install"], {
         env: { ...process.env, HOME: root, PREFLIGHT_FAIL: String(preflightFails), INSTALL_SCENARIO: scenario },
         encoding: "utf8",
         timeout: 35_000,
       });
-      assert.equal(result.status, scenario === "live" ? 0 : 1, result.stderr);
+      assert.equal(result.status, scenario === "live" || scenario === "both" ? 0 : 1, result.stderr);
       const calls = JSON.parse(await readFile(callsPath, "utf8")) as string[][];
+      if (preflightFails || scenario === "busy") {
+        assert.equal(await exists(current), false, `${scenario} must not move the legacy state root`);
+        assert.equal(await readFile(join(legacy, "t3code.json"), "utf8"), '{"token":"legacy-fixture"}\n');
+        assert.equal(await exists(legacyPlist), true);
+      }
       if (preflightFails) {
         assert.match(result.stderr, /fixture runtime preflight failure/);
         assert.deepEqual(calls, [], "preflight failure must not stop the existing service");
@@ -328,6 +397,7 @@ test("macOS watcher update fails before stopping on preflight failure and report
           calls.map((args) => args[0]),
           ["bootout", "print"],
         );
+        assert.match(calls[0]![1]!, /com\.simeo\.codex-deck\.watcher$/);
       } else if (scenario === "no-ready") {
         assert.match(result.stderr, /did not acquire its lock and confirm startup/);
         assert.doesNotMatch(result.stdout, /installed and watcher running/);
@@ -335,16 +405,44 @@ test("macOS watcher update fails before stopping on preflight failure and report
         assert.ok(calls.some((args) => args[0] === "print"));
       } else if (scenario === "live") {
         assert.match(result.stdout, /installed and watcher running/);
-        assert.ok(calls.some((args) => args[0] === "print"));
+        assert.match(result.stdout, /Moved Agent Deck data/);
+        assert.deepEqual(
+          calls.slice(0, 2).map((args) => args[0]),
+          ["bootout", "bootout"],
+        );
+        assert.match(calls[0]![1]!, /com\.simeo\.codex-deck\.watcher$/);
+        assert.match(calls[1]![1]!, /com\.xonika9\.agent-deck\.watcher$/);
         assert.equal(await readFile(join(root, "watcher-exited"), "utf8"), "exited");
-        await assert.rejects(readFile(join(root, "Library/Application Support/CodexDeck/watcher.lock/pid")));
+        await assert.rejects(readFile(join(current, "watcher.lock/pid")));
+        assert.equal(await exists(legacy), false, "the legacy state root is moved, not copied");
+        assert.equal(await exists(legacyPlist), false, "the old LaunchAgent plist is removed");
+        assert.equal(await exists(join(current, "codex-deck-macos.mjs")), false, "the old runtime is removed");
+        assert.equal(await exists(join(current, "agent-deck-macos.mjs")), true);
+        assert.match(
+          await readFile(join(root, "Library/LaunchAgents/com.xonika9.agent-deck.watcher.plist"), "utf8"),
+          /<string>com\.xonika9\.agent-deck\.watcher<\/string>[\s\S]*AgentDeck\/watcher-launch\.sh/,
+        );
+        assert.equal(await readFile(join(current, "t3code.json"), "utf8"), '{"token":"legacy-fixture"}\n');
+        assert.equal(await readFile(join(current, "icons/FAST.svg"), "utf8"), "<svg/>");
+        assert.equal(
+          JSON.parse(await readFile(join(current, "host.json"), "utf8")).hostId,
+          "8d3c8f7e-4b4e-4a49-9c43-2d1b1f6d1a10",
+        );
+        assert.equal((await stat(current)).mode & 0o777, 0o700);
+        for (const name of ["t3code.json", "opencode-identity.key"]) {
+          assert.equal((await stat(join(current, name))).mode & 0o777, 0o600, `${name} keeps its private mode`);
+        }
+      } else if (scenario === "both") {
+        assert.match(result.stdout, /installed and watcher running/);
+        assert.match(result.stderr, /Both .*CodexDeck and .*AgentDeck exist/);
+        assert.equal(await readFile(join(legacy, "t3code.json"), "utf8"), '{"token":"stale-fixture"}\n');
+        assert.equal(await readFile(join(current, "t3code.json"), "utf8"), '{"token":"legacy-fixture"}\n');
       } else {
         assert.match(result.stderr, /partially failed after stopping the old service/);
         assert.deepEqual(
           calls.map((args) => args[0]),
-          ["bootout", "bootstrap"],
+          ["bootout", "bootout", "bootstrap"],
         );
-        assert.match(calls[0]![1]!, /com\.simeo\.codex-deck\.watcher$/);
       }
     }
   } finally {
@@ -357,9 +455,9 @@ test("double-click launcher handles success, decline and accepted restart in act
 }, async () => {
   const root = await mkdtemp(join(tmpdir(), "codex-command-"));
   try {
-    const command = join(root, "Start Codex Deck.command");
-    await writeFile(command, await readFile(new URL("../launcher/Start Codex Deck.command", import.meta.url)));
-    const stub = join(root, "start-codex-deck.sh");
+    const command = join(root, "Start Agent Deck.command");
+    await writeFile(command, await readFile(new URL("../launcher/Start Agent Deck.command", import.meta.url)));
+    const stub = join(root, "start-agent-deck.sh");
     await writeFile(
       stub,
       '#!/bin/zsh\n[[ "$2" == "--restart" ]] && { print restarted; exit 0; }\nexit $FIXTURE_STATUS\n',

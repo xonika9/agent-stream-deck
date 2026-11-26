@@ -50,9 +50,9 @@ try:
   if os.stat(process_dir).st_uid != os.getuid(): raise ValueError("owner")
   executable = os.readlink(process_dir + "/exe")
   if os.path.basename(executable) != "t3": raise ValueError("executable")
-  paired = subprocess.run([executable, "auth", "pairing", "create", "--label", "CodexDeck", "--json"], capture_output=True, timeout=5, check=True)
+  paired = subprocess.run([executable, "auth", "pairing", "create", "--label", "AgentDeck", "--json"], capture_output=True, timeout=5, check=True)
   credential = json.loads(paired.stdout)["credential"]
-  body = urllib.parse.urlencode({"grant_type":"urn:ietf:params:oauth:grant-type:token-exchange", "subject_token":credential, "subject_token_type":"urn:t3:params:oauth:token-type:environment-bootstrap", "requested_token_type":"urn:ietf:params:oauth:token-type:access_token", "scope":"orchestration:read", "client_label":"CodexDeck", "client_device_type":"desktop", "client_os":"macOS"}).encode()
+  body = urllib.parse.urlencode({"grant_type":"urn:ietf:params:oauth:grant-type:token-exchange", "subject_token":credential, "subject_token_type":"urn:t3:params:oauth:token-type:environment-bootstrap", "requested_token_type":"urn:ietf:params:oauth:token-type:access_token", "scope":"orchestration:read", "client_label":"AgentDeck", "client_device_type":"desktop", "client_os":"macOS"}).encode()
   session = request("/oauth/token", body=body)
   if session["token_type"] != "Bearer" or session["scope"] != "orchestration:read": raise ValueError("scope")
   token = session["access_token"]

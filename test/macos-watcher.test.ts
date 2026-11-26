@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { acquirePidLock, isBridgeStateStale, removeStaleBridgeStateFile } from "../launcher/macos/codex-deck-macos.js";
+import { acquirePidLock, isBridgeStateStale, removeStaleBridgeStateFile } from "../launcher/macos/agent-deck-macos.js";
 import {
   createWatcherPolicyState,
   evaluateWatcherPolicy,

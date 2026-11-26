@@ -41,27 +41,29 @@ test("runtime override targets the main renderer instead of macOS avatar surface
 // Recovery decisions themselves are exercised by the Windows PowerShell self-test below.
 test("Windows startup shortcut, watcher, and Codex package keep their cross-script contracts", async () => {
   const [watcher, launcher] = await Promise.all([
-    readFile(new URL("../launcher/Watch-CodexDeck.ps1", import.meta.url), "utf8"),
-    readFile(new URL("../launcher/Start-CodexDeck.ps1", import.meta.url), "utf8"),
+    readFile(new URL("../launcher/Watch-AgentDeck.ps1", import.meta.url), "utf8"),
+    readFile(new URL("../launcher/Start-AgentDeck.ps1", import.meta.url), "utf8"),
   ]);
   // Older installed watchers hold the same mutex, so a renamed mutex would run duplicate watchers.
   assert.match(watcher, /Local\\CodexDeckBridgeWatcher/);
+  assert.match(launcher, /Local\\CodexDeckBridgeWatcher/);
   assert.match(watcher, /Get-AppxPackage -Name 'OpenAI\.Codex'/);
   assert.match(watcher, /\[switch\]\$RecoverExistingSession/);
   assert.match(launcher, /-File `"\$watcherPath`" -RecoverExistingSession/);
-  assert.match(launcher, /LocalAppData.*CodexDeck.*launcher/is);
+  assert.match(launcher, /Join-Path \$env:LOCALAPPDATA 'AgentDeck'/);
+  assert.match(launcher, /Join-Path \(Get-AgentDeckStateRoot\) 'launcher'/);
   // The self-test covers the recovery decision, not the loop: only that guarded branch may restart Codex.
-  assert.equal(watcher.match(/Invoke-CodexDeckLauncher -ForceRestart/g)?.length, 1);
+  assert.equal(watcher.match(/Invoke-AgentDeckLauncher -ForceRestart/g)?.length, 1);
   assert.match(
     watcher,
-    /-and \$mayRecover\) \{\s*\$nextRecoveryAt = \[DateTimeOffset\]::UtcNow\.AddMinutes\(10\)[\s\S]{0,300}Invoke-CodexDeckLauncher -ForceRestart/,
+    /-and \$mayRecover\) \{\s*\$nextRecoveryAt = \[DateTimeOffset\]::UtcNow\.AddMinutes\(10\)[\s\S]{0,300}Invoke-AgentDeckLauncher -ForceRestart/,
     "the recovery restart is guarded and starts the global cooldown",
   );
 });
 
 test("launcher build ships an explicit ws allowlist and LF macOS start scripts", async () => {
   const build = await readFile(new URL("../scripts/build-launcher.mjs", import.meta.url), "utf8");
-  assert.match(build, /"Start-CodexDeck\.ps1", "Watch-CodexDeck\.ps1"/);
+  assert.match(build, /"Start-AgentDeck\.ps1", "Watch-AgentDeck\.ps1"/);
   assert.match(build, /"package\.json", "browser\.js", "index\.js", "wrapper\.mjs"/);
   assert.doesNotMatch(build, /cp\(resolve\("node_modules\/ws"\).*recursive: true/s);
   assert.match(build, /replace\(\/\\r\\n\/g, "\\n"\)/);
@@ -77,12 +79,12 @@ test("both launcher packages resolve the README cover links to the public JPEG",
     await cp(new URL("../node_modules/ws", import.meta.url), join(root, "node_modules/ws"), { recursive: true });
     // Public docs packaging is the boundary here; unrelated runtime bundles use empty entries.
     await writeFile(join(root, "launcher/runtime-override.ts"), "export {};\n");
-    await writeFile(join(root, "launcher/macos/codex-deck-macos.ts"), "export {};\n");
+    await writeFile(join(root, "launcher/macos/agent-deck-macos.ts"), "export {};\n");
     await execFileAsync(process.execPath, [fileURLToPath(new URL("../scripts/build-launcher.mjs", import.meta.url))], {
       cwd: root,
     });
 
-    for (const name of ["codex-deck-launcher", "codex-deck-launcher-macos"]) {
+    for (const name of ["agent-deck-launcher", "agent-deck-launcher-macos"]) {
       const output = join(root, "release", name);
       for (const guide of ["README.md", "README.ru.md"]) {
         assert.match(await readFile(join(output, guide), "utf8"), /src="docs\/assets\/codex-deck-hero\.jpg"/);
@@ -104,7 +106,7 @@ test("watcher recovery decision self-test passes in PowerShell", async (context)
     return;
   }
 
-  const watcherPath = fileURLToPath(new URL("../launcher/Watch-CodexDeck.ps1", import.meta.url));
+  const watcherPath = fileURLToPath(new URL("../launcher/Watch-AgentDeck.ps1", import.meta.url));
   const { stdout } = await execFileAsync("powershell.exe", [
     "-NoLogo",
     "-NoProfile",

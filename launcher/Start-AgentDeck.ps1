@@ -12,27 +12,58 @@ if ($InstallStartup -and $UninstallStartup) {
 }
 
 function Get-StartupShortcutPath {
+  Join-Path ([Environment]::GetFolderPath('Startup')) 'Agent Deck.lnk'
+}
+
+function Get-LegacyStartupShortcutPath {
   Join-Path ([Environment]::GetFolderPath('Startup')) 'Codex Deck.lnk'
 }
 
-function Get-WatcherStopPath {
-  Join-Path (Join-Path $env:LOCALAPPDATA 'CodexDeck') 'watcher.stop'
+function Get-AgentDeckStateRoot {
+  Join-Path $env:LOCALAPPDATA 'AgentDeck'
+}
+
+# Pre-rename state directory. Only -InstallStartup moves it, after the old watcher has stopped.
+function Get-LegacyStateRoot {
+  Join-Path $env:LOCALAPPDATA 'CodexDeck'
+}
+
+# Mirrors agentDeckStateRoot in src/runtime/paths.ts: the new directory wins whenever it exists.
+function Get-StateRoot {
+  $target = Get-AgentDeckStateRoot
+  $legacy = Get-LegacyStateRoot
+  if (-not (Test-Path -LiteralPath $target) -and (Test-Path -LiteralPath $legacy -PathType Container)) { return $legacy }
+  $target
 }
 
 function Get-InstalledLauncherRoot {
-  Join-Path (Join-Path $env:LOCALAPPDATA 'CodexDeck') 'launcher'
+  Join-Path (Get-AgentDeckStateRoot) 'launcher'
+}
+
+function Get-LegacyInstalledLauncherRoot {
+  Join-Path (Get-LegacyStateRoot) 'launcher'
 }
 
 function Request-WatcherStop {
-  $ownedPath = [regex]::Escape((Join-Path (Get-InstalledLauncherRoot) 'Watch-CodexDeck.ps1'))
+  $ownedPaths = @(
+    (Join-Path (Get-InstalledLauncherRoot) 'Watch-AgentDeck.ps1'),
+    (Join-Path (Get-LegacyInstalledLauncherRoot) 'Watch-CodexDeck.ps1')
+  ) | ForEach-Object { [regex]::Escape($_) }
+  $ownedPattern = '(?i)(?:^|\s)-File\s+"?(?:' + ($ownedPaths -join '|') + ')"?(?:\s|$)'
   $ownedProcesses = @(Get-CimInstance Win32_Process | Where-Object {
-    $_.Name -ieq 'powershell.exe' -and [string]$_.CommandLine -match ('(?i)(?:^|\s)-File\s+"?' + $ownedPath + '"?(?:\s|$)')
+    $_.Name -ieq 'powershell.exe' -and [string]$_.CommandLine -match $ownedPattern
   })
-  $stopPath = Get-WatcherStopPath
-  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $stopPath) | Out-Null
-  [IO.File]::WriteAllText($stopPath, [DateTimeOffset]::UtcNow.ToString('o'), [Text.UTF8Encoding]::new($false))
+  # Each watcher polls the marker in its own state root. Never create the new root beside the
+  # legacy one: that would block the directory move.
+  $stopRoots = @(@((Get-AgentDeckStateRoot), (Get-LegacyStateRoot)) | Where-Object { Test-Path -LiteralPath $_ -PathType Container })
+  if ($stopRoots.Count -eq 0) { $stopRoots = @(Get-AgentDeckStateRoot) }
+  foreach ($stopRoot in $stopRoots) {
+    New-Item -ItemType Directory -Force -Path $stopRoot | Out-Null
+    [IO.File]::WriteAllText((Join-Path $stopRoot 'watcher.stop'), [DateTimeOffset]::UtcNow.ToString('o'), [Text.UTF8Encoding]::new($false))
+  }
   $deadline = (Get-Date).AddSeconds(30)
   do {
+    # Pre-rename watchers hold the same mutex, so the updater also waits for them.
     $mutex = [Threading.Mutex]::new($false, 'Local\CodexDeckBridgeWatcher')
     $acquired = $false
     try {
@@ -57,13 +88,13 @@ function Get-WatcherBundle {
   $sourceRoot = [IO.Path]::GetFullPath($PSScriptRoot).TrimEnd('\')
   $runtimeSource = Join-Path $sourceRoot 'runtime-override.mjs'
   if (-not (Test-Path -LiteralPath $runtimeSource)) {
-    $runtimeSource = Join-Path $sourceRoot '..\release\codex-deck-launcher\runtime-override.mjs'
+    $runtimeSource = Join-Path $sourceRoot '..\release\agent-deck-launcher\runtime-override.mjs'
   }
   $wsSource = Join-Path $sourceRoot 'node_modules\ws'
   if (-not (Test-Path -LiteralPath $wsSource)) { $wsSource = Join-Path $sourceRoot '..\node_modules\ws' }
   foreach ($required in @(
-    (Join-Path $sourceRoot 'Start-CodexDeck.ps1'),
-    (Join-Path $sourceRoot 'Watch-CodexDeck.ps1'),
+    (Join-Path $sourceRoot 'Start-AgentDeck.ps1'),
+    (Join-Path $sourceRoot 'Watch-AgentDeck.ps1'),
     $runtimeSource,
     (Join-Path $wsSource 'package.json'),
     (Join-Path $wsSource 'wrapper.mjs')
@@ -78,10 +109,10 @@ function Get-WatcherBundle {
   try {
     Install-WatcherBundle $bundle $preflightRoot | Out-Null
     $runtimePath = Join-Path $preflightRoot 'runtime-override.mjs'
-    & $node.Source --input-type=module -e "await import('node:url').then(m => import(m.pathToFileURL(process.argv[2]).href))" codex-deck-preflight $runtimePath
+    & $node.Source --input-type=module -e "await import('node:url').then(m => import(m.pathToFileURL(process.argv[2]).href))" agent-deck-preflight $runtimePath
     if ($LASTEXITCODE -ne 0) { throw 'The autonomous launcher runtime cannot load; the installed watcher was not stopped.' }
     $powerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-    & $powerShellPath -NoLogo -NoProfile -ExecutionPolicy Bypass -File (Join-Path $preflightRoot 'Watch-CodexDeck.ps1') -SelfTest | Out-Host
+    & $powerShellPath -NoLogo -NoProfile -ExecutionPolicy Bypass -File (Join-Path $preflightRoot 'Watch-AgentDeck.ps1') -SelfTest | Out-Host
     if ($LASTEXITCODE -ne 0) { throw 'The watcher self-test failed; the installed watcher was not stopped.' }
     [pscustomobject]@{
       SourceRoot = $preflightRoot
@@ -95,7 +126,7 @@ function Get-WatcherBundle {
 }
 
 function Remove-RetiredBundleFiles([string]$Root) {
-  foreach ($obsolete in @('Configure-CodexDeckRelay.ps1', 'Configure-CodexDeckMobile.ps1', 'mobile-pairing.mjs')) {
+  foreach ($obsolete in @('Configure-CodexDeckRelay.ps1', 'Configure-CodexDeckMobile.ps1', 'mobile-pairing.mjs', 'Start-CodexDeck.ps1', 'Watch-CodexDeck.ps1')) {
     $path = Join-Path $Root $obsolete
     if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force -ErrorAction Stop }
   }
@@ -107,7 +138,7 @@ function Install-WatcherBundle($Bundle, [string]$Destination = (Get-InstalledLau
     return $Destination
   }
   New-Item -ItemType Directory -Force -Path (Join-Path $Destination 'node_modules') | Out-Null
-  foreach ($filename in @('Start-CodexDeck.ps1', 'Watch-CodexDeck.ps1', 'README.txt')) {
+  foreach ($filename in @('Start-AgentDeck.ps1', 'Watch-AgentDeck.ps1', 'README.txt')) {
     $source = Join-Path $Bundle.SourceRoot $filename
     if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination (Join-Path $Destination $filename) -Force }
   }
@@ -120,10 +151,10 @@ function Install-WatcherBundle($Bundle, [string]$Destination = (Get-InstalledLau
 }
 
 function Start-BridgeWatcher([string]$LauncherRoot = $PSScriptRoot) {
-  $watcherPath = Join-Path $LauncherRoot 'Watch-CodexDeck.ps1'
+  $watcherPath = Join-Path $LauncherRoot 'Watch-AgentDeck.ps1'
   if (-not (Test-Path -LiteralPath $watcherPath)) { throw "Agent Deck watcher not found: $watcherPath" }
   $powerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-  $readyPath = Join-Path (Join-Path $env:LOCALAPPDATA 'CodexDeck') 'watcher-ready.json'
+  $readyPath = Join-Path (Get-StateRoot) 'watcher-ready.json'
   $startupToken = [Guid]::NewGuid().ToString('N')
   $watcher = Start-Process -FilePath $powerShellPath -WindowStyle Hidden -PassThru -ArgumentList @(
     '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$watcherPath`"", '-StartupToken', $startupToken
@@ -144,8 +175,25 @@ function Start-BridgeWatcher([string]$LauncherRoot = $PSScriptRoot) {
 
 }
 
+function Move-LegacyStateRoot {
+  $target = Get-AgentDeckStateRoot
+  $legacy = Get-LegacyStateRoot
+  if (-not (Test-Path -LiteralPath $legacy -PathType Container)) { return }
+  if ((Test-Path -LiteralPath $target -PathType Container) -and @(Get-ChildItem -LiteralPath $target -Force).Count -eq 0) {
+    Remove-Item -LiteralPath $target -Force
+  }
+  if (Test-Path -LiteralPath $target) {
+    Write-Warning "Both $legacy and $target exist. Agent Deck uses $target; $legacy was left untouched. Move anything you still need from it by hand, then delete it."
+    return
+  }
+  # A same-volume directory move keeps every file and its ACL; on failure nothing has moved.
+  try { [IO.Directory]::Move($legacy, $target) }
+  catch { throw "Agent Deck data could not be moved from $legacy to $target; nothing was moved. Close programs using that folder and run -InstallStartup again. $($_.Exception.Message)" }
+  Write-Host "Moved Agent Deck data from $legacy to $target."
+}
+
 function Stop-LegacyRelayTunnel {
-  $stateRoot = Join-Path $env:LOCALAPPDATA 'CodexDeck'
+  $stateRoot = Get-StateRoot
   $pidPath = Join-Path $stateRoot 'relay-tunnel.pid'
   if (-not (Test-Path -LiteralPath $pidPath)) { return }
   try {
@@ -179,13 +227,14 @@ function Set-StartupShortcut {
   try {
     Request-WatcherStop
     $oldWatcherStopped = $true
+    Move-LegacyStateRoot
     Stop-LegacyRelayTunnel
     $launcherRoot = Install-WatcherBundle $bundle
     $shortcutPath = Get-StartupShortcutPath
-    $watcherPath = Join-Path $launcherRoot 'Watch-CodexDeck.ps1'
+    $watcherPath = Join-Path $launcherRoot 'Watch-AgentDeck.ps1'
     if (-not (Test-Path -LiteralPath $watcherPath)) { throw "Agent Deck watcher not found: $watcherPath" }
-    $stopPath = Get-WatcherStopPath
-    Remove-Item -LiteralPath $stopPath -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath (Join-Path (Get-AgentDeckStateRoot) 'watcher.stop') -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath (Get-LegacyStartupShortcutPath) -Force -ErrorAction SilentlyContinue
     $shell = New-Object -ComObject WScript.Shell
     $shortcut = $shell.CreateShortcut($shortcutPath)
     $shortcut.TargetPath = (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe')
@@ -210,18 +259,21 @@ if ($InstallStartup) {
 }
 
 if ($UninstallStartup) {
-  $shortcutPath = Get-StartupShortcutPath
   Request-WatcherStop
-  if (Test-Path -LiteralPath $shortcutPath) {
-    Remove-Item -LiteralPath $shortcutPath -Force
-    Write-Host "Startup shortcut removed: $shortcutPath"
-  } else {
-    Write-Host 'No Agent Deck startup shortcut was installed.'
+  $removedShortcut = $false
+  foreach ($shortcutPath in @((Get-StartupShortcutPath), (Get-LegacyStartupShortcutPath))) {
+    if (Test-Path -LiteralPath $shortcutPath) {
+      Remove-Item -LiteralPath $shortcutPath -Force
+      Write-Host "Startup shortcut removed: $shortcutPath"
+      $removedShortcut = $true
+    }
   }
-  $installedRoot = Get-InstalledLauncherRoot
-  if (Test-Path -LiteralPath $installedRoot) {
-    Remove-Item -LiteralPath $installedRoot -Recurse -Force
-    Write-Host "Durable launcher removed: $installedRoot"
+  if (-not $removedShortcut) { Write-Host 'No Agent Deck startup shortcut was installed.' }
+  foreach ($installedRoot in @((Get-InstalledLauncherRoot), (Get-LegacyInstalledLauncherRoot))) {
+    if (Test-Path -LiteralPath $installedRoot) {
+      Remove-Item -LiteralPath $installedRoot -Recurse -Force
+      Write-Host "Durable launcher removed: $installedRoot"
+    }
   }
   exit 0
 }
@@ -312,7 +364,7 @@ try {
     )
   }
 
-  $stateRoot = Join-Path $env:LOCALAPPDATA 'CodexDeck'
+  $stateRoot = Get-StateRoot
   $statePath = Join-Path $stateRoot 'codex-micro-bridge.json'
   New-Item -ItemType Directory -Force -Path $stateRoot | Out-Null
   [IO.File]::WriteAllText(

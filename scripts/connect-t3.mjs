@@ -2,7 +2,7 @@ import { constants } from "node:fs";
 import { mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { withT3ConfigLock } from "./t3-config-lock.mjs";
+import { t3StateRoot, withT3ConfigLock } from "./t3-config-lock.mjs";
 
 async function connect() {
   // A pairing credential arrives through stdin, never argv, logs, or Stream Deck global settings.
@@ -36,7 +36,7 @@ async function connect() {
       subject_token_type: "urn:t3:params:oauth:token-type:environment-bootstrap",
       requested_token_type: "urn:ietf:params:oauth:token-type:access_token",
       scope: "orchestration:read",
-      client_label: "CodexDeck",
+      client_label: "AgentDeck",
       client_device_type: "desktop",
       client_os: "macOS",
     }),
@@ -58,7 +58,7 @@ async function connect() {
   });
   await response.body?.cancel();
   if (!response.ok) throw new Error("T3 Code rejected the connection; configuration was not changed.");
-  const root = join(homedir(), "Library", "Application Support", "CodexDeck");
+  const root = t3StateRoot();
   await mkdir(root, { recursive: true, mode: 0o700 });
   const path = join(root, "t3code.json");
   let sshConnections;

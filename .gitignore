@@ -8,6 +8,7 @@ static/imgs/commands/
 static/imgs/official/
 design-qa.md
 *.streamDeckPlugin
+agent-deck-launcher-*.zip
 codex-deck-launcher-*.zip
 *.log
 .env
