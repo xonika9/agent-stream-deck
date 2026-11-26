@@ -6,7 +6,7 @@ import { build } from "esbuild";
 import { buildOptions } from "../scripts/build-options.mjs";
 import { chmod, mkdir, mkdtemp, readFile, realpath, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   buildCodexLaunchSpec,
@@ -49,12 +49,13 @@ test("bridge and user icon state use the native macOS Application Support root",
 test("state root keeps using the pre-rename directory until AgentDeck exists", async () => {
   const home = await mkdtemp(join(tmpdir(), "agent-deck-roots-"));
   try {
-    const support = join(home, "Library", "Application Support");
-    assert.equal(agentDeckStateRoot("darwin", home), join(support, "AgentDeck"), "fresh installs use AgentDeck");
-    await mkdir(join(support, "CodexDeck"), { recursive: true });
-    assert.equal(agentDeckStateRoot("darwin", home), join(support, "CodexDeck"), "unmigrated data stays in use");
-    await mkdir(join(support, "AgentDeck"));
-    assert.equal(agentDeckStateRoot("darwin", home), join(support, "AgentDeck"), "the new directory always wins");
+    // macOS paths are POSIX even when this test runs on the Windows CI runner.
+    const support = posix.join(home, "Library", "Application Support");
+    assert.equal(agentDeckStateRoot("darwin", home), posix.join(support, "AgentDeck"), "fresh installs use AgentDeck");
+    await mkdir(posix.join(support, "CodexDeck"), { recursive: true });
+    assert.equal(agentDeckStateRoot("darwin", home), posix.join(support, "CodexDeck"), "unmigrated data stays in use");
+    await mkdir(posix.join(support, "AgentDeck"));
+    assert.equal(agentDeckStateRoot("darwin", home), posix.join(support, "AgentDeck"), "the new directory always wins");
   } finally {
     await rm(home, { recursive: true, force: true });
   }
