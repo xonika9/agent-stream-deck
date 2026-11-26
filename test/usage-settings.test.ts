@@ -103,6 +103,7 @@ test("usage limit keeps legacy mode and offers only the source windows", async (
   assert.equal(element("mode").value, "weekly");
   assert.match(element("source").innerHTML, /value="codex-auto"/);
   assert.match(element("source").innerHTML, /value="t3-opencode"/);
+  assert.match(element("source").innerHTML, /value="t3-antigravity"/);
   assert.match(element("mode").innerHTML, /value="weekly"/);
   assert.doesNotMatch(element("mode").innerHTML, /weekly-fable/);
   assert.doesNotMatch(element("mode").innerHTML, /monthly/);

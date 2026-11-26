@@ -1,6 +1,6 @@
 import type { UsageSource } from "#agents";
 
-export type ProviderMarkId = "chatgpt" | "claude" | "opencode";
+export type ProviderMarkId = "chatgpt" | "claude" | "opencode" | "antigravity";
 
 export type ProviderMark = {
   id: ProviderMarkId;
@@ -8,7 +8,7 @@ export type ProviderMark = {
   body: string;
 };
 
-// Coloured provider badges in a 24x24 coordinate space: an OpenAI, Claude or OpenCode
+// Coloured provider badges in a 24x24 coordinate space: an OpenAI, Claude, OpenCode or Antigravity
 // glyph in white or black on a coloured rounded square. The glyph outlines come from
 // Lobe Icons (https://github.com/lobehub/lobe-icons, MIT licence, (c) LobeHub) and keep
 // these colours in both themes. Trademarks belong to their owners; the plugin is
@@ -21,6 +21,9 @@ const CLAUDE_BODY =
 
 const OPENCODE_BODY =
   '<rect width="24" height="24" rx="6" fill="#15202A"/><g transform="translate(4 4) scale(.6667)"><path fill="#FFFFFF" d="M16 6H8v12h8V6zm4 16H4V2h16v20z"></path></g>';
+
+const ANTIGRAVITY_BODY =
+  '<rect width="24" height="24" rx="6" fill="#3186FF"/><g transform="translate(4 4) scale(.6667)"><path fill="#FFFFFF" d="M21.751 22.607c1.34 1.005 3.35.335 1.508-1.508C17.73 15.74 18.904 1 12.037 1 5.17 1 6.342 15.74.815 21.1c-2.01 2.009.167 2.511 1.507 1.506 5.192-3.517 4.857-9.714 9.715-9.714 4.857 0 4.522 6.197 9.714 9.715z"></path></g>';
 
 export const PROVIDER_MARKS: Record<ProviderMarkId, ProviderMark> = {
   chatgpt: {
@@ -38,12 +41,18 @@ export const PROVIDER_MARKS: Record<ProviderMarkId, ProviderMark> = {
     title: "OpenCode",
     body: OPENCODE_BODY,
   },
+  antigravity: {
+    id: "antigravity",
+    title: "Antigravity",
+    body: ANTIGRAVITY_BODY,
+  },
 };
 
 export function providerMarkForSource(source: UsageSource | undefined): ProviderMark | undefined {
   if (source === "t3-codex") return PROVIDER_MARKS.chatgpt;
   if (source === "t3-claude") return PROVIDER_MARKS.claude;
   if (source === "t3-opencode") return PROVIDER_MARKS.opencode;
+  if (source === "t3-antigravity") return PROVIDER_MARKS.antigravity;
   return undefined;
 }
 

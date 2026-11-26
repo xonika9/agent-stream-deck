@@ -59,10 +59,13 @@ const MODES_BY_SOURCE: Record<UsageSource, UsageLimitMode[]> = {
   "t3-codex": CODEX_MODES,
   "t3-claude": ["auto", "five-hour", "weekly", "weekly-fable"],
   "t3-opencode": ["auto", "five-hour", "weekly", "monthly"],
+  "t3-antigravity": CODEX_MODES,
 };
 
-export function isT3UsageSource(source: UsageSource): source is "t3-codex" | "t3-claude" | "t3-opencode" {
-  return source === "t3-codex" || source === "t3-claude" || source === "t3-opencode";
+export function isT3UsageSource(
+  source: UsageSource,
+): source is "t3-codex" | "t3-claude" | "t3-opencode" | "t3-antigravity" {
+  return source === "t3-codex" || source === "t3-claude" || source === "t3-opencode" || source === "t3-antigravity";
 }
 
 export function parseUsageSource(value: unknown, platform: string = process.platform): UsageSource {
@@ -72,7 +75,8 @@ export function parseUsageSource(value: unknown, platform: string = process.plat
     value === "codex-app" ||
     value === "t3-codex" ||
     value === "t3-claude" ||
-    value === "t3-opencode"
+    value === "t3-opencode" ||
+    value === "t3-antigravity"
     ? value
     : "codex-auto";
 }

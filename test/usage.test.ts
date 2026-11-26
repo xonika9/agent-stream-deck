@@ -165,6 +165,8 @@ test("usage settings parse with defaults and legacy mode", () => {
   });
   assert.equal(parseUsageSettings({ mode: "weekly" }).mode, "weekly");
   assert.equal(parseUsageSource("t3-claude", "darwin"), "t3-claude");
+  assert.equal(parseUsageSource("t3-antigravity", "darwin"), "t3-antigravity");
+  assert.equal(parseUsageSettings({ source: "t3-antigravity", mode: "monthly" }, "darwin").mode, "auto");
   assert.equal(parseUsageSource("bogus", "darwin"), "codex-auto");
   assert.equal(parseUsageSettings({ source: "t3-codex", mode: "weekly-fable" }, "darwin").mode, "auto");
   assert.equal(parseUsageSettings({ source: "t3-claude", mode: "weekly-fable" }, "darwin").mode, "weekly-fable");
@@ -491,6 +493,7 @@ const T3_BADGES = [
   ["t3-codex", "chatgpt"],
   ["t3-claude", "claude"],
   ["t3-opencode", "opencode"],
+  ["t3-antigravity", "antigravity"],
 ] as const;
 
 test("each t3 source shows its provider badge on both usage keys", () => {
@@ -533,6 +536,7 @@ test("provider badges keep their own colours in light and dark themes", () => {
     chatgpt: ['fill="#FFFFFF" stroke="#8A949C"', 'fill="#000000"'],
     claude: ['fill="#D97757"', 'fill="#FFFFFF"'],
     opencode: ['fill="#15202A"', 'fill="#FFFFFF"'],
+    antigravity: ['fill="#3186FF"', 'fill="#FFFFFF"'],
   };
   for (const theme of ["light", "dark"] as const) {
     for (const [source, id] of T3_BADGES) {
@@ -586,6 +590,7 @@ test("usage actions and property inspector are packaged without official keycap 
     assert.match(inspector, /"codex-auto"/);
     assert.match(inspector, /"t3-claude"/);
     assert.match(inspector, /"t3-opencode"/);
+    assert.match(inspector, /"t3-antigravity"/);
   }
   assert.match(limitInspector, /"auto"/);
   assert.match(limitInspector, /"weekly-fable"/);
@@ -597,7 +602,7 @@ test("usage actions and property inspector are packaged without official keycap 
 
 test("usage keys with a provider badge stay a single svg element that Stream Deck can draw", () => {
   const window = weekly;
-  for (const source of ["t3-codex", "t3-claude", "t3-opencode"] as const) {
+  for (const source of ["t3-codex", "t3-claude", "t3-opencode", "t3-antigravity"] as const) {
     for (const url of [
       renderUsageLimitKey(window, "weekly", "light", "ready", source),
       renderUsageOverviewKey(window, "5H", window, "W", "light", "ready", source),

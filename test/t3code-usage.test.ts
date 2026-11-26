@@ -286,6 +286,30 @@ test("T3 usage reader normalizes the sample windows per provider", {
       resetCreditsAvailable: null,
       resetCreditsApplicable: null,
     });
+    // Antigravity reports a 5-hour and a weekly window per model family; the key keeps the most used of each.
+    assert.deepEqual(reader.snapshots["t3-antigravity"], {
+      windows: [
+        {
+          id: "3p-5h",
+          kind: "five-hour",
+          usedPercent: 40,
+          remainingPercent: 60,
+          windowDurationMins: 300,
+          resetsAt: Date.parse("2026-11-13T04:30:00.000Z"),
+        },
+        {
+          id: "gemini-weekly",
+          kind: "weekly",
+          usedPercent: 33,
+          remainingPercent: 67,
+          windowDurationMins: 10080,
+          resetsAt: Date.parse("2026-11-18T00:00:00.000Z"),
+        },
+      ],
+      observedAt: Date.parse("2026-11-13T01:36:02.410Z"),
+      resetCreditsAvailable: null,
+      resetCreditsApplicable: null,
+    });
     await reader.refresh();
     assert.equal(usage.state.ticketRequests, 2, "every poll uses a new ticket");
   } finally {

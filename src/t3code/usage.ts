@@ -7,7 +7,7 @@ const REQUEST_TIMEOUT_MS = 5_000;
 const MAX_PAYLOAD_BYTES = 8 * 1024 * 1024;
 const FRESH_MS = 5 * 60_000;
 
-export type T3UsageProvider = "t3-codex" | "t3-claude" | "t3-opencode";
+export type T3UsageProvider = "t3-codex" | "t3-claude" | "t3-opencode" | "t3-antigravity";
 export type T3UsageSnapshots = Partial<Record<T3UsageProvider, UsageSnapshot>>;
 export type T3UsageReaderOptions = LocalConnectionOptions;
 
@@ -22,6 +22,7 @@ const DRIVERS: Record<string, T3UsageProvider> = {
   codex: "t3-codex",
   claudeAgent: "t3-claude",
   opencode: "t3-opencode",
+  antigravity: "t3-antigravity",
 };
 
 export class T3UsageReader {
@@ -268,7 +269,7 @@ function normalizeProvider(entry: unknown): { key: T3UsageProvider; snapshot: Us
   return {
     key,
     snapshot: {
-      windows,
+      windows: mostUsedPerKind(windows),
       observedAt,
       resetCreditsAvailable: credits.available,
       resetCreditsApplicable: credits.applicable,
@@ -295,6 +296,20 @@ function normalizeWindow(window: unknown): UsageWindow | null {
     windowDurationMins: duration,
     resetsAt: parseTime(record.resetsAt),
   };
+}
+
+/**
+ * Antigravity meters model families separately (Gemini, shared Claude & GPT), each with its own
+ * 5-hour and weekly window. A key shows one window per kind, so it shows the most used one.
+ */
+function mostUsedPerKind(windows: UsageWindow[]): UsageWindow[] {
+  const result: UsageWindow[] = [];
+  for (const window of windows) {
+    const index = window.kind === "other" ? -1 : result.findIndex((kept) => kept.kind === window.kind);
+    if (index < 0) result.push(window);
+    else if (window.usedPercent > result[index]!.usedPercent) result[index] = window;
+  }
+  return result;
 }
 
 function normalizeWindowKind(id: string, kind: string, durationMins: number | null): UsageWindowKind {

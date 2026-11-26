@@ -101,6 +101,47 @@
               }
             ]
           }
+        },
+        {
+          "driver": "antigravity",
+          "instanceId": "antigravity",
+          "usageLimits": {
+            "checkedAt": "2026-11-13T01:36:02.410Z",
+            "windows": [
+              {
+                "id": "gemini-5h",
+                "kind": "session",
+                "label": "Gemini · 5-hour",
+                "usedPercent": 12,
+                "resetsAt": "2026-11-13T05:10:00.000Z",
+                "windowDurationMins": 300
+              },
+              {
+                "id": "3p-5h",
+                "kind": "session",
+                "label": "Claude & GPT (shared) · 5-hour",
+                "usedPercent": 40,
+                "resetsAt": "2026-11-13T04:30:00.000Z",
+                "windowDurationMins": 300
+              },
+              {
+                "id": "gemini-weekly",
+                "kind": "weekly",
+                "label": "Gemini · Weekly",
+                "usedPercent": 33,
+                "resetsAt": "2026-11-18T00:00:00.000Z",
+                "windowDurationMins": 10080
+              },
+              {
+                "id": "3p-weekly",
+                "kind": "weekly",
+                "label": "Claude & GPT (shared) · Weekly",
+                "usedPercent": 25,
+                "resetsAt": "2026-11-19T00:00:00.000Z",
+                "windowDurationMins": 10080
+              }
+            ]
+          }
         }
       ]
     }
