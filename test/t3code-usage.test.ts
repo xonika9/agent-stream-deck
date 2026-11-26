@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
+import childProcess from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { WebSocketServer } from "ws";
-import { T3UsageReader } from "#t3code";
+import { T3UsageReader, t3SshRequest } from "#t3code";
 
 const FIXTURE_URL = new URL("./support/t3-getconfig-exit.json", import.meta.url);
 
@@ -538,6 +540,84 @@ test("T3 usage reader yields an empty snapshot for an unavailable provider", {
     assert.equal(reader.snapshots["t3-opencode"], undefined);
   } finally {
     await usage.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("T3 usage reader fills providers the local server reports without windows from a saved SSH environment", {
+  skip: process.platform === "win32" ? "T3 usage reader is macOS-only" : false,
+}, async (context) => {
+  const local = await startUsageServer(await loadSample());
+  const remote = await startUsageServer(await loadSample());
+  const root = await mkdtemp(join(tmpdir(), "deck-t3-usage-ssh-"));
+  const remoteHome = join(root, "remote-home");
+  const logs: string[] = [];
+  try {
+    local.state.wsMode = "unavailable";
+    const { configPath, runtimePath } = await writeConnection(root, local.origin);
+    const connection = { host: "fixture-host", environmentId: "fixture-environment", token: "fixture-token" };
+    await writeFile(
+      configPath,
+      JSON.stringify({ origin: local.origin, token: "fixture-token", sshConnections: [connection] }),
+      { mode: 0o600 },
+    );
+    const remoteRoot = join(remoteHome, ".t3", "userdata");
+    await mkdir(remoteRoot, { recursive: true });
+    await writeFile(
+      join(remoteRoot, "server-runtime.json"),
+      JSON.stringify({ version: 1, pid: process.pid, origin: remote.origin }),
+    );
+    await writeFile(join(remoteRoot, "environment-id"), "fixture-environment");
+    const spawn = childProcess.spawn;
+    context.mock.method(childProcess, "spawn", (command: string, args: string[], options: { signal: AbortSignal }) => {
+      assert.equal(command, "/usr/bin/ssh");
+      assert.equal(args.includes("fixture-token"), false);
+      // Execute the actual remote program against an isolated runtime and T3 fixture server.
+      return spawn("/bin/sh", ["-c", args.at(-1)!], {
+        ...options,
+        env: { ...process.env, HOME: remoteHome },
+        stdio: ["pipe", "pipe", "ignore"],
+      });
+    });
+    syncBuiltinESMExports();
+
+    const compact = await t3SshRequest("fixture-host", { ...connection, usage: true }, new AbortController().signal);
+    assert.doesNotMatch(JSON.stringify(compact), /instanceId|label|cursor/u, "only usage fields leave the SSH host");
+
+    const reader = new T3UsageReader((message) => logs.push(message), { configPath, runtimePath });
+    await reader.refresh();
+    assert.equal(reader.health.state, "ready");
+    assert.equal(remote.state.configRequests, 2);
+    // The local server reports Codex as unavailable, so its windows come from the SSH environment.
+    assert.deepEqual(
+      reader.snapshots["t3-codex"]?.windows.map((window) => [window.id, window.usedPercent]),
+      [
+        ["primary", 13],
+        ["secondary", 95],
+      ],
+    );
+    assert.deepEqual(
+      reader.snapshots["t3-antigravity"]?.windows.map((window) => [window.id, window.kind]),
+      [
+        ["gemini-5h", "five-hour"],
+        ["3p-5h", "five-hour-shared"],
+        ["gemini-weekly", "weekly"],
+        ["3p-weekly", "weekly-shared"],
+      ],
+    );
+
+    // With the local server gone, the SSH environment alone keeps the keys ready.
+    await rm(runtimePath);
+    await reader.refresh();
+    assert.equal(reader.health.state, "ready");
+    assert.equal(reader.snapshots["t3-claude"]?.windows.length, 3);
+    assert.deepEqual(logs, ["T3 usage connection unavailable: server is not running or its port changed."]);
+    secretFree(logs);
+  } finally {
+    context.mock.restoreAll();
+    syncBuiltinESMExports();
+    await local.close();
+    await remote.close();
     await rm(root, { recursive: true, force: true });
   }
 });

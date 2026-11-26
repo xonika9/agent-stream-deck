@@ -162,7 +162,7 @@ Acknowledgements are process-local and are never distributed or persisted.
 
 ## Usage limits
 
-Usage Limit and Usage Overview keys can read Codex, Claude, and OpenCode
+Usage Limit and Usage Overview keys can read Codex, Claude, OpenCode, and Antigravity
 limits from the local T3 Code app instead of CodexBar or the running Codex
 app. The reader reuses the read-only session created above, so no new
 pairing is needed. Each poll requests a fresh websocket ticket with
@@ -180,6 +180,22 @@ eight-MiB payload cap. Verified against T3 Code
 `0.1.10-nightly.20261111.4544`. The `server.getConfig` shape is not a public
 contract, so an unrecognized response renders as a dash rather than a
 number; check this section again after updating T3 Code.
+
+Limits are account-scoped, so the reader also asks every saved SSH environment
+from the section above in the same poll. The remote reader opens the same
+websocket on the SSH host's loopback endpoint with that environment's read-only
+session (`server.getConfig` requires only `orchestration:read`) and returns only
+each provider's windows, check time, reset-credit counts, and an unavailable
+marker; labels, messages, and account fingerprints stay on the host. A provider
+keeps its local snapshot when it has windows and otherwise takes the first SSH
+environment that reports windows for it. This covers a provider whose local
+sign-in T3 Code cannot read for limits, such as an Antigravity Google account
+whose macOS login lives in the keychain. When the local server is unreachable
+but an SSH environment answers, keys stay ready on the remote values. The SSH
+request keeps the eight-second budget and seven-second remote deadline of
+task polling; failed SSH environments keep their last values for five minutes.
+Antigravity was verified against T3 Code Nightly with Antigravity CLI `1.5.17`
+on 2026-11-26.
 
 Windows keys never use this path: a saved T3 source resolves to the
 automatic Codex source there. When the saved session is rejected or the

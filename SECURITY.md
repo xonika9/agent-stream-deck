@@ -60,4 +60,7 @@ bounded retained relevant tasks. The local request budget is four seconds; an
 SSH request has eight, starts at most every five seconds, and its remote reader
 stops itself after seven, even after an SSH disconnect. Remote
 history and unused metadata are discarded on the SSH host before compact task
-data is returned; partial or malformed snapshots are never published.
+data is returned; partial or malformed snapshots are never published. The usage
+reader uses the same SSH command and read-only session to call `server.getConfig`
+over the host's loopback websocket; only usage-limit windows, check times,
+reset-credit counts and an unavailable marker leave the host.

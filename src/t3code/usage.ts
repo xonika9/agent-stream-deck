@@ -1,7 +1,14 @@
 import WebSocket from "ws";
 import type { HostHealth, UsageSnapshot, UsageWindow, UsageWindowKind } from "#agents";
 import { clampPercent, FIVE_HOUR_MINUTES, WEEKLY_MINUTES } from "#usage";
-import { readLocalConnection, type LocalConnection, type LocalConnectionOptions } from "./source.js";
+import {
+  defaultT3ConfigPath,
+  readLocalConnection,
+  readPrivateConfig,
+  type LocalConnection,
+  type LocalConnectionOptions,
+} from "./source.js";
+import { t3SshRequest, validateSshConnection } from "./ssh.js";
 
 const REQUEST_TIMEOUT_MS = 5_000;
 const MAX_PAYLOAD_BYTES = 8 * 1024 * 1024;
@@ -31,6 +38,9 @@ export class T3UsageReader {
   private pending?: Promise<void>;
   private lastReadyAt = 0;
   private readonly reported = new Map<FailureReason, true>();
+  private remoteSnapshots: T3UsageSnapshots = {};
+  private remoteReadyAt = 0;
+  private remoteFailed = false;
 
   constructor(
     private readonly log: (message: string) => void,
@@ -51,31 +61,89 @@ export class T3UsageReader {
       this.enterOffline("unsupported-platform");
       return;
     }
+    const [local, remote] = await Promise.all([this.pollLocal(), this.pollRemote()]);
+    if ("snapshots" in local) this.enterReady(mergeUsage(local.snapshots, remote));
+    else if (Object.values(remote).some((snapshot) => snapshot.windows.length > 0)) {
+      // The local server is unusable, but a saved SSH environment still reports the account limits.
+      this.reportFailure(local.failure);
+      this.snapshots = remote;
+      this.lastReadyAt = Date.now();
+      this.setHealth({ state: "ready", changedAt: Date.now() });
+    } else if (local.offline) this.enterOffline(local.failure);
+    else this.enterDegraded(local.failure);
+  }
+
+  private async pollLocal(): Promise<{ snapshots: T3UsageSnapshots } | { failure: FailureReason; offline: boolean }> {
     const startedAt = Date.now();
     const remaining = () => REQUEST_TIMEOUT_MS - (Date.now() - startedAt);
     let connection: LocalConnection;
     try {
       connection = await readLocalConnection(this.options);
     } catch {
-      this.enterOffline("runtime-unavailable");
-      return;
+      return { failure: "runtime-unavailable", offline: true };
     }
     let ticket: string;
     try {
       ticket = await this.requestTicket(connection, remaining());
     } catch (error) {
-      if (error instanceof T3UsageCredentialError) this.enterOffline("credential-rejected");
-      else if (isTimeout(error)) this.enterDegraded("timeout");
-      else this.enterDegraded("invalid-response");
-      return;
+      if (error instanceof T3UsageCredentialError) return { failure: "credential-rejected", offline: true };
+      return { failure: isTimeout(error) ? "timeout" : "invalid-response", offline: false };
     }
     try {
       const providers = await this.requestProviders(connection.origin, ticket, remaining());
-      this.enterReady(this.normalize(providers));
+      return { snapshots: normalizeProviders(providers) };
     } catch (error) {
-      if (isTimeout(error)) this.enterDegraded("timeout");
-      else this.enterDegraded("invalid-response");
+      return { failure: isTimeout(error) ? "timeout" : "invalid-response", offline: false };
     }
+  }
+
+  /**
+   * Limits from the saved T3 SSH environments, used where the local server reports no windows for a
+   * provider. They are account limits, so any environment signed in to the same account reports them.
+   */
+  private async pollRemote(): Promise<T3UsageSnapshots> {
+    let connections: unknown[] = [];
+    try {
+      const config = await readPrivateConfig(this.options.configPath ?? defaultT3ConfigPath());
+      if (Array.isArray(config.sshConnections)) connections = config.sshConnections.slice(0, 8);
+    } catch {
+      // Without a readable private configuration there are no saved SSH environments to ask.
+    }
+    if (connections.length === 0) {
+      this.remoteSnapshots = {};
+      return this.remoteSnapshots;
+    }
+    const results = await Promise.all(
+      connections.map(async (value) => {
+        try {
+          const connection = validateSshConnection(value);
+          const config = await t3SshRequest(
+            connection.host,
+            { ...connection, usage: true },
+            new AbortController().signal,
+          );
+          return normalizeProviders(config);
+        } catch {
+          return undefined;
+        }
+      }),
+    );
+    const fresh = results.filter((snapshots): snapshots is T3UsageSnapshots => snapshots !== undefined);
+    if (fresh.length > 0) {
+      this.remoteSnapshots = fresh.reduce(mergeUsage, {});
+      this.remoteReadyAt = Date.now();
+      if (this.remoteFailed) {
+        this.remoteFailed = false;
+        this.log("T3 usage over SSH recovered.");
+      }
+    } else {
+      if (!this.remoteFailed) {
+        this.remoteFailed = true;
+        this.log("T3 usage over SSH unavailable: request or remote T3 server failed.");
+      }
+      if (Date.now() - this.remoteReadyAt > FRESH_MS) this.remoteSnapshots = {};
+    }
+    return this.remoteSnapshots;
   }
 
   private async requestTicket(connection: LocalConnection, timeoutMs: number): Promise<string> {
@@ -182,17 +250,6 @@ export class T3UsageReader {
     });
   }
 
-  private normalize(value: unknown): T3UsageSnapshots {
-    if (!value || typeof value !== "object" || !Array.isArray((value as { providers?: unknown }).providers))
-      throw new Error("Usage response is unsupported");
-    const snapshots: T3UsageSnapshots = {};
-    for (const entry of (value as { providers: unknown[] }).providers) {
-      const normalized = normalizeProvider(entry);
-      if (normalized) snapshots[normalized.key] = normalized.snapshot;
-    }
-    return snapshots;
-  }
-
   private enterReady(snapshots: T3UsageSnapshots): void {
     this.snapshots = snapshots;
     this.lastReadyAt = Date.now();
@@ -244,6 +301,25 @@ function timeoutError(): Error {
 
 function isTimeout(error: unknown): boolean {
   return error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+}
+
+function normalizeProviders(value: unknown): T3UsageSnapshots {
+  if (!value || typeof value !== "object" || !Array.isArray((value as { providers?: unknown }).providers))
+    throw new Error("Usage response is unsupported");
+  const snapshots: T3UsageSnapshots = {};
+  for (const entry of (value as { providers: unknown[] }).providers) {
+    const normalized = normalizeProvider(entry);
+    if (normalized) snapshots[normalized.key] = normalized.snapshot;
+  }
+  return snapshots;
+}
+
+/** Per provider, the primary snapshot when it has windows, otherwise the fallback's. */
+function mergeUsage(primary: T3UsageSnapshots, fallback: T3UsageSnapshots): T3UsageSnapshots {
+  const merged: T3UsageSnapshots = { ...fallback };
+  for (const [key, snapshot] of Object.entries(primary) as [T3UsageProvider, UsageSnapshot][])
+    if (snapshot.windows.length > 0 || !merged[key]?.windows.length) merged[key] = snapshot;
+  return merged;
 }
 
 function normalizeProvider(entry: unknown): { key: T3UsageProvider; snapshot: UsageSnapshot } | null {

@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { REMOTE_SHELL_READER } from "./remote-shell.js";
+import { REMOTE_USAGE_READER } from "./remote-usage.js";
 
 export type T3SshConnection = { host: string; environmentId: string; token: string };
 
@@ -31,6 +32,7 @@ def request(path, token=None, body=None):
   if len(raw) > ${MAX_RESPONSE_BYTES}: raise ValueError("size")
   return json.loads(raw)
 ${REMOTE_SHELL_READER}
+${REMOTE_USAGE_READER}
 try:
  data = json.loads(sys.stdin.read(16385))
  root = os.path.expanduser("~/.t3/userdata")
@@ -58,7 +60,7 @@ try:
   print(json.dumps({"environmentId":identity, "token":token}))
  else:
   if identity != data["environmentId"]: raise ValueError("identity")
-  print(json.dumps(read_shell(data["token"], data["observedAt"])))
+  print(json.dumps(read_usage(data["token"]) if data.get("usage") else read_shell(data["token"], data["observedAt"])))
 except urllib.error.HTTPError as error:
  sys.exit(${CREDENTIAL_REJECTED_EXIT} if error.code in (401, 403) else 1)
 except Exception:
