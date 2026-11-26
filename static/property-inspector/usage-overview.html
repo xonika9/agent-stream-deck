@@ -56,6 +56,7 @@
       codex: [["five-hour", "5 hours"], ["weekly", "Weekly"]],
       "t3-claude": [["five-hour", "5 hours"], ["weekly", "Weekly"], ["weekly-fable", "Weekly · Fable"]],
       "t3-opencode": [["five-hour", "5 hours"], ["weekly", "Weekly"], ["monthly", "Monthly"]],
+      "t3-antigravity": [["five-hour", "5 hours"], ["weekly", "Weekly"], ["five-hour-shared", "5 hours · Claude & GPT"], ["weekly-shared", "Weekly · Claude & GPT"]],
     };
     const LAYOUT_OPTIONS = [
       ["bars", "Bars"],
@@ -64,7 +65,7 @@
     ];
 
     function barGroup(source) {
-      return source === "t3-claude" || source === "t3-opencode" ? source : "codex";
+      return source === "t3-claude" || source === "t3-opencode" || source === "t3-antigravity" ? source : "codex";
     }
 
     function availableSources() {

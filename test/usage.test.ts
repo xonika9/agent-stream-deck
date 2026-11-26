@@ -167,6 +167,9 @@ test("usage settings parse with defaults and legacy mode", () => {
   assert.equal(parseUsageSource("t3-claude", "darwin"), "t3-claude");
   assert.equal(parseUsageSource("t3-antigravity", "darwin"), "t3-antigravity");
   assert.equal(parseUsageSettings({ source: "t3-antigravity", mode: "monthly" }, "darwin").mode, "auto");
+  assert.equal(parseUsageSettings({ source: "t3-antigravity", mode: "weekly-shared" }, "darwin").mode, "weekly-shared");
+  assert.equal(parseUsageSettings({ source: "t3-claude", mode: "five-hour-shared" }, "darwin").mode, "auto");
+  assert.equal(parseUsageSettings({ bottomWindow: "five-hour-shared" }).bottomWindow, "five-hour-shared");
   assert.equal(parseUsageSource("bogus", "darwin"), "codex-auto");
   assert.equal(parseUsageSettings({ source: "t3-codex", mode: "weekly-fable" }, "darwin").mode, "auto");
   assert.equal(parseUsageSettings({ source: "t3-claude", mode: "weekly-fable" }, "darwin").mode, "weekly-fable");
@@ -205,6 +208,8 @@ test("claude fable window is selected only by its own mode", () => {
   assert.equal(usageLabel("weekly-fable"), "FBL");
   assert.equal(usageLabel("weekly"), "W");
   assert.equal(usageLabel("monthly"), "M");
+  assert.equal(usageLabel("five-hour-shared"), "C5H");
+  assert.equal(usageLabel("weekly-shared"), "CW");
 });
 
 test("overview bars select their own window kind", () => {

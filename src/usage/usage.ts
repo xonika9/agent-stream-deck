@@ -59,7 +59,7 @@ const MODES_BY_SOURCE: Record<UsageSource, UsageLimitMode[]> = {
   "t3-codex": CODEX_MODES,
   "t3-claude": ["auto", "five-hour", "weekly", "weekly-fable"],
   "t3-opencode": ["auto", "five-hour", "weekly", "monthly"],
-  "t3-antigravity": CODEX_MODES,
+  "t3-antigravity": ["auto", "five-hour", "weekly", "five-hour-shared", "weekly-shared"],
 };
 
 export function isT3UsageSource(
@@ -87,7 +87,12 @@ export function parseUsageLimitMode(value: unknown, source: UsageSource = "codex
 }
 
 export function parseUsageBarWindow(value: unknown, fallback: UsageOverviewWindow): UsageOverviewWindow {
-  return value === "five-hour" || value === "weekly" || value === "weekly-fable" || value === "monthly"
+  return value === "five-hour" ||
+    value === "weekly" ||
+    value === "weekly-fable" ||
+    value === "monthly" ||
+    value === "five-hour-shared" ||
+    value === "weekly-shared"
     ? value
     : fallback;
 }
@@ -128,6 +133,8 @@ export function usageLabel(kind: UsageWindowKind): string {
   if (kind === "weekly") return "W";
   if (kind === "weekly-fable") return "FBL";
   if (kind === "monthly") return "M";
+  if (kind === "five-hour-shared") return "C5H";
+  if (kind === "weekly-shared") return "CW";
   return "LIMIT";
 }
 

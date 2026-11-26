@@ -185,6 +185,21 @@ test("usage overview adds Monthly for T3 OpenCode and resets an unoffered top ba
   });
 });
 
+test("Antigravity offers the shared Claude & GPT windows only for its own source", async () => {
+  const { element, connect, change, settingsSent } = await loadInspector("usage-limit.html", [
+    "source",
+    "mode",
+    "remaining",
+  ]);
+  const socket = connect({ source: "t3-antigravity", mode: "weekly-shared" });
+  assert.equal(element("mode").value, "weekly-shared");
+  assert.match(element("mode").innerHTML, /value="five-hour-shared"/);
+  assert.deepEqual(settingsSent(socket), [], "a valid shared window is not rewritten");
+  change("source", "t3-claude");
+  assert.doesNotMatch(element("mode").innerHTML, /-shared/);
+  assert.equal(element("mode").value, "auto");
+});
+
 test("usage limit saves the corrected stale window on open", async () => {
   const { connect, settingsSent } = await loadInspector("usage-limit.html", ["source", "mode", "remaining"]);
   const socket = connect({ source: "t3-codex", mode: "weekly-fable" });

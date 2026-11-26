@@ -264,7 +264,10 @@ function normalizeProvider(entry: unknown): { key: T3UsageProvider; snapshot: Us
   if (!Array.isArray(limits.windows)) return null;
   const windows = limits.windows.flatMap((window) => {
     const normalized = normalizeWindow(window);
-    return normalized && (key !== "t3-antigravity" || isGeminiWindow(normalized.id)) ? [normalized] : [];
+    if (!normalized) return [];
+    if (key !== "t3-antigravity") return [normalized];
+    const antigravity = antigravityWindow(normalized);
+    return antigravity ? [antigravity] : [];
   });
   return {
     key,
@@ -299,11 +302,20 @@ function normalizeWindow(window: unknown): UsageWindow | null {
 }
 
 /**
- * Antigravity keys show only the Gemini quota. T3 names Gemini buckets `gemini-*`; `gemini-argon-*`
- * and `gemini-carbon-*` are separate model families, and `3p-*` is the shared Claude & GPT quota.
+ * Antigravity meters the Gemini quota (`gemini-*`) and the shared Claude & GPT quota (`3p-*`)
+ * separately. Gemini keeps the plain 5-hour and weekly kinds; Claude & GPT gets its own kinds.
+ * The `gemini-argon-*` and `gemini-carbon-*` families are not shown.
  */
-function isGeminiWindow(id: string): boolean {
-  return id.startsWith("gemini-") && !id.startsWith("gemini-argon-") && !id.startsWith("gemini-carbon-");
+function antigravityWindow(window: UsageWindow): UsageWindow | null {
+  const { id, kind } = window;
+  if (id.startsWith("3p-")) {
+    if (kind === "five-hour") return { ...window, kind: "five-hour-shared" };
+    if (kind === "weekly") return { ...window, kind: "weekly-shared" };
+    return null;
+  }
+  return id.startsWith("gemini-") && !id.startsWith("gemini-argon-") && !id.startsWith("gemini-carbon-")
+    ? window
+    : null;
 }
 
 /** A key shows one window per kind; when a provider reports several, it shows the most used one. */

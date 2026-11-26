@@ -286,7 +286,7 @@ test("T3 usage reader normalizes the sample windows per provider", {
       resetCreditsAvailable: null,
       resetCreditsApplicable: null,
     });
-    // Antigravity reports windows per model family; the key keeps only the Gemini quota, even when another is more used.
+    // Antigravity: Gemini keeps the plain kinds, the shared Claude & GPT quota gets its own, other Gemini families are dropped.
     assert.deepEqual(reader.snapshots["t3-antigravity"], {
       windows: [
         {
@@ -298,12 +298,28 @@ test("T3 usage reader normalizes the sample windows per provider", {
           resetsAt: Date.parse("2026-11-13T05:10:00.000Z"),
         },
         {
+          id: "3p-5h",
+          kind: "five-hour-shared",
+          usedPercent: 40,
+          remainingPercent: 60,
+          windowDurationMins: 300,
+          resetsAt: Date.parse("2026-11-13T04:30:00.000Z"),
+        },
+        {
           id: "gemini-weekly",
           kind: "weekly",
           usedPercent: 33,
           remainingPercent: 67,
           windowDurationMins: 10080,
           resetsAt: Date.parse("2026-11-18T00:00:00.000Z"),
+        },
+        {
+          id: "3p-weekly",
+          kind: "weekly-shared",
+          usedPercent: 50,
+          remainingPercent: 50,
+          windowDurationMins: 10080,
+          resetsAt: Date.parse("2026-11-19T00:00:00.000Z"),
         },
       ],
       observedAt: Date.parse("2026-11-13T01:36:02.410Z"),

@@ -1,7 +1,14 @@
 export type AgentVisualStatus = "empty" | "idle" | "thinking" | "complete" | "input" | "error";
 export type ThemeMode = "light" | "dark";
 export type HostHealthState = "ready" | "degraded" | "offline" | "connecting";
-export type UsageLimitMode = "auto" | "five-hour" | "weekly" | "weekly-fable" | "monthly";
+export type UsageLimitMode =
+  | "auto"
+  | "five-hour"
+  | "weekly"
+  | "weekly-fable"
+  | "monthly"
+  | "five-hour-shared"
+  | "weekly-shared";
 export type UsageWindowKind = Exclude<UsageLimitMode, "auto"> | "other";
 export type UsageSource =
   | "codex-auto"
