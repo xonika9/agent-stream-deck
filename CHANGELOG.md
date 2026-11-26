@@ -2,6 +2,17 @@
 
 Versions through `0.7.0.2` below are the historical upstream releases by Dazer. Starting with `1.0.0`, releases belong to the xonika9 fork and use its own plugin identity. Releases after `2.2.2` use calendar versions `YY.M.D.N` (Moscow date, daily release number).
 
+## 26.11.27.1 - 2026-11-27
+
+### Highlights
+
+- **Usage Limit** and **Usage Overview** keys can show Antigravity limits: choose **T3 · Antigravity** as the source. Like the other T3 sources, the limits come from the local T3 Code app, and the key carries a small blue Antigravity badge. Window choices are Automatic, 5 hours and Weekly.
+
+### Compatibility
+
+- Antigravity meters Gemini and the shared Claude & GPT quota separately; the key shows whichever window of the chosen length is the most used. T3 Code reports Antigravity limits only after you sign in to Antigravity with Google there; until then the key shows a dash.
+- Profiles, saved settings, existing connections and plugin and action UUIDs are unchanged. Windows actions are unchanged, and the T3 sources stay unavailable on Windows.
+
 ## 26.11.23.1 - 2026-11-23
 
 ### Fixes
