@@ -52,7 +52,8 @@ test("authenticated T3 shell becomes a queue, acknowledges only the displayed re
   const server = createServer((req, res) => {
     requests++;
     assert.equal(req.headers.authorization, "Bearer fixture-token");
-    assert.equal(req.url, "/api/orchestration/shell");
+    // T3 skips building the settled threads and idle subagents that keys never show.
+    assert.equal(req.url, "/api/orchestration/shell?omitIdleSubagents=1&omitOlderSettled=1");
     assert.equal(req.headers["x-t3-orchestration-protocol"], "2");
     res.writeHead(fail ? 401 : 200, { "content-type": "application/json" });
     res.end(JSON.stringify(payload));

@@ -65,8 +65,14 @@ namespaced by environment, so equal thread IDs cannot collide with local tasks.
 
 ## Queue behavior
 
-The source uses `GET /api/orchestration/shell` with
-`x-t3-orchestration-protocol: 2`. It consumes V2 thread status, pending runtime
+The source uses `GET /api/orchestration/shell?omitIdleSubagents=1&omitOlderSettled=1`
+with `x-t3-orchestration-protocol: 2`, locally and on SSH hosts. With these
+trims T3 reads its thread index first and builds only threads that are not
+settled and subagents that are still live (running, waiting on a request, or with
+background work). Keys never show what this drops: settled threads, and idle
+subagents, since a nested thread reaches a key only while it asks the user. A
+server that predates the trims ignores them and returns the full shell, which the
+reader still filters itself (verified against T3 Code `0.1.12-nightly.20261124.5191`). It consumes V2 thread status, pending runtime
 requests, proposed plans, background work, run timestamps and `lastVisitedAt`.
 It never opens T3's database, decrypts desktop credentials, dispatches commands,
 or changes provider/model settings. Shell message previews and private project

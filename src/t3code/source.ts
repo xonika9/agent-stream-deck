@@ -16,6 +16,9 @@ const MAX_ACKNOWLEDGED = 1_000;
 // Each SSH read makes the remote T3 server serialize its whole shell, so remote environments start
 // at most this often instead of on every caller tick; the local loopback read keeps the caller cadence.
 const SSH_READ_INTERVAL_MS = 5_000;
+// T3 builds only the threads that survive these trims. Keys never show what they drop: settled
+// threads, and idle subagents, which reach a key only while they ask the user and so stay live.
+const SHELL_PATH = "/api/orchestration/shell?omitIdleSubagents=1&omitOlderSettled=1";
 export type LocalConnection = { origin: string; token: string; pid: number };
 export type LocalConnectionOptions = { configPath?: string; runtimePath?: string };
 
@@ -343,7 +346,7 @@ export class T3CodeSource {
 
   private async localShell(runtime: LocalRuntime, request: AbortController): Promise<RecordValue> {
     const { origin, token } = runtime;
-    const response = await fetch(`${origin}/api/orchestration/shell`, {
+    const response = await fetch(`${origin}${SHELL_PATH}`, {
       headers: { authorization: `Bearer ${token}`, "x-t3-orchestration-protocol": "2" },
       redirect: "error",
       signal: AbortSignal.any([request.signal, AbortSignal.timeout(4_000)]),

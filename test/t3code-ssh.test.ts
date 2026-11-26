@@ -55,7 +55,8 @@ test("remote Python reader filters growing history before SSH and fails closed o
   assert.ok(Buffer.byteLength(payload) > 8 * 1024 * 1024);
   let status = 200;
   const server = createServer((request, response) => {
-    assert.equal(request.url, "/api/orchestration/shell");
+    // T3 skips building the settled threads and idle subagents that keys never show.
+    assert.equal(request.url, "/api/orchestration/shell?omitIdleSubagents=1&omitOlderSettled=1");
     assert.equal(request.headers.authorization, "Bearer fixture-token");
     assert.equal(request.headers["x-t3-orchestration-protocol"], "2");
     response.writeHead(status, { "content-type": "application/json" });

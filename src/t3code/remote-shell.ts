@@ -102,9 +102,11 @@ def compact_thread(thread, now):
  result["pendingBackgroundTasks"] = [True] if background else []
  return result
 
+# The trims match the local reader's SHELL_PATH: T3 never builds the settled threads and idle
+# subagents that keys do not show, which keeps each poll cheap on hosts with large histories.
 def read_shell_records(token, now):
  headers = {"x-t3-orchestration-protocol":"2", "Authorization":"Bearer " + token}
- with opener.open(urllib.request.Request(origin + "/api/orchestration/shell", headers=headers), timeout=7) as response:
+ with opener.open(urllib.request.Request(origin + "/api/orchestration/shell?omitIdleSubagents=1&omitOlderSettled=1", headers=headers), timeout=7) as response:
   result, found_threads, size = {"threads": []}, False, 0
   for key, value, array_start in ShellRecords(response).records():
    if array_start:
