@@ -286,16 +286,16 @@ test("T3 usage reader normalizes the sample windows per provider", {
       resetCreditsAvailable: null,
       resetCreditsApplicable: null,
     });
-    // Antigravity reports a 5-hour and a weekly window per model family; the key keeps the most used of each.
+    // Antigravity reports windows per model family; the key keeps only the Gemini quota, even when another is more used.
     assert.deepEqual(reader.snapshots["t3-antigravity"], {
       windows: [
         {
-          id: "3p-5h",
+          id: "gemini-5h",
           kind: "five-hour",
-          usedPercent: 40,
-          remainingPercent: 60,
+          usedPercent: 12,
+          remainingPercent: 88,
           windowDurationMins: 300,
-          resetsAt: Date.parse("2026-11-13T04:30:00.000Z"),
+          resetsAt: Date.parse("2026-11-13T05:10:00.000Z"),
         },
         {
           id: "gemini-weekly",

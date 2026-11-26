@@ -264,7 +264,7 @@ function normalizeProvider(entry: unknown): { key: T3UsageProvider; snapshot: Us
   if (!Array.isArray(limits.windows)) return null;
   const windows = limits.windows.flatMap((window) => {
     const normalized = normalizeWindow(window);
-    return normalized ? [normalized] : [];
+    return normalized && (key !== "t3-antigravity" || isGeminiWindow(normalized.id)) ? [normalized] : [];
   });
   return {
     key,
@@ -299,9 +299,14 @@ function normalizeWindow(window: unknown): UsageWindow | null {
 }
 
 /**
- * Antigravity meters model families separately (Gemini, shared Claude & GPT), each with its own
- * 5-hour and weekly window. A key shows one window per kind, so it shows the most used one.
+ * Antigravity keys show only the Gemini quota. T3 names Gemini buckets `gemini-*`; `gemini-argon-*`
+ * and `gemini-carbon-*` are separate model families, and `3p-*` is the shared Claude & GPT quota.
  */
+function isGeminiWindow(id: string): boolean {
+  return id.startsWith("gemini-") && !id.startsWith("gemini-argon-") && !id.startsWith("gemini-carbon-");
+}
+
+/** A key shows one window per kind; when a provider reports several, it shows the most used one. */
 function mostUsedPerKind(windows: UsageWindow[]): UsageWindow[] {
   const result: UsageWindow[] = [];
   for (const window of windows) {
