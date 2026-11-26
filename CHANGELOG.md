@@ -2,6 +2,23 @@
 
 Versions through `0.7.0.2` below are the historical upstream releases by Dazer. Starting with `1.0.0`, releases belong to the xonika9 fork and use its own plugin identity. Releases after `2.2.2` use calendar versions `YY.M.D.N` (Moscow date, daily release number).
 
+## 26.11.27.2 - 2026-11-27
+
+### Highlights
+
+- **T3 · Antigravity** keys show the Gemini quota as **5 hours** and **Weekly**, and the shared Claude & GPT quota as separate windows **5 hours · Claude & GPT** (`C5H`) and **Weekly · Claude & GPT** (`CW`). Previously the key showed whichever Antigravity quota was most used.
+- Usage keys with a T3 source also read limits from a connected remote T3 Code (saved SSH connection) when the local T3 Code reports none for that provider, or when the local app is not running. Limits are per account, so the remote values are your own. This makes Antigravity limits work on macOS, where T3 Code cannot read the Antigravity sign-in for limits.
+- The plugin now asks T3 Code only for the threads its keys can show, locally and over SSH. On a remote host with about 12,000 threads one read dropped from 2–3 seconds and 30 MB to 0.2 seconds and 0.5 MB, and the remote T3 server's CPU use from about 45% to about 5%. Local T3 Code dropped from about 20% to 5%.
+- Visible names now say Agent Deck: the macOS LaunchAgent `com.xonika9.agent-deck.watcher`, the data folder `AgentDeck`, launcher files such as `start-agent-deck.sh` and `Start-AgentDeck.ps1`, the release archives `agent-deck-launcher-*.zip`, and the T3 Code session label `AgentDeck`.
+
+### Compatibility
+
+- Reinstall the launcher once to finish the rename: on macOS run `start-agent-deck.sh install` from the new macOS archive; on Windows run `Start-AgentDeck.ps1 -InstallStartup` from the new Windows archive. The installer stops the old watcher, moves `CodexDeck` to `AgentDeck` in one step (Windows: `%LOCALAPPDATA%`), removes the old LaunchAgent or `Codex Deck.lnk`, and starts the new watcher. Until then the plugin keeps using the old `CodexDeck` folder. If both folders exist, `AgentDeck` wins and `CodexDeck` is left untouched.
+- Existing T3 Code connections keep working; only new pairings use the `AgentDeck` label. Reconnect with `npm run connect:t3` / `npm run connect:t3:ssh` to rename an existing session.
+- Remote usage limits use the existing read-only T3 SSH session; only usage windows, check times and reset-credit counts leave the remote host.
+- T3 servers that predate the thread filters ignore them and return the full list, which the plugin still filters itself.
+- Plugin and action UUIDs, profiles and saved settings are unchanged. The Windows bridge mutex is unchanged, so an old and a new watcher still exclude each other. Native Windows was covered by the PowerShell fixture on macOS and by Windows CI, not on a Windows machine.
+
 ## 26.11.27.1 - 2026-11-27
 
 ### Highlights
